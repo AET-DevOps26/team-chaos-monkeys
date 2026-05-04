@@ -130,6 +130,12 @@ classDiagram
       +String email
       +Role role
     }
+    class Role {
+      <<enumeration>>
+      STAFF
+      OPS_MANAGER
+      ADMIN
+    }
     class FoundItem {
       +UUID id
       +String photoKey
@@ -139,6 +145,13 @@ classDiagram
       +String locationHint
       +ItemStatus status
       +Vector embedding
+    }
+    class ItemStatus {
+      <<enumeration>>
+      STORED
+      RESERVED
+      RETURNED
+      DISPOSED
     }
     class LostReport {
       +UUID id
@@ -150,6 +163,14 @@ classDiagram
       +ReportStatus status
       +Vector embedding
     }
+    class ReportStatus {
+      <<enumeration>>
+      OPEN
+      MATCHED
+      CLAIM_CONFIRMED
+      CLOSED
+      CANCELLED
+    }
     class Match {
       +UUID id
       +float attributeScore
@@ -158,13 +179,43 @@ classDiagram
       +MatchStatus status
       +DateTime createdAt
     }
+    class MatchSource {
+      <<enumeration>>
+      ATTRIBUTE
+      SEMANTIC
+      HYBRID
+      MANUAL
+    }
+    class MatchStatus {
+      <<enumeration>>
+      CANDIDATE
+      NOTIFIED
+      CONFIRMED
+      REJECTED
+      CLOSED
+    }
     class Notification {
       +UUID id
       +Channel channel
+      +String recipientAddress
       +String language
+      +String subject
+      +String header
       +String body
       +DateTime sentAt
+      +DateTime failedAt
       +DeliveryStatus status
+    }
+    class Channel {
+      <<enumeration>>
+      EMAIL
+      SMS
+    }
+    class DeliveryStatus {
+      <<enumeration>>
+      PENDING
+      SENT
+      FAILED
     }
     class ItemAttributes {
       +String category
@@ -181,6 +232,13 @@ classDiagram
     Match "1" --> "*" Notification : triggers
     FoundItem ..> ItemAttributes
     LostReport ..> ItemAttributes
+    User ..> Role
+    FoundItem ..> ItemStatus
+    LostReport ..> ReportStatus
+    Match ..> MatchSource
+    Match ..> MatchStatus
+    Notification ..> Channel
+    Notification ..> DeliveryStatus
 ```
 
 ### 3.3 Top-Level Architecture (Component Diagram)

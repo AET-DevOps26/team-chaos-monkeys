@@ -189,24 +189,7 @@ classDiagram
       +float attributeScore
       +float semanticScore
       +float combinedScore
-      +MatchSource source
-      +MatchStatus status
       +DateTime createdAt
-    }
-    class MatchSource {
-      <<enumeration>>
-      ATTRIBUTE
-      SEMANTIC
-      HYBRID
-      MANUAL
-    }
-    class MatchStatus {
-      <<enumeration>>
-      CANDIDATE
-      NOTIFIED
-      CONFIRMED
-      REJECTED
-      CLOSED
     }
     class Notification {
       +UUID id
@@ -249,8 +232,6 @@ classDiagram
     User ..> Role
     FoundItem ..> ItemStatus
     LostReport ..> ReportStatus
-    Match ..> MatchSource
-    Match ..> MatchStatus
     Notification ..> Channel
     Notification ..> DeliveryStatus
 ```

@@ -16,7 +16,7 @@
 | Client | **React** (Vite, TypeScript) | Single-page app, served statically; consumes generated TypeScript SDK from OpenAPI |
 | Backend services | **Spring Boot 3 (Java 21)** | Three microservices: `intake-service`, `matching-service`, `notification-service` |
 | GenAI service | **Python 3.12 + FastAPI** | Stateless; model adapter for OpenAI cloud API and local LLaMA via Ollama (config-switched) |
-| Database | **PostgreSQL 16** | Single instance, schema-per-service. `pgvector` extension for embedding storage |
+| Database | **PostgreSQL 16** | One service-owned database per Spring service. `pgvector` extension in the matching database for embedding storage |
 | Object storage | **MinIO** locally; Azure Blob in cloud | Used for found-item photos |
 | SMTP | **Mailpit** locally; Azure Communication Services in cloud | For guest pickup notifications |
 | Inter-service comms | REST/JSON over HTTP | Synchronous; no message broker in the course version (deliberate scope decision — see §4) |
@@ -41,10 +41,10 @@ The backend is split into three Spring Boot services with narrow responsibilitie
 
 ### 1.3 Data Storage
 
-- **PostgreSQL** with logical separation: one schema per service (`intake`, `matching`, `notification`). Cheaper than three databases, still avoids cross-service table coupling.
-- **pgvector** extension on the same instance, used by `matching-service` for embedding similarity. Vectors are produced by `genai-service` and persisted alongside the item record.
+- **PostgreSQL** with database-level service ownership: `intake-service`, `matching-service`, and `notification-service` each use their own database and database user. Services do not share schemas or read each other's tables directly.
+- **pgvector** extension in the `matching-service` database, used for embedding similarity. Vectors are produced by `genai-service` and persisted in the matching database alongside the match/search index, referenced to intake records by ID.
 - **Object storage** (MinIO/Azure Blob) holds photos. Services store only the object key, not the photo bytes.
-- **Schema migrations** managed with Flyway, one set of migrations per service.
+- **Database migrations** managed with Flyway, one migration history per service-owned database.
 
 ### 1.4 Configuration & Secrets
 
@@ -68,7 +68,7 @@ The backend is split into three Spring Boot services with narrow responsibilitie
 | Subsystem | Owner | Scope |
 |---|---|---|
 | Frontend | **Arthur** | React client, public lost-item form, staff app, ops dashboard, frontend tests |
-| Backend (Spring services) | **Johannes** | The three Spring Boot services, API design, OpenAPI spec authority, Postgres schemas, backend tests |
+| Backend (Spring services) | **Johannes** | The three Spring Boot services, API design, OpenAPI spec authority, service-owned Postgres databases, backend tests |
 | GenAI service | **Luca** | Python service, model adapter, embedding pipeline, RAG retrieval, prompt engineering, GenAI tests |
 
 CI/CD, Kubernetes manifests, and observability are shared cross-team responsibilities. Each member is expected to have a primary cross-cutting concern (suggested: Johannes — CI; Arthur — K8s/Helm; Luca — observability).
@@ -203,7 +203,9 @@ graph TB
         end
 
         subgraph Data [Data layer]
-            PG[(PostgreSQL + pgvector)]
+            IntakeDB[(intake-db PostgreSQL)]
+            MatchDB[(matching-db PostgreSQL + pgvector)]
+            NotifDB[(notification-db PostgreSQL)]
             Obj[(MinIO / Azure Blob)]
         end
 
@@ -223,13 +225,13 @@ graph TB
     Ingress --> Match
     Ingress --> Notif
 
-    Intake --> PG
+    Intake --> IntakeDB
     Intake --> Obj
     Intake --> GenAI
-    Match --> PG
+    Match --> MatchDB
     Match --> Intake
     Match --> GenAI
-    Notif --> PG
+    Notif --> NotifDB
     Notif --> GenAI
     Notif --> SMTP
 
@@ -249,9 +251,9 @@ graph TB
 
 The following are deliberate first-draft choices that we want the tutor to push back on if our reasoning is wrong:
 
-1. **Vector store: pgvector vs Weaviate.** We chose pgvector to keep the data plane to a single Postgres instance. Trade-off: less advanced ANN tuning than Weaviate, slightly less idiomatic "RAG stack." We believe the simplicity benefit dominates at our data scale (< 10k items) but want a sanity check.
+1. **Vector store: pgvector vs Weaviate.** We chose pgvector to keep vector search inside the `matching-service` database instead of adding a separate vector database. Trade-off: less advanced ANN tuning than Weaviate, slightly less idiomatic "RAG stack." We believe the simplicity benefit dominates at our data scale (< 10k items) but want a sanity check.
 2. **No message broker.** Inter-service communication is synchronous REST. Trade-off: less decoupled than event-driven, but one fewer infrastructure component. Acceptable for the course version?
-3. **Single Postgres instance, schema-per-service.** "one DB per service" or shared db. Tutor view?
+3. **Database isolation.** Each Spring service owns its own Postgres database instead of sharing one database with multiple schemas. Locally these databases may run on the same Postgres server/container for operational simplicity, but service coupling happens through APIs, not direct table access. Tutor view?
 4. **Auth.** First version targets a public guest form (no auth) and JWT for staff/ops endpoints (Spring Security with a static issuer for the course; not full Keycloak). Sufficient?
 5. **Local LLM choice.** We chose LLaMA via Ollama over GPT4All — better quality, more active ecosystem, easier Docker integration. Confirm?
 6. **Cloud target.** Azure. We will plan one shared Azure subscription. Tutor will provide credit? -> if not, 100$ free credits may suffice?
@@ -262,6 +264,6 @@ The following are deliberate first-draft choices that we want the tutor to push 
 
 - **Local-LLM quality drift.** Prompts that work on OpenAI may produce malformed output on the local model. Mitigation: golden-set tests against both providers in CI starting in week 2, JSON-schema-constrained outputs.
 - **K8s + observability ramp-up.** Only 1 team member has deep Kubernetes/Prometheus experience. Mitigation: plan knowledge sharing sessions; keep Helm charts simple.
-- **API contract drift.** With three Spring services + frontend + Python client, the OpenAPI spec is the contract. Mitigation: pre-commit lint, codegen on every spec change.
-- **Demo data.** A working system with no realistic data looks broken. Mitigation: synthetic seed of ~200 items + 50 lost reports committed as a SQL fixture, loaded on dev/demo deploys.
+- **API contract drift.** With three Spring services + frontend + Python client, the OpenAPI spec is the contract. Mitigation: pre-commit lint, codegen on every spec change, no in-line DTOs.
+- **Demo data.** A working system with no realistic data looks broken. Mitigation: synthetic seed of ~200 items + 50 lost reports committed as per-service SQL fixtures, loaded on dev/demo deploys.
 - **Photo storage decision drift.** MinIO locally and Blob in cloud — the abstraction has to actually be one interface. Mitigation: define the photo-storage interface in `intake-service` before either implementation lands.

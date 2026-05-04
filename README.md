@@ -6,11 +6,11 @@ FoundFlow is a cloud-native lost-and-found platform for hospitality and event ve
 
 ## Team
 
-| Name | Subsystem | GitHub | TUMonline | Matriculation |
-|---|---|---|---|---|
-| Luca Kollmer | GenAI service | `lgk03` | _TODO_ | _TODO_ |
-| Arthur Gersbacher | Frontend | _TODO_ | _TODO_ | _TODO_ |
-| Johannes Kirchner | Backend (Spring Boot services) | _TODO_ | _TODO_ | _TODO_ |
+| Name | Subsystem |
+|---|---|
+| Luca Kollmer | GenAI service |
+| Arthur Gersbacher | Frontend |
+| Johannes Kirchner | Backend (Spring Boot services) |
 
 Subsystem ownership defines who is primarily responsible for design, implementation, and the individual oral examination at the end of the term. Cross-subsystem collaboration on integration, CI/CD, and observability is expected and tracked through pull requests and reviews.
 

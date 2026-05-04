@@ -36,6 +36,7 @@ The backend is split into three Spring Boot services with narrow responsibilitie
 | `matching-service` | `matches` (candidate pairs, scores, status) | `intake-service` (reads items/reports); `genai-service` (sync, for embeddings and semantic search) |
 | `notification-service` | `notifications` (sent log), guest contact info, message templates | `matching-service` (consumes confirmed matches); `genai-service` (sync, for message generation); SMTP |
 | `genai-service` (Python) | nothing persistent (stateless) | Outbound to OpenAI API or local Ollama; reads/writes embeddings via `matching-service` |
+| authentication service | | 
 
 "Domain events" in the course version are simple HTTP calls between services (e.g. `matching-service` polls or is poked by `intake-service` after each new item). A real broker (Kafka, RabbitMQ) is out of scope.
 

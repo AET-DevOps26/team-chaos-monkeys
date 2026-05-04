@@ -251,17 +251,17 @@ The following are deliberate first-draft choices that we want the tutor to push 
 
 1. **Vector store: pgvector vs Weaviate.** We chose pgvector to keep the data plane to a single Postgres instance. Trade-off: less advanced ANN tuning than Weaviate, slightly less idiomatic "RAG stack." We believe the simplicity benefit dominates at our data scale (< 10k items) but want a sanity check.
 2. **No message broker.** Inter-service communication is synchronous REST. Trade-off: less decoupled than event-driven, but one fewer infrastructure component. Acceptable for the course version?
-3. **Single Postgres instance, schema-per-service.** Compromise between "one DB per service" purity and operational sanity. Tutor view?
+3. **Single Postgres instance, schema-per-service.** "one DB per service" or shared db. Tutor view?
 4. **Auth.** First version targets a public guest form (no auth) and JWT for staff/ops endpoints (Spring Security with a static issuer for the course; not full Keycloak). Sufficient?
 5. **Local LLM choice.** We chose LLaMA via Ollama over GPT4All — better quality, more active ecosystem, easier Docker integration. Confirm?
-6. **Cloud target.** Azure (per the course brief). We will plan one shared Azure subscription. Tutor will provide credit? -> if not, 100$ free credits may suffice?
+6. **Cloud target.** Azure. We will plan one shared Azure subscription. Tutor will provide credit? -> if not, 100$ free credits may suffice?
 
 ---
 
-## 5. Risks (early visibility)
+## 5. Risks
 
 - **Local-LLM quality drift.** Prompts that work on OpenAI may produce malformed output on the local model. Mitigation: golden-set tests against both providers in CI starting in week 2, JSON-schema-constrained outputs.
 - **K8s + observability ramp-up.** Only 1 team member has deep Kubernetes/Prometheus experience. Mitigation: plan knowledge sharing sessions; keep Helm charts simple.
-- **API contract drift.** With three Spring services + frontend + Python client, the OpenAPI spec is the contract. Mitigation: pre-commit lint, codegen on every spec change, no in-line DTOs.
+- **API contract drift.** With three Spring services + frontend + Python client, the OpenAPI spec is the contract. Mitigation: pre-commit lint, codegen on every spec change.
 - **Demo data.** A working system with no realistic data looks broken. Mitigation: synthetic seed of ~200 items + 50 lost reports committed as a SQL fixture, loaded on dev/demo deploys.
 - **Photo storage decision drift.** MinIO locally and Blob in cloud — the abstraction has to actually be one interface. Mitigation: define the photo-storage interface in `intake-service` before either implementation lands.

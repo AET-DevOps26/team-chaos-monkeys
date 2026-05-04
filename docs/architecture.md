@@ -117,6 +117,12 @@ graph LR
 
 Domain entities and their relationships. `ItemAttributes` is a value object embedded in both `LostReport` and `FoundItem` — populated by the GenAI service for reports, by staff input for items.
 
+`User` represents an authenticated staff/ops/admin profile, not a guest. Credentials are handled by the auth/JWT layer, so the domain model does not store a plain password. If local login is implemented, only a password hash belongs in the persistence model. `authSubject` links the user profile to the JWT subject.
+
+`LostReport.photoKeys` is optional supporting evidence from the guest. Found-item photos remain mandatory for staff intake, while lost-report photos are useful for manual verification and disambiguation. Image-based attribute extraction is out of scope for this iteration.
+
+Match scoring keeps the two matching signals separate: `attributeScore` comes from structured `ItemAttributes`, `semanticScore` comes from vector similarity over descriptions, and `combinedScore` is the ranking score shown to staff. `combinedScore` is not a calibrated probability; it is a service-level score derived from the matching weights.
+
 ```mermaid
 classDiagram
     class Venue {
@@ -128,6 +134,7 @@ classDiagram
     class User {
       +UUID id
       +String email
+      +String authSubject
       +Role role
     }
     class Role {
@@ -156,6 +163,7 @@ classDiagram
     class LostReport {
       +UUID id
       +String rawDescription
+      +List~String~ photoKeys
       +ItemAttributes attributes
       +DateTime lostAt
       +String contactEmail
@@ -175,6 +183,7 @@ classDiagram
       +UUID id
       +float attributeScore
       +float semanticScore
+      +float combinedScore
       +MatchSource source
       +MatchStatus status
       +DateTime createdAt

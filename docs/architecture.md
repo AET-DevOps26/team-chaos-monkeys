@@ -335,7 +335,8 @@ graph TB
 ## 4. Risks
 
 - **Local-LLM quality drift.** Prompts that work on OpenAI may produce malformed output on the local model. Mitigation: golden-set tests against both providers in CI starting in week 2, JSON-schema-constrained outputs.
-- **K8s + observability ramp-up.** Only 1 team member has deep Kubernetes/Prometheus experience. Mitigation: plan knowledge sharing sessions; keep Helm charts simple.
+- **K8s + observability ramp-up.** Only 1 team member has Kubernetes/Prometheus experience. Mitigation: plan knowledge sharing sessions; keep Helm charts simple.
+
 - **API contract drift.** With six Spring services + frontend + Python client, the OpenAPI spec is the contract for synchronous APIs. Mitigation: pre-commit lint, codegen on every spec change, no in-line DTOs.
 - **Event contract drift.** RabbitMQ decouples services but can hide breaking message-shape changes. Mitigation: version domain events, document event payloads next to the OpenAPI spec, and add consumer contract tests for core flows.
 - **Demo data.** A working system with no realistic data looks broken. Mitigation: synthetic seed of ~200 items + 50 lost reports committed as per-service SQL fixtures, loaded on dev/demo deploys.

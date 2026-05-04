@@ -192,8 +192,11 @@ graph TB
     User[User browser]
 
     subgraph K8s [Kubernetes cluster]
-        Ingress[Ingress NGINX]
-        Web[web-client React static]
+        
+        subgraph IngressNS [ingress-nginx namespace]
+            Ingress[Ingress NGINX]
+            Web[web-client React static]
+        end
 
         subgraph App [Application namespace]
             Intake[intake-service Spring Boot]

@@ -18,14 +18,14 @@
 | GenAI service | **Python 3.12 + FastAPI** | Stateless; model adapter for OpenAI cloud API and local LLaMA via Ollama (config-switched) |
 | Database | **PostgreSQL 16** | Single instance, schema-per-service. `pgvector` extension for embedding storage |
 | Object storage | **MinIO** locally; Azure Blob in cloud | Used for found-item photos |
-| SMTP | **Mailpit** locally; real SMTP in cloud | For guest pickup notifications |
+| SMTP | **Mailpit** locally; Azure Communication Services in cloud | For guest pickup notifications |
 | Inter-service comms | REST/JSON over HTTP | Synchronous; no message broker in the course version (deliberate scope decision — see §4) |
 | API contract | **OpenAPI 3.1** | Single `api/openapi.yaml`; Spring stubs, Python client, and TS SDK generated from it |
 | Containerisation | Docker + docker-compose | `docker compose up` runs the system end-to-end locally |
 | Orchestration | Kubernetes via **Helm** | Deployed to Rancher (course infra) and Azure |
 | CI/CD | **GitHub Actions** | Build + test on PR; image build + deploy on merge to `main` |
 | Observability | **Prometheus + Grafana** | Spring Boot Actuator + Micrometer; `prometheus_client` for the Python service |
-
+| Infrastructure | **Ansible + Terraform** | Terraform for infrastructure provisioning and Ansible for Configuration Management.
 ### 1.2 Microservice Decomposition
 
 The backend is split into three Spring Boot services with narrow responsibilities and a single owned data domain each. The GenAI service runs as a peer.

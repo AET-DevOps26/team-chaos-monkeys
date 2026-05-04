@@ -308,20 +308,7 @@ graph TB
 
 ---
 
-## 4. Open Decisions (for tutor input)
-
-The following are deliberate first-draft choices that we want the tutor to push back on if our reasoning is wrong:
-
-1. **Vector store: pgvector vs Weaviate.** We chose pgvector to keep vector search inside the `matching-service` database instead of adding a separate vector database. Trade-off: less advanced ANN tuning than Weaviate, slightly less idiomatic "RAG stack." We believe the simplicity benefit dominates at our data scale (< 10k items) but want a sanity check.
-2. **No message broker.** Inter-service communication is synchronous REST. Trade-off: less decoupled than event-driven, but one fewer infrastructure component. Acceptable for the course version?
-3. **Database isolation.** Each Spring service owns its own Postgres database instead of sharing one database with multiple schemas. Locally these databases may run on the same Postgres server/container for operational simplicity, but service coupling happens through APIs, not direct table access. Tutor view?
-4. **Auth.** First version targets a public guest form (no auth) and JWT for staff/ops endpoints (Spring Security with a static issuer for the course; not full Keycloak). Sufficient?
-5. **Local LLM choice.** We chose LLaMA via Ollama over GPT4All — better quality, more active ecosystem, easier Docker integration. Confirm?
-6. **Cloud target.** Azure. We will plan one shared Azure subscription. Tutor will provide credit? -> if not, 100$ free credits may suffice?
-
----
-
-## 5. Risks
+## 4. Risks
 
 - **Local-LLM quality drift.** Prompts that work on OpenAI may produce malformed output on the local model. Mitigation: golden-set tests against both providers in CI starting in week 2, JSON-schema-constrained outputs.
 - **K8s + observability ramp-up.** Only 1 team member has deep Kubernetes/Prometheus experience. Mitigation: plan knowledge sharing sessions; keep Helm charts simple.

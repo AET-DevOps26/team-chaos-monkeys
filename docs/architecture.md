@@ -244,90 +244,98 @@ Components, their deployment grouping, and the principal data/control flows. The
 graph TB
     User[User browser]
 
-    subgraph K8s [Kubernetes cluster]
+    subgraph "ingress-nginx namespace"
+        Ingress[Ingress NGINX]
+    end
+
+    subgraph "Application namespace"
+        Web[web-client React static]
         
-        subgraph IngressNS [ingress-nginx namespace]
-            Ingress[Ingress NGINX]
-            Web[web-client React static]
-        end
-
-        subgraph App [Application namespace]
+        subgraph "Lost Item Module"
             Lost[lost-item-service Spring Boot]
-            Found[found-item-service Spring Boot]
-            Match[matching-service Spring Boot]
-            Notif[notification-service Spring Boot]
-            Auth[auth-service Spring Boot]
-            Ops[operations-service Spring Boot]
-            GenAI[genai-service Python FastAPI]
-            Rabbit[(RabbitMQ)]
-        end
-
-        subgraph Data [Data layer]
             LostDB[(lost-item-db PostgreSQL)]
-            FoundDB[(found-item-db PostgreSQL)]
-            MatchDB[(matching-db PostgreSQL + pgvector)]
-            NotifDB[(notification-db PostgreSQL)]
-            AuthDB[(auth-db PostgreSQL)]
-            OpsDB[(operations-db PostgreSQL)]
-            Obj[(MinIO / Azure Blob)]
         end
 
-        subgraph Mon [monitoring namespace]
-            Prom[Prometheus]
-            Graf[Grafana]
+        subgraph "Found Item Module"
+            Found[found-item-service Spring Boot]
+            FoundDB[(found-item-db PostgreSQL)]
         end
+
+        subgraph "Matching Module"
+            Match[matching-service Spring Boot]
+            MatchDB[(matching-db PostgreSQL + pgvector)]
+        end
+
+        subgraph "Notification Module"
+            Notif[notification-service Spring Boot]
+            NotifDB[(notification-db PostgreSQL)]
+        end
+
+        subgraph "Auth Module"
+            Auth[auth-service Spring Boot]
+            AuthDB[(auth-db PostgreSQL)]
+        end
+
+        subgraph "Operations Module"
+            Ops[operations-service Spring Boot]
+            OpsDB[(operations-db PostgreSQL)]
+        end
+
+        GenAI[genai-service Python FastAPI]
+        Rabbit[(RabbitMQ)]
+        Obj[(MinIO / Azure Blob)]
+    end
+
+    subgraph "monitoring namespace"
+        Prom[Prometheus]
+        Graf[Grafana]
     end
 
     LLMCloud[OpenAI API]
     LLMLocal[Ollama local LLaMA]
-    SMTP[SMTP server]
+    ACS[Azure Communication Services]
 
+    %% Restricted Ingress Access
     User --> Ingress
     Ingress --> Web
+    Ingress --> Auth
     Ingress --> Lost
     Ingress --> Found
-    Ingress --> Match
-    Ingress --> Notif
-    Ingress --> Auth
     Ingress --> Ops
 
+    %% Internal Service Logic
     Lost --> LostDB
     Lost --> Obj
-    Lost --> GenAI
     Found --> FoundDB
     Found --> Obj
-    Found --> GenAI
     Match --> MatchDB
-    Match --> Lost
-    Match --> Found
-    Match --> GenAI
     Notif --> NotifDB
-    Notif --> GenAI
-    Notif --> SMTP
     Auth --> AuthDB
     Ops --> OpsDB
-    Ops --> Auth
 
+    %% Event-Driven Communication
     Lost --> Rabbit
     Found --> Rabbit
     Rabbit --> Match
-    Match --> Rabbit
     Rabbit --> Notif
-    Notif --> Rabbit
     Rabbit --> Ops
+    Rabbit --> Auth
+    Match --> Rabbit
+    Notif --> Rabbit
+    Ops --> Rabbit
 
+    %% GenAI Integration
+    Lost -.-> GenAI
+    Found -.-> GenAI
+    Match -.-> GenAI
+    Notif -.-> GenAI
     GenAI --> LLMCloud
     GenAI -.alt.-> LLMLocal
+    Notif --> ACS
 
-    Prom -.scrape.-> Lost
-    Prom -.scrape.-> Found
-    Prom -.scrape.-> Match
-    Prom -.scrape.-> Notif
-    Prom -.scrape.-> Auth
-    Prom -.scrape.-> Ops
-    Prom -.scrape.-> GenAI
-    Prom -.scrape.-> Rabbit
+    %% Simplified Monitoring
     Graf --> Prom
+    Prom -.->|Auto-scrapes all Services via SD| Application-namespace
 ```
 
 ---

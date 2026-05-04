@@ -71,7 +71,7 @@ The backend is split into three Spring Boot services with narrow responsibilitie
 | Backend (Spring services) | **Johannes** | The three Spring Boot services, API design, OpenAPI spec authority, Postgres schemas, backend tests |
 | GenAI service | **Luca** | Python service, model adapter, embedding pipeline, RAG retrieval, prompt engineering, GenAI tests |
 
-CI/CD, Kubernetes manifests, and observability are shared cross-team responsibilities. Each member is expected to have a primary cross-cutting concern (suggested: Arthur — CI; Johannes — K8s/Helm; Luca — observability).
+CI/CD, Kubernetes manifests, and observability are shared cross-team responsibilities. Each member is expected to have a primary cross-cutting concern (suggested: Johannes — CI; Arthur — K8s/Helm; Luca — observability).
 
 ---
 

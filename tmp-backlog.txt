@@ -1,0 +1,53 @@
+## Product Backlog
+
+The backlog below is the initial planning baseline. Items are grouped by epic. Priority follows MoSCoW (**M**ust / **S**hould / **C**ould). Size is rough effort (S = ≤ 1 day, M = 2–3 days, L = ≥ 4 days). Owner is the suggested primary; cross-team work is marked _All_.
+
+| ID | Epic | Item | Owner | Prio | Size |
+|---|---|---|---|---|---|
+| F-01 | Foundations | Monorepo skeleton (`services/`, `web-client/`, `api/`, `infra/`) | All | M | S |
+| F-02 | Foundations | OpenAPI 3.1 spec for all REST contracts (`api/openapi.yaml`) | Johannes | M | M |
+| F-03 | Foundations | Code-gen pipeline (Spring stubs, Python client, TS SDK) | Johannes | S | S |
+| F-04 | Foundations | Dockerfiles per service + `docker-compose.yml` (3-command run) | All | M | M |
+| F-05 | Foundations | Postgres schema migrations (Flyway) per service | Johannes | M | S |
+| I-01 | Found-item intake | `intake-service` skeleton (Actuator, OpenAPI, health) | Johannes | M | S |
+| I-02 | Found-item intake | `POST /found-items` endpoint (persist + photo key) | Johannes | M | M |
+| I-03 | Found-item intake | Staff app screen: photo capture, attribute form, submit | Arthur | M | M |
+| I-04 | Found-item intake | Object storage integration (MinIO local / Blob cloud) | Johannes | M | M |
+| L-01 | Lost-item reporting | Public lost-item form (responsive, mobile-friendly) | Arthur | M | M |
+| L-02 | Lost-item reporting | `POST /lost-reports` endpoint | Johannes | M | S |
+| L-03 | Lost-item reporting | GenAI `/extract` endpoint (structured attribute extraction) | Luca | M | M |
+| L-04 | Lost-item reporting | GenAI model adapter (OpenAI + local Ollama, config-switched) | Luca | M | L |
+| L-05 | Lost-item reporting | JSON-schema enforcement on extraction output | Luca | M | S |
+| M-01 | Matching + RAG | `matching-service` skeleton | Johannes | M | S |
+| M-02 | Matching + RAG | GenAI `/embed` endpoint + embedding cache | Luca | M | M |
+| M-03 | Matching + RAG | pgvector storage + similarity query | Johannes | M | M |
+| M-04 | Matching + RAG | Hybrid match scoring (attribute + semantic) | Johannes | M | L |
+| M-05 | Matching + RAG | GenAI `/search` endpoint (RAG retrieval + LLM rerank) | Luca | S | M |
+| N-01 | Notifications | `notification-service` skeleton | Johannes | M | S |
+| N-02 | Notifications | GenAI `/generate-message` (multilingual, venue-tone) | Luca | S | M |
+| N-03 | Notifications | SMTP integration (Mailpit local / SMTP cloud) | Johannes | M | S |
+| N-04 | Notifications | Confirm-match link flow (email → web → status update) | All | M | M |
+| D-01 | Dashboard | Staff dashboard: open cases, recent matches, search | Arthur | S | M |
+| D-02 | Dashboard | Ops view: KPIs (return rate, time-to-return, backlog) | Arthur | C | M |
+| C-01 | CI/CD | GitHub Actions: build + test all services on PR | Arthur | M | M |
+| C-02 | CI/CD | OpenAPI lint job in CI | Johannes | S | S |
+| C-03 | CI/CD | Image build + push to GHCR on merge to `main` | All | M | M |
+| C-04 | CI/CD | CD: deploy to Kubernetes on merge to `main` | All | M | L |
+| K-01 | Kubernetes | Helm chart per service | Johannes | M | L |
+| K-02 | Kubernetes | Deploy to Rancher (course infra) | All | M | M |
+| K-03 | Kubernetes | Deploy to Azure (cloud option) | All | S | M |
+| K-04 | Kubernetes | Secrets management via K8s `Secret` | All | M | S |
+| O-01 | Observability | Spring Actuator + Micrometer Prometheus metrics | Johannes | M | S |
+| O-02 | Observability | Python `prometheus_client` metrics in GenAI service | Luca | M | S |
+| O-03 | Observability | Prometheus + Grafana in `monitoring` namespace | Luca | M | M |
+| O-04 | Observability | Grafana dashboards committed as JSON | Luca | M | M |
+| O-05 | Observability | At least one meaningful alert rule | Luca | M | S |
+| T-01 | Testing | Unit tests for matching-service core logic | Johannes | M | M |
+| T-02 | Testing | GenAI: unit + golden-set tests for extraction quality | Luca | M | M |
+| T-03 | Testing | Frontend component + workflow tests | Arthur | S | M |
+| T-04 | Testing | End-to-end smoke test in CI | All | S | L |
+| DOC-01 | Documentation | README setup guide (3-command run, troubleshooting) | All | M | S |
+| DOC-02 | Documentation | Swagger UI exposed per service | Johannes | M | S |
+| DOC-03 | Documentation | Keep architecture doc in sync with implementation | All | M | ongoing |
+
+This backlog will be migrated to a GitHub Project for active tracking once implementation starts.

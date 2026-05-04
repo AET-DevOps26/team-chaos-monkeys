@@ -18,7 +18,7 @@
 | GenAI service | **Python 3.12 + FastAPI** | Stateless; model adapter for OpenAI cloud API and local LLaMA via Ollama (config-switched) |
 | Database | **PostgreSQL 16** | One service-owned database per Spring service. `pgvector` extension in the matching database for embedding storage |
 | Object storage | **MinIO** locally; Azure Blob in cloud | Used for found-item and lost-report photos |
-| SMTP | **Mailpit** locally; Azure Communication Services in cloud | For guest pickup notifications |
+| Notifications | **Mailpit** locally; Azure Communication Services in cloud | For guest pickup notifications |
 | Message broker | **RabbitMQ** | Domain events between services, e.g. item intake, match candidates, notifications, and case status changes |
 | Inter-service comms | REST/JSON over HTTP + RabbitMQ events | REST for direct reads/commands and GenAI calls; RabbitMQ for asynchronous domain workflows |
 | API contract | **OpenAPI 3.1** | Single `api/openapi.yaml`; Spring stubs, Python client, and TS SDK generated from it |

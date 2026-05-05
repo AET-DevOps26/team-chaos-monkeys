@@ -86,37 +86,9 @@ CI/CD, Kubernetes manifests, and observability are shared cross-team responsibil
 
 ### 3.1 Use Case Diagram
 
-Three actors interact with the system: **Guest** (end user), **Venue Staff** (front-line operator), and **Operations Manager** (oversight). The GenAI service is a supporting actor invoked by the Spring services; it is not directly user-facing.
+Three actors interact with the system: **User** (guest/end user), **Venue Staff** (front-line operator), and **Venue Admin** (operational oversight). The GenAI service is a supporting service invoked by the backend; it is not directly user-facing.
 
-```mermaid
-graph LR
-    Guest((Guest))
-    Staff((Venue Staff))
-    Ops((Ops Manager))
-
-    subgraph FF [FoundFlow System]
-        UC1([Report lost item])
-        UC2([Confirm a match])
-        UC3([Track case status])
-        UC4([Log found item])
-        UC5([Search items semantically])
-        UC6([Process item pickup])
-        UC7([View open cases])
-        UC8([View recovery KPIs])
-        UC9([Audit case history])
-    end
-
-    Guest --- UC1
-    Guest --- UC2
-    Guest --- UC3
-    Staff --- UC4
-    Staff --- UC5
-    Staff --- UC6
-    Staff --- UC7
-    Ops --- UC7
-    Ops --- UC8
-    Ops --- UC9
-```
+![Use case diagram](./assets/use-case-diagram.png)
 
 ### 3.2 Analysis Object Model
 

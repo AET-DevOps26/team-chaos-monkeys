@@ -105,16 +105,16 @@ The model omits UML access modifiers and methods because it is an analysis objec
 ```mermaid
 classDiagram
     class Venue {
-      UUID id
-      String name
-      String tone
-      String defaultLanguage
+      id: UUID
+      name: String
+      tone: String
+      defaultLanguage: String
     }
     class User {
-      UUID id
-      String email
-      String authSubject
-      Role role
+      id: UUID
+      email: String
+      authSubject: String
+      role: Role
     }
     class Role {
       <<enumeration>>
@@ -123,13 +123,13 @@ classDiagram
       ADMIN
     }
     class FoundItem {
-      UUID id
-      String photoKey
-      String description
-      ItemAttributes attributes
-      DateTime foundAt
-      String locationHint
-      ItemStatus status
+      id: UUID
+      photoKey: String
+      description: String
+      attributes: ItemAttributes
+      foundAt: DateTime
+      locationHint: String
+      status: ItemStatus
     }
     class ItemStatus {
       <<enumeration>>
@@ -139,14 +139,14 @@ classDiagram
       DISPOSED
     }
     class LostReport {
-      UUID id
-      String rawDescription
-      List~String~ photoKeys
-      ItemAttributes attributes
-      DateTime lostAt
-      String contactEmail
-      String preferredLanguage
-      ReportStatus status
+      id: UUID
+      rawDescription: String
+      photoKeys: List~String~
+      attributes: ItemAttributes
+      lostAt: DateTime
+      contactEmail: String
+      preferredLanguage: String
+      status: ReportStatus
     }
     class ReportStatus {
       <<enumeration>>
@@ -157,23 +157,23 @@ classDiagram
       CANCELLED
     }
     class Match {
-      UUID id
-      float attributeScore
-      float semanticScore
-      float combinedScore
-      DateTime createdAt
+      id: UUID
+      attributeScore: float
+      semanticScore: float
+      combinedScore: float
+      createdAt: DateTime
     }
     class Notification {
-      UUID id
-      Channel channel
-      String recipientAddress
-      String language
-      String subject
-      String header
-      String body
-      DateTime sentAt
-      DateTime failedAt
-      DeliveryStatus status
+      id: UUID
+      channel: Channel
+      recipientAddress: String
+      language: String
+      subject: String
+      header: String
+      body: String
+      sentAt: DateTime
+      failedAt: DateTime
+      status: DeliveryStatus
     }
     class Channel {
       <<enumeration>>
@@ -187,20 +187,20 @@ classDiagram
       FAILED
     }
     class ItemAttributes {
-      String category
-      String brand
-      String color
-      List~String~ marks
+      category: String
+      brand: String
+      color: String
+      marks: List~String~
     }
 
     Venue "1" --> "*" User : employs
     Venue "1" --> "*" FoundItem : holds
     User "1" --> "*" FoundItem : logs
-    LostReport "1" --> "*" Match
-    FoundItem "1" --> "*" Match
+    LostReport "1" --> "*" Match : has candidates
+    FoundItem "1" --> "*" Match : candidate for
     Match "1" --> "*" Notification : triggers
-    FoundItem ..> ItemAttributes
-    LostReport ..> ItemAttributes
+    FoundItem *-- ItemAttributes : attributes
+    LostReport *-- ItemAttributes : attributes
 ```
 
 ### 3.3 Top-Level Architecture (Component Diagram)

@@ -96,112 +96,13 @@ Domain entities and their relationships. `ItemAttributes` is a value object embe
 
 `User` represents a staff/ops/admin profile, not a guest. Credentials, login state, refresh tokens, and JWT issuance belong to `auth-service`; the profile record belongs to `operations-service`. `authSubject` links the operational user profile to the authenticated identity.
 
-`LostReport.photoKeys` is optional supporting evidence from the guest. Found-item photos remain mandatory for staff intake, while lost-report photos are useful for manual verification and disambiguation. Image-based attribute extraction is out of scope for this iteration.
+`LostReport.locationHint` captures the rough place where the guest believes the item was lost. `LostReport.photoKey` is optional supporting evidence from the guest and is limited to a single photo to keep the public report flow lightweight. Found-item photos remain mandatory for staff intake. Image-based attribute extraction is out of scope for this iteration.
 
 Match scoring keeps the two matching signals separate: `attributeScore` comes from structured `ItemAttributes`, `semanticScore` comes from vector similarity over descriptions, and `combinedScore` is the ranking score shown to staff. `combinedScore` is not a calibrated probability; it is a service-level score derived from the matching weights.
 
 The model omits UML access modifiers and methods because it is an analysis object model focused on domain concepts and relationships, not an implementation-level Java class design.
 
-```mermaid
-classDiagram
-    class Venue {
-      id: UUID
-      name: String
-      tone: String
-      defaultLanguage: String
-    }
-    class User {
-      id: UUID
-      email: String
-      authSubject: String
-      role: Role
-    }
-    class Role {
-      <<enumeration>>
-      STAFF
-      OPS_MANAGER
-      ADMIN
-    }
-    class FoundItem {
-      id: UUID
-      photoKey: String
-      description: String
-      attributes: ItemAttributes
-      foundAt: DateTime
-      locationHint: String
-      status: ItemStatus
-    }
-    class ItemStatus {
-      <<enumeration>>
-      STORED
-      RESERVED
-      RETURNED
-      DISPOSED
-    }
-    class LostReport {
-      id: UUID
-      rawDescription: String
-      photoKeys: List~String~
-      attributes: ItemAttributes
-      lostAt: DateTime
-      contactEmail: String
-      preferredLanguage: String
-      status: ReportStatus
-    }
-    class ReportStatus {
-      <<enumeration>>
-      OPEN
-      MATCHED
-      CLAIM_CONFIRMED
-      CLOSED
-      CANCELLED
-    }
-    class Match {
-      id: UUID
-      attributeScore: float
-      semanticScore: float
-      combinedScore: float
-      createdAt: DateTime
-    }
-    class Notification {
-      id: UUID
-      channel: Channel
-      recipientAddress: String
-      language: String
-      subject: String
-      header: String
-      body: String
-      sentAt: DateTime
-      failedAt: DateTime
-      status: DeliveryStatus
-    }
-    class Channel {
-      <<enumeration>>
-      EMAIL
-      SMS
-    }
-    class DeliveryStatus {
-      <<enumeration>>
-      PENDING
-      SENT
-      FAILED
-    }
-    class ItemAttributes {
-      category: String
-      brand: String
-      color: String
-      marks: List~String~
-    }
-
-    Venue "1" --> "*" User : employs
-    Venue "1" --> "*" FoundItem : holds
-    User "1" --> "*" FoundItem : logs
-    LostReport "1" --> "*" Match : has candidates
-    FoundItem "1" --> "*" Match : candidate for
-    Match "1" --> "*" Notification : triggers
-    FoundItem *-- ItemAttributes : attributes
-    LostReport *-- ItemAttributes : attributes
-```
+![Analysis object model](./assets/class_diagram.png)
 
 ### 3.3 Top-Level Architecture (Component Diagram)
 

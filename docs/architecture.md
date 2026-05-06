@@ -199,11 +199,6 @@ classDiagram
     Match "1" --> "*" Notification : triggers
     FoundItem ..> ItemAttributes
     LostReport ..> ItemAttributes
-    User ..> Role
-    FoundItem ..> ItemStatus
-    LostReport ..> ReportStatus
-    Notification ..> Channel
-    Notification ..> DeliveryStatus
 ```
 
 ### 3.3 Top-Level Architecture (Component Diagram)

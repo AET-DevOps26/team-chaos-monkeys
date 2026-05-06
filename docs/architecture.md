@@ -103,16 +103,16 @@ Match scoring keeps the two matching signals separate: `attributeScore` comes fr
 ```mermaid
 classDiagram
     class Venue {
-      +UUID id
-      +String name
-      +String tone
-      +String defaultLanguage
+      UUID id
+      String name
+      String tone
+      String defaultLanguage
     }
     class User {
-      +UUID id
-      +String email
-      +String authSubject
-      +Role role
+      UUID id
+      String email
+      String authSubject
+      Role role
     }
     class Role {
       <<enumeration>>
@@ -121,14 +121,13 @@ classDiagram
       ADMIN
     }
     class FoundItem {
-      +UUID id
-      +String photoKey
-      +String description
-      +ItemAttributes attributes
-      +DateTime foundAt
-      +String locationHint
-      +ItemStatus status
-      +Vector embedding
+      UUID id
+      String photoKey
+      String description
+      ItemAttributes attributes
+      DateTime foundAt
+      String locationHint
+      ItemStatus status
     }
     class ItemStatus {
       <<enumeration>>
@@ -138,15 +137,14 @@ classDiagram
       DISPOSED
     }
     class LostReport {
-      +UUID id
-      +String rawDescription
-      +List~String~ photoKeys
-      +ItemAttributes attributes
-      +DateTime lostAt
-      +String contactEmail
-      +String preferredLanguage
-      +ReportStatus status
-      +Vector embedding
+      UUID id
+      String rawDescription
+      List~String~ photoKeys
+      ItemAttributes attributes
+      DateTime lostAt
+      String contactEmail
+      String preferredLanguage
+      ReportStatus status
     }
     class ReportStatus {
       <<enumeration>>
@@ -157,23 +155,23 @@ classDiagram
       CANCELLED
     }
     class Match {
-      +UUID id
-      +float attributeScore
-      +float semanticScore
-      +float combinedScore
-      +DateTime createdAt
+      UUID id
+      float attributeScore
+      float semanticScore
+      float combinedScore
+      DateTime createdAt
     }
     class Notification {
-      +UUID id
-      +Channel channel
-      +String recipientAddress
-      +String language
-      +String subject
-      +String header
-      +String body
-      +DateTime sentAt
-      +DateTime failedAt
-      +DeliveryStatus status
+      UUID id
+      Channel channel
+      String recipientAddress
+      String language
+      String subject
+      String header
+      String body
+      DateTime sentAt
+      DateTime failedAt
+      DeliveryStatus status
     }
     class Channel {
       <<enumeration>>
@@ -187,10 +185,10 @@ classDiagram
       FAILED
     }
     class ItemAttributes {
-      +String category
-      +String brand
-      +String color
-      +List~String~ marks
+      String category
+      String brand
+      String color
+      List~String~ marks
     }
 
     Venue "1" --> "*" User : employs

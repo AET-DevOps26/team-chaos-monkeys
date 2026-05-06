@@ -100,6 +100,8 @@ Domain entities and their relationships. `ItemAttributes` is a value object embe
 
 Match scoring keeps the two matching signals separate: `attributeScore` comes from structured `ItemAttributes`, `semanticScore` comes from vector similarity over descriptions, and `combinedScore` is the ranking score shown to staff. `combinedScore` is not a calibrated probability; it is a service-level score derived from the matching weights.
 
+The model omits UML access modifiers and methods because it is an analysis object model focused on domain concepts and relationships, not an implementation-level Java class design.
+
 ```mermaid
 classDiagram
     class Venue {

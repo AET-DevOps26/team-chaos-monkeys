@@ -19,10 +19,14 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 ```
 .
 ├── README.md                  — this file
+├── client/                    — React frontend application
 ├── docs/
 │   ├── problem-statement.md   — Deliverable: Problem Statement (08.05.2026)
-│   └── architecture.md        — Deliverable: System Overview / Architecture (08.05.2026)
-└── task-description.md        — original course brief (do not edit)
+│   ├── architecture.md        — Deliverable: System Overview / Architecture (08.05.2026)
+│   ├── task-description.md    — original course brief (do not edit)
+│   └── assets/                — diagrams and documentation images
+└── services/
+    └── authentication-service/ — initial Spring Boot authentication service
 ```
 
-Service directories (`services/intake-service`, `services/matching-service`, `services/notification-service`, `services/genai-service`, `web-client`) and infrastructure directories (`infra/`, `api/`) will be added once implementation begins.
+Additional service directories, shared API contracts (`api/`), and infrastructure definitions (`infra/`) will be added as implementation work progresses.

@@ -1,4 +1,4 @@
-package com.foundflow.authentication;
+package com.foundflow.auth;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;

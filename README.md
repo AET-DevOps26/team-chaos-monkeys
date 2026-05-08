@@ -26,7 +26,7 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 │   ├── task-description.md    — original course brief (do not edit)
 │   └── assets/                — diagrams and documentation images
 └── services/
-    └── authentication-service/ — initial Spring Boot authentication service
+    └── auth-service/           — initial Spring Boot authentication service
 ```
 
 Additional service directories, shared API contracts (`api/`), and infrastructure definitions (`infra/`) will be added as implementation work progresses.

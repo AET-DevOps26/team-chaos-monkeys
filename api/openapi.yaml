@@ -1,0 +1,500 @@
+openapi: 3.1.0
+
+# FoundFlow synchronous API contract.
+#
+# Scope of this revision: the GenAI service only (issue #48).
+# Spring service paths will be added under the same root file or split via $ref
+# when issue #61 is implemented. Treat this file as the single source of truth
+# for sync APIs — DTOs are generated from here, never hand-written.
+
+info:
+  title: FoundFlow API
+  version: 0.1.0
+  license:
+    name: Coursework — TUM CIT423001
+  description: |
+    Synchronous HTTP contract for the FoundFlow system.
+
+    The current revision covers the GenAI service, a stateless Python+FastAPI
+    component that exposes three capabilities to the Spring backend:
+      - structured attribute extraction from guest lost-item descriptions,
+      - text embedding for the matching service,
+      - guest pickup notification text generation.
+
+    The GenAI service does not own a database. Embeddings are returned to the
+    caller (matching-service) which persists them in its pgvector store; the
+    GenAI service never reads or writes any service database.
+
+    Provider switching between OpenAI and a local Ollama model is controlled by
+    the `GENAI_PROVIDER` environment variable at deploy time. Callers must not
+    receive provider-specific fields or error shapes.
+
+servers:
+  - url: /api/v1
+    description: API root. Versioning is path-based; breaking changes bump to /v2.
+
+# Default security applies to all operations. Operations that are reachable
+# without auth (e.g. K8s probes) override with `security: []`.
+security:
+  - InternalApiKey: []
+
+tags:
+  - name: genai
+    description: GenAI service endpoints (issues #49, #50, #53)
+  - name: ops
+    description: Operational endpoints (health, readiness)
+
+paths:
+  /extract-attributes:
+    post:
+      tags: [genai]
+      operationId: extractAttributes
+      summary: Extract structured attributes from a free-text lost-item description
+      description: |
+        Called synchronously by `lost-item-service` when a guest submits a lost
+        report. The free-text description is passed to the configured LLM with a
+        JSON-schema-constrained prompt; the result is validated against
+        `ItemAttributes` before being returned. Fields the model cannot determine
+        are returned as `null` — they are never invented.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractAttributesRequest'
+            examples:
+              guestReport:
+                summary: Typical guest lost-report
+                value:
+                  description: "black North Face puffer jacket with a small Berlin enamel pin, lost Saturday around 11pm near the cloakroom"
+                  language: en
+      responses:
+        '200':
+          description: Attributes extracted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractAttributesResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422': { $ref: '#/components/responses/ModelOutputInvalid' }
+        '429': { $ref: '#/components/responses/ProviderRateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/ProviderUnavailable' }
+        '504': { $ref: '#/components/responses/ProviderTimeout' }
+
+  /embed:
+    post:
+      tags: [genai]
+      operationId: embed
+      summary: Produce embedding vectors for one or more texts
+      description: |
+        Called synchronously by `matching-service` when it consumes
+        `LostReportCreated` or `FoundItemLogged` events, and when staff issue a
+        semantic search query. Stateless: the matching-service persists the
+        vectors in its own pgvector store along with the source record id.
+
+        Batching is supported but the caller is expected to keep batches small
+        (≤32 texts) to bound provider latency and stay within provider context
+        limits.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedRequest'
+            examples:
+              singleFoundItem:
+                summary: One found-item description
+                value:
+                  texts: ["old leather wallet, brown, contains Personalausweis"]
+                  purpose: found_item
+              batchedLostReports:
+                summary: Two guest descriptions batched
+                value:
+                  texts:
+                    - "black puffer jacket with Berlin enamel pin"
+                    - "silver headphones, sony, in a black case"
+                  purpose: lost_report
+      responses:
+        '200':
+          description: Embeddings generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/ProviderRateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/ProviderUnavailable' }
+        '504': { $ref: '#/components/responses/ProviderTimeout' }
+
+  /generate-message:
+    post:
+      tags: [genai]
+      operationId: generateMessage
+      summary: Generate guest pickup notification text
+      description: |
+        Called synchronously by `notification-service` when a match is confirmed.
+        Static templates handle the common path in the notification-service
+        itself; this endpoint is invoked when the guest's language or the
+        venue's tone falls outside the template set. The returned subject and
+        body are plain text — the notification-service is responsible for
+        wrapping them in the email/SMS transport.
+
+        On any failure the caller is expected to fall back to its static
+        template — generation is best-effort, not the system of record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateMessageRequest'
+            examples:
+              germanPickup:
+                summary: Hotel pickup, German, formal tone
+                value:
+                  messageType: pickup_notification
+                  language: de
+                  tone: formal
+                  context:
+                    itemDescription: "brown leather wallet"
+                    pickupLocation: "Hotel reception"
+                    pickupHours: "08:00-22:00 daily"
+                    caseReference: "FF-2026-04812"
+      responses:
+        '200':
+          description: Message generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateMessageResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422': { $ref: '#/components/responses/ModelOutputInvalid' }
+        '429': { $ref: '#/components/responses/ProviderRateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/ProviderUnavailable' }
+        '504': { $ref: '#/components/responses/ProviderTimeout' }
+
+  /health:
+    get:
+      tags: [ops]
+      operationId: getHealth
+      summary: Liveness and provider-reachability check
+      security: []
+      description: |
+        Liveness probe for Kubernetes and a lightweight probe for the configured
+        upstream provider. Returns `ok` when the service is up and the provider
+        responds within `HEALTH_PROVIDER_TIMEOUT_MS`; `degraded` when the
+        service is up but the provider check failed. Never returns 5xx — use
+        readiness if you need strict gating. Unauthenticated by design so K8s
+        probes can reach it without secrets.
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    InternalApiKey:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: |
+        Shared internal-service token. Issued per-cluster and rotated through
+        a Kubernetes `Secret`. The GenAI service compares the incoming header
+        against `INTERNAL_SERVICE_TOKEN` in constant time. This is a defense-
+        in-depth measure on top of NetworkPolicies that restrict ingress to
+        the GenAI service to known caller pods — it is not a substitute for
+        them. The token is not exposed to end users and never propagates
+        guest-facing JWT claims.
+
+  schemas:
+    # --- /extract-attributes ----------------------------------------------------
+
+    ExtractAttributesRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Free-text lost-item description from the guest.
+        language:
+          type: string
+          description: |
+            ISO 639-1 hint for the description language (e.g. `en`, `de`). When
+            omitted the service detects automatically. Used to keep extraction
+            in the source language so downstream matching is not warped by
+            translation.
+          pattern: '^[a-z]{2}$'
+
+    ExtractAttributesResponse:
+      type: object
+      required: [attributes, modelInfo]
+      properties:
+        attributes:
+          $ref: '#/components/schemas/ItemAttributes'
+        modelInfo:
+          $ref: '#/components/schemas/ModelInfo'
+
+    ItemAttributes:
+      type: object
+      description: |
+        Structured representation of a lost or found item. Fields the model
+        cannot determine are returned as `null`. Used by both lost-item-service
+        (populated by GenAI) and found-item-service (populated by staff input).
+      required:
+        - category
+        - brand
+        - color
+        - distinguishingMarks
+        - approximateTime
+        - location
+      properties:
+        category:
+          type: [string, 'null']
+          description: Coarse category, e.g. `jacket`, `wallet`, `headphones`.
+        brand:
+          type: [string, 'null']
+        color:
+          type: [string, 'null']
+          description: Primary visible color.
+        distinguishingMarks:
+          type: array
+          description: Free-form list of notable features. Empty array, not null.
+          items: { type: string }
+        approximateTime:
+          type: [string, 'null']
+          description: |
+            Natural-language time hint preserved as-is from the description,
+            e.g. `Saturday around 11pm`. Not parsed to ISO 8601 — the matching
+            service decides how to interpret.
+        location:
+          type: [string, 'null']
+          description: Free-text location hint, e.g. `near the cloakroom`.
+
+    # --- /embed -----------------------------------------------------------------
+
+    EmbedRequest:
+      type: object
+      required: [texts, purpose]
+      properties:
+        texts:
+          type: array
+          minItems: 1
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 8000
+        purpose:
+          type: string
+          enum: [lost_report, found_item, search_query]
+          description: |
+            Drives prompt and model selection. The embedding model itself may be
+            the same across purposes today, but encoding the purpose now lets
+            us specialise without a contract change.
+
+    EmbedResponse:
+      type: object
+      required: [embeddings, dimensions, modelInfo]
+      properties:
+        embeddings:
+          type: array
+          description: |
+            Parallel array to the request `texts`: `embeddings[i]` is the vector
+            for `texts[i]`. All vectors share the same `dimensions`.
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+        dimensions:
+          type: integer
+          minimum: 1
+          description: Vector dimensionality. Stable per model.
+        modelInfo:
+          $ref: '#/components/schemas/ModelInfo'
+
+    # --- /generate-message ------------------------------------------------------
+
+    GenerateMessageRequest:
+      type: object
+      required: [messageType, language, tone, context]
+      properties:
+        messageType:
+          type: string
+          enum: [pickup_notification]
+          description: |
+            Currently only `pickup_notification`. Held as an enum so future
+            variants (e.g. `claim_reminder`) can be added without breaking
+            existing callers.
+        language:
+          type: string
+          pattern: '^[a-z]{2}$'
+          description: ISO 639-1 target language for the generated text.
+        tone:
+          type: string
+          enum: [formal, casual, terse]
+          description: |
+            Venue-driven tone hint. The notification-service maps venue type
+            to tone (`hotel` → formal, `transit_hub` → terse, etc.).
+        context:
+          $ref: '#/components/schemas/PickupContext'
+
+    PickupContext:
+      type: object
+      required: [itemDescription, pickupLocation, pickupHours, caseReference]
+      properties:
+        itemDescription:
+          type: string
+          description: One-line item description shown to the guest.
+        pickupLocation:
+          type: string
+        pickupHours:
+          type: string
+          description: Free-text hours, e.g. `08:00-22:00 daily`.
+        caseReference:
+          type: string
+          description: Human-readable case id the guest can quote.
+
+    GenerateMessageResponse:
+      type: object
+      required: [subject, body, modelInfo]
+      properties:
+        subject:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          description: Plain-text body. The notification-service handles transport-specific wrapping.
+        modelInfo:
+          $ref: '#/components/schemas/ModelInfo'
+
+    # --- shared -----------------------------------------------------------------
+
+    ModelInfo:
+      type: object
+      description: |
+        Allows callers to record which provider/model produced a result without
+        exposing provider-specific configuration. Returned with every successful
+        GenAI response so embeddings can be invalidated if the model changes.
+      required: [provider, model]
+      properties:
+        provider:
+          type: string
+          enum: [openai, local]
+        model:
+          type: string
+          description: Provider-specific model identifier, e.g. `gpt-4o-mini` or `llama3.1:8b`.
+
+    HealthResponse:
+      type: object
+      required: [status, provider, providerReachable]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        provider:
+          type: string
+          enum: [openai, local]
+        providerReachable:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      description: Unified error envelope returned for all non-2xx responses.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - MODEL_OUTPUT_INVALID
+            - PROVIDER_RATE_LIMITED
+            - PROVIDER_UNAVAILABLE
+            - PROVIDER_AUTH_FAILED
+            - PROVIDER_TIMEOUT
+            - INTERNAL_ERROR
+          description: |
+            Machine-readable error code. Stable across releases — callers should
+            switch on this rather than parsing `message`.
+
+            HTTP mapping:
+              - `VALIDATION_ERROR`       → 400 — request body failed schema validation
+              - `MODEL_OUTPUT_INVALID`   → 422 — LLM output failed our schema validation (see issue #52)
+              - `PROVIDER_RATE_LIMITED`  → 429 — upstream provider returned 429; caller should back off
+              - `PROVIDER_UNAVAILABLE`   → 502 — provider endpoint unreachable
+              - `PROVIDER_AUTH_FAILED`   → 502 — provider rejected auth (rotated key, missing Ollama install)
+              - `PROVIDER_TIMEOUT`       → 504 — provider call exceeded configured timeout
+              - `INTERNAL_ERROR`         → 500 — uncategorised
+        message:
+          type: string
+          description: Human-readable summary. Safe to log; do not show verbatim to end users.
+        details:
+          type: object
+          description: |
+            Structured context for debugging. Shape depends on `code`:
+              - `VALIDATION_ERROR`: `{ field, reason }` or array of such
+              - `MODEL_OUTPUT_INVALID`: `{ rawOutput, schemaErrors }`
+              - `PROVIDER_*`: `{ provider, upstreamStatus, retryAfterMs }`
+            Always optional. May be omitted in production responses to bound payload size.
+          additionalProperties: true
+
+  responses:
+    ValidationError:
+      description: Request body failed schema validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: VALIDATION_ERROR
+            message: "Request body failed validation"
+            details:
+              field: description
+              reason: "must not be empty"
+    ModelOutputInvalid:
+      description: |
+        The LLM produced output that failed schema validation. The caller should
+        treat this as a transient failure and retry once with the same payload
+        before falling back.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: MODEL_OUTPUT_INVALID
+            message: "Model returned malformed JSON"
+            details:
+              rawOutput: "{\"category\": \"jacket\", \"brand\":"
+              schemaErrors: ["unexpected end of input"]
+    ProviderRateLimited:
+      description: Upstream provider rate-limited the request.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds to wait before retrying, when known.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ProviderUnavailable:
+      description: |
+        Upstream provider could not be reached or rejected our credentials.
+        Covers both `PROVIDER_UNAVAILABLE` and `PROVIDER_AUTH_FAILED`; switch
+        on the `code` field to distinguish.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ProviderTimeout:
+      description: Upstream provider did not respond within the configured timeout.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: Uncategorised server error. Logged with full stacktrace; payload is sanitised.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }

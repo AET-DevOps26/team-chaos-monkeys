@@ -1,0 +1,111 @@
+// FoundFlow devcontainer — unified development environment for all subsystems.
+// See issue #71 for the design decisions behind this config.
+//
+// Approach:
+//   - One container per developer, all toolchains installed (mono-repo style).
+//   - Docker-from-Docker (host socket mount) — not Docker-in-Docker.
+//   - Devcontainer is the *toolbox*; the runtime stack (Postgres, RabbitMQ, MinIO,
+//     services) is launched separately with `docker compose up`.
+//   - Ollama for local LLM runs on the host; GenAI service connects to
+//     `host.docker.internal:11434`.
+{
+  "name": "FoundFlow",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21",
+      "installGradle": "false"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12",
+      "installTools": "true"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": "true",
+      "installDockerBuildx": "true",
+      "installDockerComposeSwitch": "true"
+    },
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  // Map host ports for the runtime stack. Labels surface in VS Code's Ports panel.
+  // Ranges chosen to match the planned service layout (architecture.md §1.2):
+  //   - 5173       Vite dev server
+  //   - 8080-8085  Spring services (one port per microservice)
+  //   - 8000       GenAI FastAPI
+  //   - 5432       Postgres (host port for the compose stack)
+  //   - 5672/15672 RabbitMQ AMQP + management UI
+  //   - 9000/9001  MinIO API + console
+  //   - 9090       Prometheus
+  //   - 3000       Grafana
+  "forwardPorts": [
+    3000, 5173, 5432, 5672, 8000, 8080, 8081, 8082, 8083, 8084, 8085,
+    9000, 9001, 9090, 15672
+  ],
+  "portsAttributes": {
+    "3000":  { "label": "Grafana" },
+    "5173":  { "label": "Vite dev server", "onAutoForward": "openPreview" },
+    "5432":  { "label": "PostgreSQL" },
+    "5672":  { "label": "RabbitMQ AMQP" },
+    "8000":  { "label": "GenAI FastAPI" },
+    "8080":  { "label": "Spring service (auth)" },
+    "8081":  { "label": "Spring service (lost-item)" },
+    "8082":  { "label": "Spring service (found-item)" },
+    "8083":  { "label": "Spring service (matching)" },
+    "8084":  { "label": "Spring service (notification)" },
+    "8085":  { "label": "Spring service (operations)" },
+    "9000":  { "label": "MinIO API" },
+    "9001":  { "label": "MinIO console" },
+    "9090":  { "label": "Prometheus" },
+    "15672": { "label": "RabbitMQ management UI" }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Java / Spring
+        "vscjava.vscode-java-pack",
+        "vmware.vscode-spring-boot",
+        "vscjava.vscode-gradle",
+        // Python
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        // Frontend
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        // Infra / DevOps
+        "ms-azuretools.vscode-docker",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "redhat.vscode-yaml",
+        // OpenAPI / API contracts
+        "42crunch.vscode-openapi",
+        "redocly.openapi-vs-code",
+        // Collaboration
+        "github.vscode-pull-request-github",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "java.configuration.runtimes": [
+          { "name": "JavaSE-21", "path": "/usr/lib/jvm/msopenjdk-current", "default": true }
+        ],
+        "python.defaultInterpreterPath": "/usr/local/bin/python3"
+      }
+    }
+  },
+
+  "remoteUser": "vscode",
+
+  // host.docker.internal works on Linux too when this is set — keeps the
+  // Ollama-on-host story consistent across macOS and Linux developers.
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"]
+}

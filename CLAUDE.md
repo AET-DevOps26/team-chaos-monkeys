@@ -88,6 +88,12 @@ These are graded requirements, not preferences. Violating them costs points:
 - **Spring services expose `/actuator/prometheus`** via Micrometer; the Python service exposes `/metrics`.
 - **OpenAPI/Swagger UI** must be exposed by the backend for API documentation.
 
+## Git Workflow
+
+- Feature, chore, and fix branches are cut from `development` and merged back into `development` via PR. Default `gh pr create --base development`.
+- `main` is the release branch. Merging `development → main` is what triggers CD — only do it when releasing, never as the PR base for ordinary work.
+- Start work with `git fetch origin && git checkout -b <branch> origin/development`.
+
 ## When Adding a New Spring Service
 
 1. Mirror `services/auth-service/` (Gradle wrapper, Spring Boot 4.0.6, Java 21, JUnit 5).

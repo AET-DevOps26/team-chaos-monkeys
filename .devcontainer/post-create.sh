@@ -7,6 +7,22 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# VS Code's Dev Containers extension writes a one-shot `credsStore` entry to
+# ~/.docker/config.json that references a helper binary which does not exist
+# on disk (`dev-containers-<uuid>`). With Docker-outside-of-Docker, any
+# `docker pull` / `docker build` from inside the container then fails with
+# `error getting credentials - err: exit status 255`. Strip the field so the
+# CLI falls back to anonymous pulls from public registries.
+echo "==> Removing broken credsStore from ~/.docker/config.json (DooD workaround)"
+DOCKER_CFG="$HOME/.docker/config.json"
+if [ -f "$DOCKER_CFG" ] && grep -q '"credsStore"' "$DOCKER_CFG"; then
+  tmp="$(mktemp)"
+  jq 'del(.credsStore)' "$DOCKER_CFG" > "$tmp" && mv "$tmp" "$DOCKER_CFG"
+  echo "    credsStore removed"
+else
+  echo "    no credsStore present — nothing to do"
+fi
+
 echo "==> Installing frontend dependencies"
 if [ -f client/package.json ]; then
   (cd client && npm ci)

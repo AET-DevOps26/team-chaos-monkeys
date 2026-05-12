@@ -54,7 +54,7 @@ jobs:
 
       - name: Run checks for ${{ matrix.service }}
         working-directory: ./services/${{ matrix.service }}
-        run: ./gradlew check --no-daemon
+        run: ./gradlew check
 
   client-build:
     name: Build client

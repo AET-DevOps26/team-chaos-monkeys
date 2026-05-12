@@ -10,7 +10,8 @@ services:
 
   lost-item-service:
     build:
-      context: ./services/lost-item-service
+      context: .
+      dockerfile: ./services/lost-item-service/Dockerfile
     container_name: foundflow-lost-item-service
     ports:
       - "8082:8082"
@@ -19,7 +20,8 @@ services:
 
   found-item-service:
     build:
-      context: ./services/found-item-service
+      context: .
+      dockerfile: ./services/found-item-service/Dockerfile
     container_name: foundflow-found-item-service
     ports:
       - "8083:8083"

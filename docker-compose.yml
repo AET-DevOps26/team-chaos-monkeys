@@ -53,6 +53,13 @@ services:
     environment:
       SERVER_PORT: 8086
 
+  genai-service:
+    build:
+      context: ./services/genai-service
+    container_name: foundflow-genai-service
+    ports:
+      - "8087:8000"
+
   client:
     build:
       context: ./client
@@ -66,3 +73,4 @@ services:
       - matching-service
       - notification-service
       - operations-service
+      - genai-service

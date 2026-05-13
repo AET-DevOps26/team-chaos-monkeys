@@ -7,6 +7,12 @@ services:
       - "8081:8081"
     environment:
       SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_password
+    depends_on:
+      auth-db:
+        condition: service_healthy
 
   lost-item-service:
     build:
@@ -17,6 +23,12 @@ services:
       - "8082:8082"
     environment:
       SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://lost-item-db:5432/lost_item_db
+      SPRING_DATASOURCE_USERNAME: lost_item_user
+      SPRING_DATASOURCE_PASSWORD: lost_item_password
+    depends_on:
+      lost-item-db:
+        condition: service_healthy
 
   found-item-service:
     build:
@@ -27,6 +39,12 @@ services:
       - "8083:8083"
     environment:
       SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://found-item-db:5432/found_item_db
+      SPRING_DATASOURCE_USERNAME: found_item_user
+      SPRING_DATASOURCE_PASSWORD: found_item_password
+    depends_on:
+      found-item-db:
+        condition: service_healthy
 
   matching-service:
     build:
@@ -36,6 +54,12 @@ services:
       - "8084:8084"
     environment:
       SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://matching-db:5432/matching_db
+      SPRING_DATASOURCE_USERNAME: matching_user
+      SPRING_DATASOURCE_PASSWORD: matching_password
+    depends_on:
+      matching-db:
+        condition: service_healthy
 
   notification-service:
     build:
@@ -45,6 +69,12 @@ services:
       - "8085:8085"
     environment:
       SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: notification_user
+      SPRING_DATASOURCE_PASSWORD: notification_password
+    depends_on:
+      notification-db:
+        condition: service_healthy
 
   operations-service:
     build:
@@ -54,6 +84,12 @@ services:
       - "8086:8086"
     environment:
       SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://operations-db:5432/operations_db
+      SPRING_DATASOURCE_USERNAME: operations_user
+      SPRING_DATASOURCE_PASSWORD: operations_password
+    depends_on:
+      operations-db:
+        condition: service_healthy
 
   client:
     build:
@@ -68,3 +104,101 @@ services:
       - matching-service
       - notification-service
       - operations-service
+
+  auth-db:
+    image: postgres:17
+    container_name: foundflow-auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  found-item-db:
+    image: postgres:17
+    container_name: foundflow-found-item-db
+    environment:
+      POSTGRES_DB: found_item_db
+      POSTGRES_USER: found_item_user
+      POSTGRES_PASSWORD: found_item_password
+    volumes:
+      - found-item-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U found_item_user -d found_item_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  lost-item-db:
+    image: postgres:17
+    container_name: foundflow-lost-item-db
+    environment:
+      POSTGRES_DB: lost_item_db
+      POSTGRES_USER: lost_item_user
+      POSTGRES_PASSWORD: lost_item_password
+    volumes:
+      - lost-item-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lost_item_user -d lost_item_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  matching-db:
+    image: postgres:17
+    container_name: foundflow-matching-db
+    environment:
+      POSTGRES_DB: matching_db
+      POSTGRES_USER: matching_user
+      POSTGRES_PASSWORD: matching_password
+    volumes:
+      - matching-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matching_user -d matching_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  notification-db:
+    image: postgres:17
+    container_name: foundflow-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_password
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  operations-db:
+    image: postgres:17
+    container_name: foundflow-operations-db
+    environment:
+      POSTGRES_DB: operations_db
+      POSTGRES_USER: operations_user
+      POSTGRES_PASSWORD: operations_password
+    volumes:
+      - operations-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U operations_user -d operations_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  auth-db-data:
+  found-item-db-data:
+  lost-item-db-data:
+  matching-db-data:
+  notification-db-data:
+  operations-db-data:

@@ -10,7 +10,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    private UUID id;  
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -19,12 +19,16 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
     public User() {
     }
 
-    public User(String email, Role role) {
+    public User(String email, Role role, String passwordHash) {
         this.email = email;
         this.role = role;
+        this.passwordHash = passwordHash;
     }
 
     public UUID getId() {
@@ -45,5 +49,13 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 }

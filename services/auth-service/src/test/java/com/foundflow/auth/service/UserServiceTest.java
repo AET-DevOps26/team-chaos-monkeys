@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,15 +26,20 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @Test
-    void createUser_shouldSaveAndReturnUser() {
-        UserService userService = new UserService(userRepository);
+    void createUser_shouldHashPasswordSaveAndReturnUser() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
         CreateUserRequest request = new CreateUserRequest(
                 "staff@example.com",
-                Role.STAFF
+                Role.STAFF,
+                "password123"
         );
 
+        when(passwordEncoder.encode("password123")).thenReturn("hashed-password");
         when(userRepository.save(any(User.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -46,17 +52,20 @@ class UserServiceTest {
 
         assertEquals("staff@example.com", savedUser.getEmail());
         assertEquals(Role.STAFF, savedUser.getRole());
+        assertEquals("hashed-password", savedUser.getPasswordHash());
 
         assertEquals("staff@example.com", response.email());
         assertEquals(Role.STAFF, response.role());
+
+        verify(passwordEncoder).encode("password123");
     }
 
     @Test
     void getAllUsers_shouldReturnMappedResponses() {
-        UserService userService = new UserService(userRepository);
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
-        User user1 = new User("staff@example.com", Role.STAFF);
-        User user2 = new User("admin@example.com", Role.ADMIN);
+        User user1 = new User("staff@example.com", Role.STAFF, "hash-1");
+        User user2 = new User("admin@example.com", Role.ADMIN, "hash-2");
 
         when(userRepository.findAll()).thenReturn(List.of(user1, user2));
 
@@ -73,10 +82,10 @@ class UserServiceTest {
 
     @Test
     void getUserById_shouldReturnResponseWhenUserExists() {
-        UserService userService = new UserService(userRepository);
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
         UUID id = UUID.randomUUID();
-        User user = new User("manager@example.com", Role.OPS_MANAGER);
+        User user = new User("manager@example.com", Role.OPS_MANAGER, "hash");
 
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
 
@@ -91,7 +100,7 @@ class UserServiceTest {
 
     @Test
     void getUserById_shouldReturnEmptyWhenUserDoesNotExist() {
-        UserService userService = new UserService(userRepository);
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
         UUID id = UUID.randomUUID();
 
@@ -105,9 +114,9 @@ class UserServiceTest {
 
     @Test
     void getUserByEmail_shouldReturnResponseWhenUserExists() {
-        UserService userService = new UserService(userRepository);
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
-        User user = new User("admin@example.com", Role.ADMIN);
+        User user = new User("admin@example.com", Role.ADMIN, "hash");
 
         when(userRepository.findByEmail("admin@example.com"))
                 .thenReturn(Optional.of(user));
@@ -123,14 +132,15 @@ class UserServiceTest {
     }
 
     @Test
-    void updateUser_shouldUpdateExistingUser() {
-        UserService userService = new UserService(userRepository);
+    void updateUser_shouldUpdateExistingUserWithoutChangingPasswordHash() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
 
         UUID id = UUID.randomUUID();
 
         User existingUser = new User(
                 "old@example.com",
-                Role.STAFF
+                Role.STAFF,
+                "existing-password-hash"
         );
 
         UpdateUserRequest request = new UpdateUserRequest(
@@ -147,8 +157,10 @@ class UserServiceTest {
         assertTrue(response.isPresent());
         assertEquals("updated@example.com", response.get().email());
         assertEquals(Role.ADMIN, response.get().role());
+        assertEquals("existing-password-hash", existingUser.getPasswordHash());
 
         verify(userRepository).findById(id);
         verify(userRepository).save(existingUser);
+        verifyNoInteractions(passwordEncoder);
     }
 }

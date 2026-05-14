@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 
+const AUTH_API = import.meta.env.VITE_AUTH_API ?? "http://localhost:8081";
+
 function App() {
   const [message, setMessage] = useState<string>("Loading...");
 
   useEffect(() => {
-    fetch("http://localhost:8081/greet")
+    fetch(`${AUTH_API}/greet`)
       .then((res) => res.text())
       .then((text: string) => setMessage(text))
       .catch(() => setMessage("Backend not reachable"));

@@ -114,6 +114,13 @@ services:
       operations-db:
         condition: service_healthy
 
+  genai-service:
+    build:
+      context: ./services/genai-service
+    container_name: foundflow-genai-service
+    ports:
+      - "8087:8000"
+
   client:
     build:
       context: ./client
@@ -220,3 +227,10 @@ volumes:
   matching-db-data:
   notification-db-data:
   operations-db-data:
+      - auth-service
+      - lost-item-service
+      - found-item-service
+      - matching-service
+      - notification-service
+      - operations-service
+      - genai-service

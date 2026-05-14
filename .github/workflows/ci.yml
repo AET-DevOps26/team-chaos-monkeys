@@ -1,0 +1,161 @@
+name: FoundFlow CI
+
+on:
+  push:
+    branches:
+      - development
+      - main
+
+  pull_request:
+    branches:
+      - development
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Check backend services
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - lost-item-service
+          - found-item-service
+          - matching-service
+          - notification-service
+          - operations-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle wrapper executable
+        working-directory: ./services/${{ matrix.service }}
+        run: chmod +x ./gradlew
+
+      - name: Run checks for ${{ matrix.service }}
+        working-directory: ./services/${{ matrix.service }}
+        run: ./gradlew check
+
+  client-build:
+    name: Build client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build client
+        working-directory: ./client
+        run: npm run build
+
+  docker-smoke-test:
+    name: Start system and run healthchecks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs:
+      - backend-tests
+      - client-build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build and start containers
+        run: docker compose up --build -d
+
+      - name: Show running containers
+        run: docker compose ps
+
+      - name: Wait for backend services and client
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          services=(
+            "auth-service|http://localhost:8081/actuator/health"
+            "lost-item-service|http://localhost:8082/actuator/health"
+            "found-item-service|http://localhost:8083/actuator/health"
+            "matching-service|http://localhost:8084/actuator/health"
+            "notification-service|http://localhost:8085/actuator/health"
+            "operations-service|http://localhost:8086/actuator/health"
+            "client|http://localhost:3000"
+          )
+
+          check_service() {
+            local name="$1"
+            local url="$2"
+
+            echo "Waiting for $name at $url..."
+
+            for i in {1..30}; do
+              if curl --fail --silent --show-error "$url" > /dev/null; then
+                echo "$name is reachable."
+                return 0
+              fi
+
+              sleep 5
+            done
+
+            echo "$name did not become reachable in time."
+            return 1
+          }
+
+          pids=()
+
+          for entry in "${services[@]}"; do
+            name="${entry%%|*}"
+            url="${entry#*|}"
+
+            check_service "$name" "$url" &
+            pids+=($!)
+          done
+
+          failed=0
+
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              failed=1
+            fi
+          done
+
+          exit "$failed"
+
+      - name: Print Docker logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Shut down containers
+        if: always()
+        run: docker compose down -v

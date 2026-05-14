@@ -2,9 +2,43 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and notification text generation for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` are added under follow-up tickets (#48 contracts, #49 extraction, #50 embeddings, #51 provider switch, #52 output validation, #53 notification text, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#49 extraction, #50 embeddings, #52 output validation, #53 notification text, #54 metrics).
+
+## Provider configuration
+
+The service speaks to one LLM provider, picked at startup via `GENAI_PROVIDER`. The same code path (`app/providers/`) serves both — switching providers is a config change, never a code change.
+
+| Env var | Required | Default | Notes |
+|---|---|---|---|
+| `GENAI_PROVIDER` | yes | — | `local` (Ollama) or `openai`. Invalid values fail at startup. |
+| `OPENAI_API_KEY` | iff `provider=openai` | — | Validated at startup; missing key crashloops the container. |
+| `OPENAI_CHAT_MODEL` | no | `gpt-4o-mini` | |
+| `OPENAI_EMBED_MODEL` | no | `text-embedding-3-small` | |
+| `OLLAMA_BASE_URL` | no | `http://ollama:11434` | Override for non-compose dev. |
+| `OLLAMA_CHAT_MODEL` | no | `llama3.2:3b` | Pulled by the `ollama-init` sidecar. |
+| `OLLAMA_EMBED_MODEL` | no | `nomic-embed-text` | Pulled by the `ollama-init` sidecar. |
+| `GENAI_TIMEOUT_SECONDS` | no | `30` | Per-request timeout for chat + embed. |
+
+The compose stack defaults to `GENAI_PROVIDER=local`, so a fresh `docker compose up` runs end-to-end without an API key. To use OpenAI in local dev: copy `.env.example` to `.env`, set `GENAI_PROVIDER=openai` and `OPENAI_API_KEY=…`.
 
 ## Run locally
+
+### Via docker-compose (recommended)
+
+```
+docker compose up
+```
+
+First run pulls ~1.5 GB of Ollama models (`llama3.2:3b` + `nomic-embed-text`) via the `ollama-init` sidecar. This takes 3-5 minutes depending on your connection. Models are cached in the `ollama-models` volume, so subsequent runs are instant.
+
+Verify with:
+
+```
+curl http://localhost:8000/_diagnostic | jq
+# { "provider": "local", "chat_ok": true, "embed_ok": true, ... }
+```
+
+### Standalone (host Python)
 
 Requires Python 3.12.
 
@@ -13,43 +47,54 @@ cd services/genai-service
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
+export GENAI_PROVIDER=local
+export OLLAMA_BASE_URL=http://localhost:11434   # if Ollama runs on the host
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then:
+## Endpoints
 
-```
-curl http://localhost:8000/health
-# {"status":"ok","service":"genai-service","version":"0.1.0"}
-```
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Liveness probe |
+| `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
+| `GET /docs` | Swagger UI |
 
-Swagger UI: <http://localhost:8000/docs>.
-
-## Run in Docker
-
-```
-docker build -t foundflow/genai-service:dev services/genai-service
-docker run --rm -p 8000:8000 foundflow/genai-service:dev
-curl http://localhost:8000/health
-```
+Public API endpoints (`/extract-attributes`, `/embed`, `/notify`) are specified in `api/openapi.yaml` and landed by tickets #49 / #50 / #53.
 
 ## Tests
 
 ```
 pip install -e '.[dev]'
-pytest
+pytest                      # unit + contract tests (no network, no Ollama)
+GENAI_RUN_INTEGRATION=1 pytest tests/integration/   # hits real Ollama
 ```
+
+The contract test (`tests/test_provider_contract.py`) parametrizes the same assertions over both adapters using `respx`. If a future change drifts one adapter's behavior from the other (e.g. silently swallows timeouts), this test fails first.
 
 ## Layout
 
 ```
 app/
-  main.py        FastAPI app, router registration
+  main.py            FastAPI app, lifespan, exception handlers
+  config.py          Settings (pydantic-settings) + validators
+  exceptions.py      LLMError hierarchy mapped to HTTP statuses
+  dependencies.py    FastAPI dependency: get_llm()
   api/
-    health.py    /health endpoint
-    schemas.py   placeholder request/response models for upcoming endpoints
+    health.py        /health
+    diagnostic.py    /_diagnostic (internal)
+    schemas.py       Request/response models (placeholder)
+  providers/
+    __init__.py      LLMProvider protocol + build_provider() factory
+    openai.py        OpenAI adapter
+    ollama.py        Ollama adapter
+    fake.py          FakeProvider for tests
 tests/
-  test_health.py smoke test for /health
-Dockerfile       python:3.12-slim, non-root user, uvicorn entrypoint
-pyproject.toml   PEP 621 metadata + dev extras (pytest, httpx)
+  test_settings.py
+  test_provider_contract.py     parametrized over both adapters
+  test_diagnostic.py
+  test_health.py
+  integration/                  env-gated, hits real Ollama
+Dockerfile           python:3.12-slim, non-root user, uvicorn entrypoint
+pyproject.toml       PEP 621 metadata + dev extras
 ```

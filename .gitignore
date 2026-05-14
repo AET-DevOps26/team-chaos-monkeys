@@ -4,3 +4,6 @@
 # Copy docker-compose.override.yml.example to start.
 docker-compose.override.yml
 
+**/build/
+**/.gradle/
+.env

@@ -1,1 +1,8 @@
 .superpowers/
+
+# Local environment files — may contain API keys (OPENAI_API_KEY, etc).
+# .env is read automatically by `docker compose` for variable
+# substitution. Never commit it. PR #82 also adds this entry; including
+# here as defense-in-depth in case this PR lands first.
+.env
+.env.local

@@ -1,17 +1,20 @@
-FROM gradle:9.0-jdk21 AS build
+FROM gradle:9-jdk21 AS build
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY . .
+COPY shared/common-domain ./shared/common-domain
+COPY services/found-item-service ./services/found-item-service
+
+WORKDIR /workspace/services/found-item-service
 
 RUN gradle clean bootJar --no-daemon
 
-FROM sapmachine:23
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build /workspace/services/found-item-service/build/libs/*.jar app.jar
 
-EXPOSE 8080
+EXPOSE 8083
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

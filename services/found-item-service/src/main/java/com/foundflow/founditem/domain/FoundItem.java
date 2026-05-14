@@ -11,6 +11,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import com.foundflow.common.domain.ItemAttributes;
 
+import jakarta.persistence.AssociationOverride;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -44,6 +48,13 @@ public class FoundItem {
     private UUID reporterId;
 
     @Embedded
+    @AssociationOverride(
+            name = "marks",
+            joinTable = @JoinTable(
+                    name = "found_item_marks",
+                    joinColumns = @JoinColumn(name = "found_item_id")
+            )
+    )
     private ItemAttributes attributes;
 
     public FoundItem() {

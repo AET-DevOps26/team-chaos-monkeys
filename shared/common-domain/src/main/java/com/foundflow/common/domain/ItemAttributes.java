@@ -6,6 +6,8 @@ import jakarta.persistence.Embeddable;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.persistence.Column;
+
 @Embeddable
 public class ItemAttributes {
 
@@ -14,6 +16,7 @@ public class ItemAttributes {
     private String color;
 
     @ElementCollection
+    @Column(name = "marks")
     private List<String> marks = new ArrayList<>();
 
     public ItemAttributes() {

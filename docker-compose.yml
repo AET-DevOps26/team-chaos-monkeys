@@ -7,6 +7,7 @@ services:
       - "8081:8081"
     environment:
       SERVER_PORT: 8081
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000}
 
   lost-item-service:
     build:

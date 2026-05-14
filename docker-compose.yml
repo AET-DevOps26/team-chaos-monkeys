@@ -17,7 +17,8 @@ services:
 
   auth-service:
     build:
-      context: ./services/auth-service
+      context: .
+      dockerfile: services/auth-service/Dockerfile
     container_name: foundflow-auth-service
     ports:
       - "8081:8081"
@@ -64,7 +65,8 @@ services:
 
   matching-service:
     build:
-      context: ./services/matching-service
+      context: .
+      dockerfile: services/matching-service/Dockerfile
     container_name: foundflow-matching-service
     ports:
       - "8084:8084"
@@ -79,7 +81,8 @@ services:
 
   notification-service:
     build:
-      context: ./services/notification-service
+      context: .
+      dockerfile: services/notification-service/Dockerfile
     container_name: foundflow-notification-service
     ports:
       - "8085:8085"
@@ -94,7 +97,8 @@ services:
 
   operations-service:
     build:
-      context: ./services/operations-service
+      context: .
+      dockerfile: services/operations-service/Dockerfile
     container_name: foundflow-operations-service
     ports:
       - "8086:8086"

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/found-items")
@@ -26,7 +27,9 @@ public class FoundItemController {
             @Valid @RequestBody CreateFoundItemRequest request
     ) {
         FoundItemResponse response = foundItemService.createFoundItem(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity
+        .created(URI.create("/api/found-items/" + response.id()))
+        .body(response);
     }
 
     @GetMapping

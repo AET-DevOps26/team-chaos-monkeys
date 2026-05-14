@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -26,7 +27,9 @@ public class NotificationController {
             @Valid @RequestBody CreateNotificationRequest request
     ) {
         NotificationResponse response = notificationService.createNotification(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity
+        .created(URI.create("/api/notifications/" + response.id()))
+        .body(response);
     }
 
     @GetMapping

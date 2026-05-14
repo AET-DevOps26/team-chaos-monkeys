@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/venues")
@@ -26,7 +27,9 @@ public class VenueController {
             @Valid @RequestBody CreateVenueRequest request
     ) {
         VenueResponse response = venueService.createVenue(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity
+        .created(URI.create("/api/venues/" + response.id()))
+        .body(response);
     }
 
     @GetMapping

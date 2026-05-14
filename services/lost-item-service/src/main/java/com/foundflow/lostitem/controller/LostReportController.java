@@ -7,6 +7,7 @@ import com.foundflow.lostitem.service.LostReportService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.net.URI;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +27,9 @@ public class LostReportController {
             @Valid @RequestBody CreateLostReportRequest request
     ) {
         LostReportResponse response = lostReportService.createLostReport(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity
+        .created(URI.create("/api/lost-reports/" + response.id()))
+        .body(response);
     }
 
     @GetMapping

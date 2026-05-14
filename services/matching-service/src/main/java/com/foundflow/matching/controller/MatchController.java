@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/matches")
@@ -26,7 +27,9 @@ public class MatchController {
             @Valid @RequestBody CreateMatchRequest request
     ) {
         MatchResponse response = matchService.createMatch(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity
+        .created(URI.create("/api/matches/" + response.id()))
+        .body(response);
     }
 
     @GetMapping

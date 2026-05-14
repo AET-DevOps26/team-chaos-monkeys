@@ -1,2 +1,4 @@
 .superpowers/
+**/build/
+**/.gradle/
 .env

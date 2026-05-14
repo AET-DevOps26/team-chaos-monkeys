@@ -117,6 +117,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Prepare CI environment file
+        run: cp .env.example .env
+
       - name: Build and start containers
         run: docker compose up --build -d
 

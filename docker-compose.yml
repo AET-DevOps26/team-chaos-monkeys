@@ -1,57 +1,118 @@
 services:
+  gateway-service:
+    build:
+      context: ./services/gateway-service
+    container_name: foundflow-gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+    depends_on:
+      - auth-service
+      - lost-item-service
+      - found-item-service
+      - matching-service
+      - notification-service
+      - operations-service
+
   auth-service:
     build:
-      context: ./services/auth-service
+      context: .
+      dockerfile: services/auth-service/Dockerfile
     container_name: foundflow-auth-service
     ports:
       - "8081:8081"
     environment:
       SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_DB_NAME:?AUTH_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${AUTH_DB_USER:?AUTH_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+      SPRING_PROFILES_ACTIVE: dev
+      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:?DEV_ADMIN_EMAIL is required}
+      DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?DEV_ADMIN_PASSWORD is required}
+    depends_on:
+      auth-db:
+        condition: service_healthy
 
   lost-item-service:
     build:
-      context: ./services/lost-item-service
+      context: .
+      dockerfile: ./services/lost-item-service/Dockerfile
     container_name: foundflow-lost-item-service
     ports:
       - "8082:8082"
     environment:
       SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://lost-item-db:5432/${LOST_ITEM_DB_NAME:?LOST_ITEM_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${LOST_ITEM_DB_USER:?LOST_ITEM_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${LOST_ITEM_DB_PASSWORD:?LOST_ITEM_DB_PASSWORD is required}
+    depends_on:
+      lost-item-db:
+        condition: service_healthy
 
   found-item-service:
     build:
-      context: ./services/found-item-service
+      context: .
+      dockerfile: ./services/found-item-service/Dockerfile
     container_name: foundflow-found-item-service
     ports:
       - "8083:8083"
     environment:
       SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://found-item-db:5432/${FOUND_ITEM_DB_NAME:?FOUND_ITEM_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${FOUND_ITEM_DB_USER:?FOUND_ITEM_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${FOUND_ITEM_DB_PASSWORD:?FOUND_ITEM_DB_PASSWORD is required}
+    depends_on:
+      found-item-db:
+        condition: service_healthy
 
   matching-service:
     build:
-      context: ./services/matching-service
+      context: .
+      dockerfile: services/matching-service/Dockerfile
     container_name: foundflow-matching-service
     ports:
       - "8084:8084"
     environment:
       SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://matching-db:5432/${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${MATCHING_DB_USER:?MATCHING_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${MATCHING_DB_PASSWORD:?MATCHING_DB_PASSWORD is required}
+    depends_on:
+      matching-db:
+        condition: service_healthy
 
   notification-service:
     build:
-      context: ./services/notification-service
+      context: .
+      dockerfile: services/notification-service/Dockerfile
     container_name: foundflow-notification-service
     ports:
       - "8085:8085"
     environment:
       SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/${NOTIFICATION_DB_NAME:?NOTIFICATION_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${NOTIFICATION_DB_USER:?NOTIFICATION_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+    depends_on:
+      notification-db:
+        condition: service_healthy
 
   operations-service:
     build:
-      context: ./services/operations-service
+      context: .
+      dockerfile: services/operations-service/Dockerfile
     container_name: foundflow-operations-service
     ports:
       - "8086:8086"
     environment:
       SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://operations-db:5432/${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${OPERATIONS_DB_PASSWORD:?OPERATIONS_DB_PASSWORD is required}
+    depends_on:
+      operations-db:
+        condition: service_healthy
 
   ollama:
     image: ollama/ollama:0.4.2
@@ -112,12 +173,103 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - auth-service
-      - lost-item-service
-      - found-item-service
-      - matching-service
-      - notification-service
-      - operations-service
+      - gateway-service
+
+  auth-db:
+    image: postgres:17
+    container_name: foundflow-auth-db
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:?AUTH_DB_NAME is required}
+      POSTGRES_USER: ${AUTH_DB_USER:?AUTH_DB_USER is required}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:?AUTH_DB_USER is required} -d ${AUTH_DB_NAME:?AUTH_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  found-item-db:
+    image: postgres:17
+    container_name: foundflow-found-item-db
+    environment:
+      POSTGRES_DB: ${FOUND_ITEM_DB_NAME:?FOUND_ITEM_DB_NAME is required}
+      POSTGRES_USER: ${FOUND_ITEM_DB_USER:?FOUND_ITEM_DB_USER is required}
+      POSTGRES_PASSWORD: ${FOUND_ITEM_DB_PASSWORD:?FOUND_ITEM_DB_PASSWORD is required}
+    volumes:
+      - found-item-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FOUND_ITEM_DB_USER:?FOUND_ITEM_DB_USER is required} -d ${FOUND_ITEM_DB_NAME:?FOUND_ITEM_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  lost-item-db:
+    image: postgres:17
+    container_name: foundflow-lost-item-db
+    environment:
+      POSTGRES_DB: ${LOST_ITEM_DB_NAME:?LOST_ITEM_DB_NAME is required}
+      POSTGRES_USER: ${LOST_ITEM_DB_USER:?LOST_ITEM_DB_USER is required}
+      POSTGRES_PASSWORD: ${LOST_ITEM_DB_PASSWORD:?LOST_ITEM_DB_PASSWORD is required}
+    volumes:
+      - lost-item-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOST_ITEM_DB_USER:?LOST_ITEM_DB_USER is required} -d ${LOST_ITEM_DB_NAME:?LOST_ITEM_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  matching-db:
+    image: postgres:17
+    container_name: foundflow-matching-db
+    environment:
+      POSTGRES_DB: ${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}
+      POSTGRES_USER: ${MATCHING_DB_USER:?MATCHING_DB_USER is required}
+      POSTGRES_PASSWORD: ${MATCHING_DB_PASSWORD:?MATCHING_DB_PASSWORD is required}
+    volumes:
+      - matching-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MATCHING_DB_USER:?MATCHING_DB_USER is required} -d ${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  notification-db:
+    image: postgres:17
+    container_name: foundflow-notification-db
+    environment:
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME:?NOTIFICATION_DB_NAME is required}
+      POSTGRES_USER: ${NOTIFICATION_DB_USER:?NOTIFICATION_DB_USER is required}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFICATION_DB_USER:?NOTIFICATION_DB_USER is required} -d ${NOTIFICATION_DB_NAME:?NOTIFICATION_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  operations-db:
+    image: postgres:17
+    container_name: foundflow-operations-db
+    environment:
+      POSTGRES_DB: ${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}
+      POSTGRES_USER: ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required}
+      POSTGRES_PASSWORD: ${OPERATIONS_DB_PASSWORD:?OPERATIONS_DB_PASSWORD is required}
+    volumes:
+      - operations-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required} -d ${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   ollama-models:
+  auth-db-data:
+  found-item-db-data:
+  lost-item-db-data:
+  matching-db-data:
+  notification-db-data:
+  operations-db-data:

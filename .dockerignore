@@ -1,0 +1,16 @@
+.git
+.github
+
+**/build
+**/.gradle
+**/out
+**/target
+
+client/node_modules
+client/dist
+
+**/.idea
+**/.vscode
+
+*.log
+.DS_Store

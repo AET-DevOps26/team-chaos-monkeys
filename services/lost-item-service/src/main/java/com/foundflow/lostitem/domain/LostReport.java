@@ -11,6 +11,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import jakarta.persistence.AssociationOverride;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -41,6 +45,13 @@ public class LostReport {
     private String contactEmail;
 
     @Embedded
+    @AssociationOverride(
+            name = "marks",
+            joinTable = @JoinTable(
+                    name = "lost_report_marks",
+                    joinColumns = @JoinColumn(name = "lost_report_id")
+            )
+    )
     private ItemAttributes attributes;
 
     public LostReport() {

@@ -11,8 +11,13 @@ public record CreateMatchRequest(
         @NotNull
         UUID lostReportId,
 
-        float attributeScore,
-        float semanticScore,
-        float combinedScore
+        @NotNull
+        Float attributeScore,
+
+        @NotNull
+        Float semanticScore,
+
+        @NotNull
+        Float combinedScore
 ) {
 }

@@ -15,6 +15,19 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/actuator/health").permitAll()
                         .pathMatchers("/api/users/**").permitAll()
+                        .pathMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+                        .pathMatchers(
+                                "/auth/v3/api-docs",
+                                "/lost-items/v3/api-docs",
+                                "/found-items/v3/api-docs",
+                                "/matches/v3/api-docs",
+                                "/notifications/v3/api-docs",
+                                "/venues/v3/api-docs"
+                        ).permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->

@@ -116,6 +116,14 @@ async def test_blank_scalar_coerced_to_null():
     assert attrs.color is None
 
 
+async def test_literal_null_string_coerced_to_null():
+    payload = dict(_FULL_OUTPUT, brand="null", approximateTime="None")
+    llm = FakeProvider(chat_response=json.dumps(payload))
+    attrs = await extract_attributes("x", None, llm)
+    assert attrs.brand is None
+    assert attrs.approximate_time is None
+
+
 # --- extract_attributes — invalid model output --------------------------
 
 

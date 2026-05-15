@@ -41,12 +41,14 @@ pytestmark = pytest.mark.skipif(
     reason="set GENAI_RUN_GOLDEN=1 (and provider env) to run the real-LLM golden regression",
 )
 
-# Aggregate floors — PROVISIONAL. Set by intuition before any real run;
-# recalibrate against the printed per-case report after the first
-# GENAI_RUN_GOLDEN execution. They exist to catch a catastrophic regression,
-# not to gate on a tight quality bar.
-MIN_FIELD_ACCURACY = 0.70  # mean fraction of fields matched across all cases
-MIN_CASE_PASS_RATE = 0.60  # fraction of cases matching >= _CASE_PASS_FIELDS
+# Aggregate floors, calibrated against a llama3.2:3b run (field accuracy
+# 93.2%, case pass rate 90.9%) and set well below it to absorb model and
+# run-to-run variance — Ollama samples at a non-zero temperature. They exist
+# to catch a catastrophic regression (e.g. prompt drift that leaks example
+# values, which measured 82.6% / 63.6%), not to gate on a tight quality bar.
+# Re-check if the default provider or model changes.
+MIN_FIELD_ACCURACY = 0.85  # mean fraction of fields matched across all cases
+MIN_CASE_PASS_RATE = 0.72  # fraction of cases matching >= _CASE_PASS_FIELDS
 _CASE_PASS_FIELDS = 5
 
 # Transient failures worth one retry before the case is counted as failed.

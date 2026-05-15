@@ -64,13 +64,14 @@ class ItemAttributes(CamelModel):
         "category", "brand", "color", "approximate_time", "location", mode="before"
     )
     @classmethod
-    def _blank_string_to_null(cls, value: object) -> object:
-        """A blank or whitespace-only scalar means "not determined" — null it.
+    def _nullish_string_to_null(cls, value: object) -> object:
+        """Normalise "not determined" scalars to None.
 
-        The contract returns undeterminable fields as `null`; a model emitting
-        `""` should not slip through as a non-null but empty value.
+        The contract returns undeterminable fields as `null`. Smaller models
+        often emit a blank string, or the literal word "null"/"none", instead
+        of a JSON null — coerce those so they do not slip through as values.
         """
-        if isinstance(value, str) and not value.strip():
+        if isinstance(value, str) and value.strip().casefold() in {"", "null", "none"}:
             return None
         return value
 

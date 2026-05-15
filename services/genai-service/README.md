@@ -93,7 +93,7 @@ app/
   errors.py          Contract error envelope + exception handlers
   exceptions.py      LLMError hierarchy + ModelOutputError
   extraction.py      Attribute-extraction prompt + output validation
-  dependencies.py    FastAPI dependency: get_llm()
+  dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
     extract.py       POST /extract-attributes

@@ -2,7 +2,7 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and notification text generation for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#49 extraction, #50 embeddings, #52 output validation, #53 notification text, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #53 notification text, #54 metrics).
 
 ## Provider configuration
 

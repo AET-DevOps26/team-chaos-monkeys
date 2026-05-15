@@ -171,12 +171,11 @@ def resolve_model_info(
     `/generate-message` run on the chat model, `/embed` on the embed model.
     Defaults to `"chat"` so existing callers are unaffected.
     """
-    models = {
-        ("openai", "chat"): settings.openai_chat_model,
-        ("openai", "embed"): settings.openai_embed_model,
-        ("local", "chat"): settings.ollama_chat_model,
-        ("local", "embed"): settings.ollama_embed_model,
-    }
-    return ModelInfo(
-        provider=settings.provider, model=models[(settings.provider, kind)]
-    )
+    if settings.provider == "openai":
+        chat_model = settings.openai_chat_model
+        embed_model = settings.openai_embed_model
+    else:
+        chat_model = settings.ollama_chat_model
+        embed_model = settings.ollama_embed_model
+    model = chat_model if kind == "chat" else embed_model
+    return ModelInfo(provider=settings.provider, model=model)

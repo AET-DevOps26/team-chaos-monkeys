@@ -45,8 +45,8 @@ def test_diagnostic_rate_limit_returns_429(
 
     assert response.status_code == 429
     body = response.json()
-    assert body["error"]["code"] == "PROVIDER_RATE_LIMITED"
-    assert "simulated rate limit" in body["error"]["message"]
+    assert body["code"] == "PROVIDER_RATE_LIMITED"
+    assert "simulated rate limit" in body["message"]
 
 
 def test_diagnostic_provider_unavailable_returns_502(
@@ -63,7 +63,7 @@ def test_diagnostic_provider_unavailable_returns_502(
     response = client_with_fake.get("/_diagnostic")
 
     assert response.status_code == 502
-    assert response.json()["error"]["code"] == "PROVIDER_UNAVAILABLE"
+    assert response.json()["code"] == "PROVIDER_UNAVAILABLE"
 
 
 def test_diagnostic_not_in_openapi_schema(client_with_fake: TestClient) -> None:

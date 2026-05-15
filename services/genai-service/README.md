@@ -47,7 +47,6 @@ app/
   main.py        FastAPI app, router registration
   api/
     health.py    /health endpoint
-    schemas.py   placeholder request/response models for upcoming endpoints
 tests/
   test_health.py smoke test for /health
 Dockerfile       python:3.12-slim, non-root user, uvicorn entrypoint

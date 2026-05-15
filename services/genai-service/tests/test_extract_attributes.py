@@ -15,7 +15,6 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
 from app.dependencies import get_llm
 from app.exceptions import (
     LLMBadRequestError,
@@ -61,20 +60,6 @@ def post_extract(client_with_fake: TestClient):
         return client_with_fake.post("/extract-attributes", json=body)
 
     return _post
-
-
-@pytest.fixture
-def client_no_raise(monkeypatch: pytest.MonkeyPatch):
-    """TestClient that returns 5xx responses instead of re-raising them.
-
-    Needed to assert on the uncaught-exception (500) handler — the default
-    TestClient re-raises server exceptions instead of returning the response.
-    """
-    monkeypatch.setenv("GENAI_PROVIDER", "local")
-    app.state.settings = Settings()
-    with TestClient(app, raise_server_exceptions=False) as client:
-        yield client
-    app.dependency_overrides.clear()
 
 
 # --- happy path ----------------------------------------------------------

@@ -1,0 +1,353 @@
+[
+  {
+    "id": "complete-jacket-en",
+    "description": "Black North Face puffer jacket with a small Berlin enamel pin on the chest, lost on Saturday around 11pm near the cloakroom.",
+    "language": "en",
+    "profile": "complete",
+    "traits": [],
+    "notes": "Rich description; all six fields determinable.",
+    "expected": {
+      "category": "jacket",
+      "brand": "North Face",
+      "color": "black",
+      "distinguishingMarks": ["small Berlin enamel pin on the chest"],
+      "approximateTime": "Saturday around 11pm",
+      "location": "near the cloakroom"
+    }
+  },
+  {
+    "id": "complete-wallet-en",
+    "description": "I lost a brown leather bifold wallet near the main bar at around 9pm. It has a visibly worn corner and a small ID photo tucked inside.",
+    "language": "en",
+    "profile": "complete",
+    "traits": [],
+    "notes": "No brand stated; two distinguishing marks.",
+    "expected": {
+      "category": "wallet",
+      "brand": null,
+      "color": "brown",
+      "distinguishingMarks": ["visibly worn corner", "small ID photo tucked inside"],
+      "approximateTime": "around 9pm",
+      "location": "near the main bar"
+    }
+  },
+  {
+    "id": "noisy-greeting-headphones-en",
+    "description": "Hi there! Hope you are having a good day. So, I think I might have left my white Sony headphones at the registration desk this afternoon - they were in a small black case. Thanks so much for your help!",
+    "language": "en",
+    "profile": "complete",
+    "traits": ["greeting", "filler"],
+    "notes": "Greeting and sign-off filler around the signal; extraction must ignore the pleasantries.",
+    "expected": {
+      "category": "headphones",
+      "brand": "Sony",
+      "color": "white",
+      "distinguishingMarks": ["in a small black case"],
+      "approximateTime": "this afternoon",
+      "location": "registration desk"
+    }
+  },
+  {
+    "id": "complete-rainjacket-de",
+    "description": "Ich habe gestern Abend gegen 22 Uhr meine dunkelgrüne Regenjacke an der Garderobe vergessen. Marke Jack Wolfskin, mit einem kleinen Aufnäher am linken Ärmel.",
+    "language": "de",
+    "profile": "complete",
+    "traits": [],
+    "notes": "German; expected values stay in German per the contract no-translation rule.",
+    "expected": {
+      "category": "Regenjacke",
+      "brand": "Jack Wolfskin",
+      "color": "dunkelgrün",
+      "distinguishingMarks": ["kleiner Aufnäher am linken Ärmel"],
+      "approximateTime": "gestern Abend gegen 22 Uhr",
+      "location": "an der Garderobe"
+    }
+  },
+  {
+    "id": "noisy-greeting-umbrella-fr",
+    "description": "Bonjour, j'espère que vous pourrez m'aider ! J'ai bêtement oublié mon parapluie bleu marine hier soir vers 21h près du vestiaire. Merci beaucoup d'avance !",
+    "language": "fr",
+    "profile": "complete",
+    "traits": ["greeting", "filler"],
+    "notes": "French; greeting and sign-off filler; no brand or marks present.",
+    "expected": {
+      "category": "parapluie",
+      "brand": null,
+      "color": "bleu marine",
+      "distinguishingMarks": [],
+      "approximateTime": "hier soir vers 21h",
+      "location": "près du vestiaire"
+    }
+  },
+  {
+    "id": "complete-backpack-es",
+    "description": "Perdí mi mochila negra de la marca Eastpak esta mañana cerca de la entrada principal. Tiene un llavero rojo y una mancha de tinta en el bolsillo delantero.",
+    "language": "es",
+    "profile": "complete",
+    "traits": [],
+    "notes": "Spanish; two distinguishing marks.",
+    "expected": {
+      "category": "mochila",
+      "brand": "Eastpak",
+      "color": "negra",
+      "distinguishingMarks": ["llavero rojo", "mancha de tinta en el bolsillo delantero"],
+      "approximateTime": "esta mañana",
+      "location": "cerca de la entrada principal"
+    }
+  },
+  {
+    "id": "complete-sunglasses-it",
+    "description": "Ho perso i miei occhiali da sole Ray-Ban marroni vicino al guardaroba intorno alle 18.",
+    "language": "it",
+    "profile": "complete",
+    "traits": [],
+    "notes": "Italian; concise but complete.",
+    "expected": {
+      "category": "occhiali da sole",
+      "brand": "Ray-Ban",
+      "color": "marroni",
+      "distinguishingMarks": [],
+      "approximateTime": "intorno alle 18",
+      "location": "vicino al guardaroba"
+    }
+  },
+  {
+    "id": "partial-keys-nl",
+    "description": "Ik ben mijn sleutels kwijt, ergens bij de bar. Er zit een blauwe sleutelhanger aan.",
+    "language": "nl",
+    "profile": "partial",
+    "traits": [],
+    "notes": "Dutch; no time or colour; one mark.",
+    "expected": {
+      "category": "sleutels",
+      "brand": null,
+      "color": null,
+      "distinguishingMarks": ["blauwe sleutelhanger"],
+      "approximateTime": null,
+      "location": "bij de bar"
+    }
+  },
+  {
+    "id": "partial-phone-en",
+    "description": "I lost my phone somewhere on the second floor - a black Apple iPhone with a cracked screen protector.",
+    "language": "en",
+    "profile": "partial",
+    "traits": [],
+    "notes": "No time given; brand stated explicitly.",
+    "expected": {
+      "category": "phone",
+      "brand": "Apple",
+      "color": "black",
+      "distinguishingMarks": ["cracked screen protector"],
+      "approximateTime": null,
+      "location": "second floor"
+    }
+  },
+  {
+    "id": "incomplete-phone-en",
+    "description": "black phone",
+    "language": "en",
+    "profile": "incomplete",
+    "traits": [],
+    "notes": "Minimal two-word description; only category and colour determinable.",
+    "expected": {
+      "category": "phone",
+      "brand": null,
+      "color": "black",
+      "distinguishingMarks": [],
+      "approximateTime": null,
+      "location": null
+    }
+  },
+  {
+    "id": "ambiguous-bag-en",
+    "description": "I think I lost my bag somewhere in the venue earlier, but honestly I am not certain.",
+    "language": "en",
+    "profile": "ambiguous",
+    "traits": [],
+    "notes": "Guest is uncertain; 'in the venue' is too broad to be a location hint.",
+    "expected": {
+      "category": "bag",
+      "brand": null,
+      "color": null,
+      "distinguishingMarks": [],
+      "approximateTime": "earlier",
+      "location": null
+    }
+  },
+  {
+    "id": "noisy-irrelevant-scarf-en",
+    "description": "My partner kept telling me to be careful with it and of course I lost it anyway. It is a red wool scarf, hand-knitted, left near the coat check around lunchtime.",
+    "language": "en",
+    "profile": "complete",
+    "traits": ["irrelevant_detail", "filler"],
+    "notes": "Opens with an irrelevant anecdote; the signal is in the second sentence.",
+    "expected": {
+      "category": "scarf",
+      "brand": null,
+      "color": "red",
+      "distinguishingMarks": ["hand-knitted"],
+      "approximateTime": "around lunchtime",
+      "location": "near the coat check"
+    }
+  },
+  {
+    "id": "noisy-greeting-waterbottle-de",
+    "description": "Hallo liebes Team, vielen Dank schon einmal für die Hilfe! Ich habe meine grüne Trinkflasche von Sigg heute Mittag im Konferenzraum stehen lassen. Sie hat einen Kratzer am Boden.",
+    "language": "de",
+    "profile": "complete",
+    "traits": ["greeting"],
+    "notes": "German; greeting filler; one mark.",
+    "expected": {
+      "category": "Trinkflasche",
+      "brand": "Sigg",
+      "color": "grün",
+      "distinguishingMarks": ["Kratzer am Boden"],
+      "approximateTime": "heute Mittag",
+      "location": "im Konferenzraum"
+    }
+  },
+  {
+    "id": "incomplete-glasses-fr",
+    "description": "J'ai perdu mes lunettes de vue. Je ne me souviens plus où exactement.",
+    "language": "fr",
+    "profile": "incomplete",
+    "traits": [],
+    "notes": "French; only the category is determinable.",
+    "expected": {
+      "category": "lunettes de vue",
+      "brand": null,
+      "color": null,
+      "distinguishingMarks": [],
+      "approximateTime": null,
+      "location": null
+    }
+  },
+  {
+    "id": "mixed-language-backpack",
+    "description": "Sorry, my German is better than my English! Ich habe meinen schwarzen Rucksack verloren, somewhere near the cloakroom, vielleicht gegen 19 Uhr.",
+    "language": "de",
+    "profile": "complete",
+    "traits": ["mixed_language"],
+    "notes": "Code-switching guest; item details in German, connective text in English. Expected uses each span as written.",
+    "expected": {
+      "category": "Rucksack",
+      "brand": null,
+      "color": "schwarz",
+      "distinguishingMarks": [],
+      "approximateTime": "gegen 19 Uhr",
+      "location": "near the cloakroom"
+    }
+  },
+  {
+    "id": "noisy-irrelevant-laptop-en",
+    "description": "This is the third time this month I have lost something and my colleagues think I am hopeless. Anyway, it is a silver Dell laptop, fairly heavy, last seen in meeting room B around 3pm. It has a faded university sticker on the lid.",
+    "language": "en",
+    "profile": "complete",
+    "traits": ["irrelevant_detail"],
+    "notes": "Long irrelevant preamble; all fields present in the later sentences.",
+    "expected": {
+      "category": "laptop",
+      "brand": "Dell",
+      "color": "silver",
+      "distinguishingMarks": ["faded university sticker on the lid"],
+      "approximateTime": "around 3pm",
+      "location": "meeting room B"
+    }
+  },
+  {
+    "id": "complete-watch-pt",
+    "description": "Perdi o meu relógio prateado perto da receção por volta das 14h. Tem uma pulseira de couro castanha.",
+    "language": "pt",
+    "profile": "complete",
+    "traits": [],
+    "notes": "Portuguese; one mark; no brand.",
+    "expected": {
+      "category": "relógio",
+      "brand": null,
+      "color": "prateado",
+      "distinguishingMarks": ["pulseira de couro castanha"],
+      "approximateTime": "por volta das 14h",
+      "location": "perto da receção"
+    }
+  },
+  {
+    "id": "incomplete-keys-en",
+    "description": "lost my keys",
+    "language": "en",
+    "profile": "incomplete",
+    "traits": [],
+    "notes": "Bare minimum; only the category is given.",
+    "expected": {
+      "category": "keys",
+      "brand": null,
+      "color": null,
+      "distinguishingMarks": [],
+      "approximateTime": null,
+      "location": null
+    }
+  },
+  {
+    "id": "ambiguous-bag-de",
+    "description": "Ich glaube, ich habe irgendetwas verloren, bin mir aber nicht sicher was. Vielleicht eine Tasche?",
+    "language": "de",
+    "profile": "ambiguous",
+    "traits": [],
+    "notes": "German; guest is unsure even of the item; category is tentative.",
+    "expected": {
+      "category": "Tasche",
+      "brand": null,
+      "color": null,
+      "distinguishingMarks": [],
+      "approximateTime": null,
+      "location": null
+    }
+  },
+  {
+    "id": "noisy-greeting-charger-es",
+    "description": "¡Hola! Muchas gracias por la ayuda. Creo que dejé mi cargador de portátil de color blanco en la sala de espera. No recuerdo la hora exacta.",
+    "language": "es",
+    "profile": "partial",
+    "traits": ["greeting", "filler"],
+    "notes": "Spanish; greeting filler; time explicitly unknown.",
+    "expected": {
+      "category": "cargador de portátil",
+      "brand": null,
+      "color": "blanco",
+      "distinguishingMarks": [],
+      "approximateTime": null,
+      "location": "en la sala de espera"
+    }
+  },
+  {
+    "id": "complete-glassescase-en",
+    "description": "Lost a hard-shell glasses case, dark teal, with a torn zipper and a faded logo. It was by the lounge sofas mid-morning.",
+    "language": "en",
+    "profile": "complete",
+    "traits": [],
+    "notes": "Two distinguishing marks; compound colour.",
+    "expected": {
+      "category": "glasses case",
+      "brand": null,
+      "color": "dark teal",
+      "distinguishingMarks": ["torn zipper", "faded logo"],
+      "approximateTime": "mid-morning",
+      "location": "by the lounge sofas"
+    }
+  },
+  {
+    "id": "partial-earbuds-nolang",
+    "description": "Black earbuds in a small charging case, left near the entrance. Not sure when.",
+    "profile": "partial",
+    "traits": [],
+    "notes": "No language hint supplied - exercises the auto-detect path. Time unknown.",
+    "expected": {
+      "category": "earbuds",
+      "brand": null,
+      "color": "black",
+      "distinguishingMarks": ["in a small charging case"],
+      "approximateTime": null,
+      "location": "near the entrance"
+    }
+  }
+]

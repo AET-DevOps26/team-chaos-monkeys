@@ -83,7 +83,6 @@ app/
   api/
     health.py        /health
     diagnostic.py    /_diagnostic (internal)
-    schemas.py       Request/response models (placeholder)
   providers/
     __init__.py      LLMProvider protocol + build_provider() factory
     openai.py        OpenAI adapter

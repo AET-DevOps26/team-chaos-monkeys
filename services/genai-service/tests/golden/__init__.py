@@ -2,6 +2,10 @@
 
 `load_golden_set()` is importable so the #49 extraction regression suite can
 reuse the same cases.
+
+Scope: text-description extraction only. A lost report may carry an optional
+photo (`LostReport.photoKey`), but image-based attribute extraction is out of
+scope this iteration (docs/architecture.md §3.2), so the set has no photo cases.
 """
 
 from __future__ import annotations

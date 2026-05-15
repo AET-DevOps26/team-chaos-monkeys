@@ -56,33 +56,49 @@ uvicorn app.main:app --reload --port 8000
 
 | Endpoint | Purpose |
 |---|---|
+| `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only — multi-item descriptions are tracked separately (#88). |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /docs` | Swagger UI |
 
-Public API endpoints (`/extract-attributes`, `/embed`, `/notify`) are specified in `api/openapi.yaml` and landed by tickets #49 / #50 / #53.
+All public endpoints are specified in `api/openapi.yaml`, the single source of truth. The remaining ones (`/embed`, `/generate-message`) land with tickets #50 / #53.
 
 ## Tests
 
 ```
 pip install -e '.[dev]'
 pytest                      # unit + contract tests (no network, no Ollama)
-GENAI_RUN_INTEGRATION=1 pytest tests/integration/   # hits real Ollama
+GENAI_RUN_INTEGRATION=1 pytest tests/integration/test_real_provider.py   # hits real Ollama
 ```
 
 The contract test (`tests/test_provider_contract.py`) parametrizes the same assertions over both adapters using `respx`. If a future change drifts one adapter's behavior from the other (e.g. silently swallows timeouts), this test fails first.
+
+### Golden extraction regression
+
+`tests/golden/` holds a 22-case attribute-extraction set. Normal CI runs it as a wiring check (every description must flow through `/extract-attributes`) and unit-tests the fuzzy comparator. The real-LLM quality regression is gated so it does not run in CI:
+
+```
+GENAI_RUN_GOLDEN=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \
+    pytest tests/integration/test_golden_extraction.py -s
+```
+
+It runs one extraction per case, scores each field fuzzily against the hand-authored expectations, prints a per-case report, and asserts loose aggregate floors — enough to catch a prompt change that tanks extraction quality.
 
 ## Layout
 
 ```
 app/
-  main.py            FastAPI app, lifespan, exception handlers
+  main.py            FastAPI app, lifespan, router wiring
   config.py          Settings (pydantic-settings) + validators
-  exceptions.py      LLMError hierarchy mapped to HTTP statuses
-  dependencies.py    FastAPI dependency: get_llm()
+  errors.py          Contract error envelope + exception handlers
+  exceptions.py      LLMError hierarchy + ModelOutputError
+  extraction.py      Attribute-extraction prompt + output validation
+  dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
+    extract.py       POST /extract-attributes
     diagnostic.py    /_diagnostic (internal)
+    schemas.py       Pydantic models mirroring api/openapi.yaml
   providers/
     __init__.py      LLMProvider protocol + build_provider() factory
     openai.py        OpenAI adapter
@@ -91,9 +107,13 @@ app/
 tests/
   test_settings.py
   test_provider_contract.py     parametrized over both adapters
+  test_extraction.py            extraction logic (mocked provider)
+  test_extract_attributes.py    /extract-attributes endpoint
+  test_golden_compare.py        golden-set fuzzy comparator
   test_diagnostic.py
   test_health.py
-  integration/                  env-gated, hits real Ollama
+  golden/                       22-case attribute-extraction set
+  integration/                  env-gated, hits a real provider
 Dockerfile           python:3.12-slim, non-root user, uvicorn entrypoint
 pyproject.toml       PEP 621 metadata + dev extras
 ```

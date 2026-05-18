@@ -5,8 +5,8 @@ These mirror `components.schemas` of the repo-root OpenAPI contract
 wire format is camelCase; `CamelModel` maps between snake_case Python
 attributes and camelCase JSON so the rest of the service stays Pythonic.
 
-This revision covers `/extract-attributes` (#49) and `/embed` (#50).
-Models for `/generate-message` (#53) are added by that ticket.
+This revision covers `/extract-attributes` (#49), `/embed` (#50), and
+`/generate-message` (#53).
 """
 
 from __future__ import annotations
@@ -122,6 +122,56 @@ class EmbedResponse(CamelModel):
     embeddings: list[list[float]]
     dimensions: int
     model_info: ModelInfo
+
+
+class PickupContext(CamelModel):
+    """Pickup details for a confirmed match — the `PickupContext` schema.
+
+    A curated, guest-safe payload: no match scores, confidence values, or
+    internal identifiers beyond a human-readable case reference. The contract
+    does not constrain these strings beyond presence, so neither do we — the
+    text inside them is still treated as untrusted by `app.generation`.
+    """
+
+    item_description: str
+    pickup_location: str
+    pickup_hours: str
+    case_reference: str
+
+
+class GenerateMessageRequest(CamelModel):
+    """Request body for `POST /generate-message`."""
+
+    message_type: Literal["pickup_notification"]
+    language: str = Field(pattern=r"^[a-z]{2}$")
+    tone: Literal["formal", "casual", "terse"]
+    context: PickupContext
+
+
+class GenerateMessageResponse(CamelModel):
+    """Response body for `POST /generate-message`.
+
+    `subject` and `body` are plain text; `notification-service` wraps them in
+    the email/SMS transport.
+    """
+
+    subject: str = Field(max_length=200)
+    body: str
+    model_info: ModelInfo
+
+
+class PickupNotificationMessage(CamelModel):
+    """The LLM's notification output — used for validation only.
+
+    Not part of the API surface. `app.generation.parse_pickup_message`
+    validates the model's JSON against this before the route builds the
+    `GenerateMessageResponse`. A blank or oversized field is a bad
+    generation, so both fields are constrained — a violation becomes a
+    `ModelOutputError` (HTTP 422).
+    """
+
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1)
 
 
 class ErrorCode(StrEnum):

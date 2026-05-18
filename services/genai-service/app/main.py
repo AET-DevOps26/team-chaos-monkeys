@@ -17,7 +17,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
-from app.api import diagnostic, embed, extract, health
+from app.api import diagnostic, embed, extract, generate, health
 from app.config import Settings
 from app.errors import register_exception_handlers
 from app.providers import build_provider
@@ -45,4 +45,5 @@ register_exception_handlers(app)
 app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
+app.include_router(generate.router)
 app.include_router(diagnostic.router)

@@ -2,7 +2,7 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and notification text generation for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #53 notification text, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #54 metrics).
 
 ## Provider configuration
 
@@ -58,11 +58,12 @@ uvicorn app.main:app --reload --port 8000
 |---|---|
 | `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only — multi-item descriptions are tracked separately (#88). |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
+| `POST /generate-message` | Generate guest pickup notification text for a confirmed match. Best-effort — `notification-service` falls back to a static template on failure. |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /docs` | Swagger UI |
 
-All public endpoints are specified in `api/openapi.yaml`, the single source of truth. The remaining one (`/generate-message`) lands with ticket #53.
+All public endpoints are specified in `api/openapi.yaml`, the single source of truth.
 
 ## Tests
 
@@ -84,6 +85,17 @@ GENAI_RUN_GOLDEN=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \
 ```
 
 It runs one extraction per case, scores each field fuzzily against the hand-authored expectations, prints a per-case report, and asserts loose aggregate floors — enough to catch a prompt change that tanks extraction quality.
+
+### Generation check
+
+`tests/integration/test_real_generation.py` is a gated real-LLM check that `/generate-message`'s prompt yields schema-valid output on a real provider. Like the golden regression it is excluded from CI; run it on demand:
+
+```
+GENAI_RUN_GENERATION=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \
+    pytest tests/integration/test_real_generation.py -s
+```
+
+It makes one call per (language, tone) case and asserts the output parses into the response schema and carries the supplied case reference — a structural check, not a prose-quality score.
 
 ## Layout
 

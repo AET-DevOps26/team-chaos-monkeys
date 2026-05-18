@@ -14,7 +14,7 @@ drift apart.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -162,10 +162,20 @@ def _format_validation_error(err: dict[str, Any]) -> str:
     return f"{loc}: {err.get('msg', 'invalid')}"
 
 
-def resolve_model_info(settings: Settings) -> ModelInfo:
-    """The provider and chat model that served a request, for `ModelInfo`."""
+def resolve_model_info(
+    settings: Settings, kind: Literal["chat", "embed"] = "chat"
+) -> ModelInfo:
+    """The provider and the model that served a request, for `ModelInfo`.
+
+    `kind` selects the model family: `/extract-attributes` and
+    `/generate-message` run on the chat model, `/embed` on the embed model.
+    Defaults to `"chat"` so existing callers are unaffected.
+    """
     if settings.provider == "openai":
-        model = settings.openai_chat_model
+        chat_model = settings.openai_chat_model
+        embed_model = settings.openai_embed_model
     else:
-        model = settings.ollama_chat_model
+        chat_model = settings.ollama_chat_model
+        embed_model = settings.ollama_embed_model
+    model = chat_model if kind == "chat" else embed_model
     return ModelInfo(provider=settings.provider, model=model)

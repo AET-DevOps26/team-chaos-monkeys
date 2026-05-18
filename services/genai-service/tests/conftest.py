@@ -43,3 +43,18 @@ def client_with_fake(
         yield client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client_no_raise(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """A TestClient that returns 5xx responses instead of re-raising them.
+
+    The default TestClient re-raises uncaught server exceptions into the
+    test; this one surfaces them as HTTP responses so the uncaught-exception
+    (500) handler can be asserted on.
+    """
+    monkeypatch.setenv("GENAI_PROVIDER", "local")
+    app.state.settings = Settings()
+    with TestClient(app, raise_server_exceptions=False) as client:
+        yield client
+    app.dependency_overrides.clear()

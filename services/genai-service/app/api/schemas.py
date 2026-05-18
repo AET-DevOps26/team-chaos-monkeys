@@ -5,14 +5,14 @@ These mirror `components.schemas` of the repo-root OpenAPI contract
 wire format is camelCase; `CamelModel` maps between snake_case Python
 attributes and camelCase JSON so the rest of the service stays Pythonic.
 
-This revision covers `/extract-attributes` (#49). Models for `/embed`
-(#50) and `/generate-message` (#53) are added by those tickets.
+This revision covers `/extract-attributes` (#49) and `/embed` (#50).
+Models for `/generate-message` (#53) are added by that ticket.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
@@ -94,6 +94,33 @@ class ExtractAttributesResponse(CamelModel):
     """Response body for `POST /extract-attributes`."""
 
     attributes: ItemAttributes
+    model_info: ModelInfo
+
+
+class EmbedRequest(CamelModel):
+    """Request body for `POST /embed`.
+
+    `texts` is bounded at 1-32 items — callers keep batches small to bound
+    provider latency — and each text is 1-8000 characters. `purpose` is
+    recorded for future prompt/model specialisation; today every purpose
+    embeds the same way.
+    """
+
+    texts: list[Annotated[str, Field(min_length=1, max_length=8000)]] = Field(
+        min_length=1, max_length=32
+    )
+    purpose: Literal["lost_report", "found_item", "search_query"]
+
+
+class EmbedResponse(CamelModel):
+    """Response body for `POST /embed`.
+
+    `embeddings` is parallel to the request `texts` — `embeddings[i]` is the
+    vector for `texts[i]` — and every vector has length `dimensions`.
+    """
+
+    embeddings: list[list[float]]
+    dimensions: int
     model_info: ModelInfo
 
 

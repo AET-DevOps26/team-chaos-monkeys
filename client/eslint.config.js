@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'src/api/auth', 'src/api/lost-items', 'src/api/found-items']), // autogen may cause false positives
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

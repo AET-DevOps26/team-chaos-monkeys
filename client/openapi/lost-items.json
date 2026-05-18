@@ -1,0 +1,271 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://lost-item-service:8082",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/lost-reports/{id}": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getAllLostReports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LostReportResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "createLostReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ItemAttributesDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "marks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateLostReportRequest": {
+        "type": "object",
+        "properties": {
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "MATCHED",
+              "CLOSED",
+              "COLLECTED"
+            ]
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "contactEmail",
+          "description",
+          "lostAt",
+          "status"
+        ]
+      },
+      "LostReportResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "MATCHED",
+              "CLOSED",
+              "COLLECTED"
+            ]
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        }
+      },
+      "CreateLostReportRequest": {
+        "type": "object",
+        "properties": {
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "contactEmail",
+          "description",
+          "lostAt"
+        ]
+      }
+    }
+  }
+}

@@ -8,10 +8,25 @@ container instead of 500ing on the first request.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from app.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def _isolate_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run each test from an empty working directory.
+
+    `Settings` loads `.env` relative to the current directory. Without this,
+    a developer's local `services/genai-service/.env` would leak into
+    `Settings()` — and these tests, which drive configuration purely through
+    environment variables, would pass or fail depending on whether that file
+    exists. CI has no `.env` (it is gitignored), so the gap was invisible there.
+    """
+    monkeypatch.chdir(tmp_path)
 
 
 def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:

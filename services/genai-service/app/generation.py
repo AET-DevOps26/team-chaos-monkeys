@@ -9,8 +9,8 @@ to guest- or staff-authored free text, so `build_messages` fences it as
 delimited data and `SYSTEM_PROMPT` forbids acting on instructions inside it.
 
 Best-effort by contract: on any failure the route surfaces the standard
-error envelope and `notification-service` falls back to its own static
-template. See docs/superpowers/specs/2026-05-18-genai-generate-message-design.md.
+error envelope and `notification-service` is expected to fall back to its
+own static template. See docs/superpowers/specs/2026-05-18-genai-generate-message-design.md.
 """
 
 from __future__ import annotations

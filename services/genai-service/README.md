@@ -107,11 +107,13 @@ app/
   exceptions.py      LLMError hierarchy + ModelOutputError
   extraction.py      Attribute-extraction prompt + output validation
   embedding.py       Text-embedding batch fan-out
+  generation.py      Notification-text prompt + output validation
   dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
     extract.py       POST /extract-attributes
     embed.py         POST /embed
+    generate.py      POST /generate-message
     diagnostic.py    /_diagnostic (internal)
     schemas.py       Pydantic models mirroring api/openapi.yaml
   providers/
@@ -126,6 +128,8 @@ tests/
   test_extract_attributes.py    /extract-attributes endpoint
   test_embedding.py             embedding logic (mocked provider)
   test_embed.py                 /embed endpoint
+  test_generation.py            generation logic (mocked provider)
+  test_generate_message.py      /generate-message endpoint
   test_golden_compare.py        golden-set fuzzy comparator
   test_diagnostic.py
   test_health.py

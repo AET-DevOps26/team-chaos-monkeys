@@ -2,7 +2,7 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and notification text generation for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#49 extraction, #50 embeddings, #52 output validation, #53 notification text, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #53 notification text, #54 metrics).
 
 ## Provider configuration
 
@@ -57,11 +57,12 @@ uvicorn app.main:app --reload --port 8000
 | Endpoint | Purpose |
 |---|---|
 | `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only — multi-item descriptions are tracked separately (#88). |
+| `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /docs` | Swagger UI |
 
-All public endpoints are specified in `api/openapi.yaml`, the single source of truth. The remaining ones (`/embed`, `/generate-message`) land with tickets #50 / #53.
+All public endpoints are specified in `api/openapi.yaml`, the single source of truth. The remaining one (`/generate-message`) lands with ticket #53.
 
 ## Tests
 
@@ -93,10 +94,12 @@ app/
   errors.py          Contract error envelope + exception handlers
   exceptions.py      LLMError hierarchy + ModelOutputError
   extraction.py      Attribute-extraction prompt + output validation
+  embedding.py       Text-embedding batch fan-out
   dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
     extract.py       POST /extract-attributes
+    embed.py         POST /embed
     diagnostic.py    /_diagnostic (internal)
     schemas.py       Pydantic models mirroring api/openapi.yaml
   providers/
@@ -109,6 +112,8 @@ tests/
   test_provider_contract.py     parametrized over both adapters
   test_extraction.py            extraction logic (mocked provider)
   test_extract_attributes.py    /extract-attributes endpoint
+  test_embedding.py             embedding logic (mocked provider)
+  test_embed.py                 /embed endpoint
   test_golden_compare.py        golden-set fuzzy comparator
   test_diagnostic.py
   test_health.py

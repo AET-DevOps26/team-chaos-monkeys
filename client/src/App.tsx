@@ -1,21 +1,16 @@
-import { useEffect, useState } from "react";
+import { useGetAllUsers } from '@/api/auth/user-controller/user-controller'
 
 function App() {
-  const [message, setMessage] = useState<string>("Loading...");
+  const { data, isLoading, error } = useGetAllUsers()
 
-  useEffect(() => {
-    fetch("http://localhost:8081/greet")
-      .then((res) => res.text())
-      .then((text: string) => setMessage(text))
-      .catch(() => setMessage("Backend not reachable"));
-  }, []);
+  const status = isLoading ? '…' : error ? 'error' : (data?.length ?? 0)
 
   return (
-    <main style={{ padding: "2rem", fontFamily: "Arial" }}>
+    <main style={{ padding: '2rem', fontFamily: 'Arial' }}>
       <h1>FoundFlow</h1>
-      <p>{message}</p>
+      <p>Users loaded: {status}</p>
     </main>
-  );
+  )
 }
 
-export default App;
+export default App

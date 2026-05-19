@@ -34,12 +34,17 @@ export default function ReportLostItem() {
   }, [photo])
 
   const onSubmit = (data: ReportLostItemInput) => {
+    // TODO: multipart upload for `data.photo` once the API accepts it;
+    // currently the file is collected for preview only and discarded here.
     mutate(
       {
         data: {
           description: data.description,
           contactEmail: data.contactEmail,
-          lostAt: new Date(data.lostAt).toISOString(),
+          // `datetime-local` already gives ISO-8601 local time
+          // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
+          // intent is preserved instead of collapsed to UTC.
+          lostAt: data.lostAt,
         },
       },
       {

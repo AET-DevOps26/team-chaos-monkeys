@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { createLostReportBody } from '@/api/lost-items/zod'
 
+// `lostAt` can't be picked from the generated body: the spec is strict
+// UTC ISO (`...Z`), but the `datetime-local` input produces a naive
+// local string. The other fields stay sourced from codegen so a spec
+// change surfaces here as a type error.
 export const reportLostItemSchema = createLostReportBody
   .pick({ description: true, contactEmail: true })
   .extend({

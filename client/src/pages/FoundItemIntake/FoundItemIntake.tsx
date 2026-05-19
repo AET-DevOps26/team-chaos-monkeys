@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useCreateFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
+import type { CreateFoundItemRequest } from '@/api/found-items/model'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
 // TODO: derive venueId from tenant subdomain (e.g. tenant-a.localhost)
@@ -74,6 +76,9 @@ export default function FoundItemIntake() {
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const createFoundItem = useCreateFoundItem()
 
   useEffect(() => {
     if (!photo) {
@@ -85,35 +90,44 @@ export default function FoundItemIntake() {
     return () => URL.revokeObjectURL(url)
   }, [photo])
 
-  const onSubmit = (data: FoundItemIntakeInput) => {
+  const onSubmit = async (data: FoundItemIntakeInput) => {
     const marks = data.marks.map((m) => m.value.trim()).filter(Boolean)
+    const attributes = {
+      category: data.category || undefined,
+      brand: data.brand || undefined,
+      color: data.color || undefined,
+      marks: marks.length > 0 ? marks : undefined,
+    }
+    const hasAttributes = Object.values(attributes).some((v) => v !== undefined)
 
-    const payload = {
+    // TODO: upload data.photo to object storage and pass the returned key as photoKey
+    const payload: CreateFoundItemRequest = {
       description: data.description || undefined,
       foundAt: new Date(data.foundAt).toISOString(),
       locationHint: data.locationHint || undefined,
       venueId: VENUE_ID,
       reporterId: REPORTER_ID,
-      attributes: {
-        category: data.category || undefined,
-        brand: data.brand || undefined,
-        color: data.color || undefined,
-        marks: marks.length > 0 ? marks : undefined,
-      },
+      attributes: hasAttributes ? attributes : undefined,
     }
-    console.log('found item intake payload', payload, { photo: data.photo })
-    reset({
-      description: '',
-      foundAt: nowForDatetimeLocal(),
-      locationHint: '',
-      category: '',
-      brand: '',
-      color: '',
-      marks: [],
-      photo: null,
-    })
-    setShowSuccess(true)
-    window.setTimeout(() => setShowSuccess(false), 3000)
+
+    setSubmitError(null)
+    try {
+      await createFoundItem.mutateAsync({ data: payload })
+      reset({
+        description: '',
+        foundAt: nowForDatetimeLocal(),
+        locationHint: '',
+        category: '',
+        brand: '',
+        color: '',
+        marks: [],
+        photo: null,
+      })
+      setShowSuccess(true)
+      window.setTimeout(() => setShowSuccess(false), 3000)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to log found item.')
+    }
   }
 
   const hasPhoto = !!previewUrl
@@ -123,23 +137,25 @@ export default function FoundItemIntake() {
       <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col gap-3" noValidate>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-medium text-text-h">Log a found item</h1>
-          {showSuccess && (
-            <span
-              key={String(showSuccess)}
-              className="animate-[foundItemFadeIn_300ms_ease-out_both] text-xs text-accent"
-            >
-              Found item logged successfully.
-            </span>
-          )}
-          {hasPhoto && (
-            <button
-              type="submit"
-              disabled={!isValid}
-              className="rounded bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Log found item
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {submitError && (
+              <span className="text-xs text-red-500">{submitError}</span>
+            )}
+            {showSuccess && (
+              <span className="animate-[foundItemFadeIn_300ms_ease-out_both] text-xs text-accent">
+                Found item logged successfully.
+              </span>
+            )}
+            {hasPhoto && (
+              <button
+                type="submit"
+                disabled={!isValid || createFoundItem.isPending}
+                className="rounded bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {createFoundItem.isPending ? 'Logging…' : 'Log found item'}
+              </button>
+            )}
+          </div>
         </div>
 
         <input

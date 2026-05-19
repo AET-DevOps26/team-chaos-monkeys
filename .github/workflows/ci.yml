@@ -131,6 +131,33 @@ jobs:
       - name: Fail if generated client drifted
         run: git diff --exit-code client/src/api
 
+  docker-smoke-test:
+    name: Start system and run healthchecks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Regenerate client from committed specs
+        working-directory: ./client
+        run: npm run codegen
+
+      - name: Fail if generated client drifted
+        run: git diff --exit-code client/src/api
+
   e2e-tests:
     name: Run Docker Compose E2E flow
     runs-on: ubuntu-24.04

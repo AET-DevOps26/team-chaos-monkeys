@@ -72,6 +72,24 @@ def test_happy_path_returns_verdict_and_model_info(post_verify):
     assert body["modelInfo"] == {"provider": "local", "model": "llama3.2:3b"}
 
 
+def test_happy_path_no_match_verdict(post_verify):
+    chat_response = json.dumps(
+        {"verdict": "no_match", "confidence": 0.12, "rationale": "Different brand and colour."}
+    )
+    response = post_verify(_body(), chat_response=chat_response)
+    assert response.status_code == 200
+    assert response.json()["verdict"] == "no_match"
+
+
+def test_happy_path_uncertain_verdict(post_verify):
+    chat_response = json.dumps(
+        {"verdict": "uncertain", "confidence": 0.55, "rationale": "Some features overlap but not conclusive."}
+    )
+    response = post_verify(_body(), chat_response=chat_response)
+    assert response.status_code == 200
+    assert response.json()["verdict"] == "uncertain"
+
+
 def test_response_uses_camelcase_keys(post_verify):
     body = post_verify(_body()).json()
     assert "modelInfo" in body and "model_info" not in body

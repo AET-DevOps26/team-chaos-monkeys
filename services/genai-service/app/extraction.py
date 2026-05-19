@@ -168,7 +168,7 @@ def resolve_model_info(
     """The provider and the model that served a request, for `ModelInfo`.
 
     `kind` selects the model family: `/extract-attributes` and
-    `/generate-message` run on the chat model, `/embed` on the embed model.
+    `/verify-match` run on the chat model, `/embed` on the embed model.
     Defaults to `"chat"` so existing callers are unaffected.
     """
     if settings.provider == "openai":

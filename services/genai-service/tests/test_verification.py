@@ -11,7 +11,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from app.api.schemas import ItemSide, VerificationOutput, VerifyMatchRequest
+from app.api.schemas import ItemAttributes, ItemSide, VerificationOutput, VerifyMatchRequest
 from app.exceptions import LLMUnavailableError, ModelOutputError
 from app.verification import build_messages, parse_verification, verify_match
 from app.providers.fake import FakeProvider
@@ -103,6 +103,21 @@ def test_build_messages_fences_descriptions_as_untrusted_data():
 def test_build_messages_includes_language():
     user = build_messages(_request(language="de"))[1]["content"]
     assert "de" in user
+
+
+def test_format_side_includes_structured_attributes():
+    attrs = ItemAttributes(category="jacket", brand="North Face")
+    user = build_messages(
+        _request(lost=ItemSide(description="x", attributes=attrs))
+    )[1]["content"]
+    assert "structured attributes" in user
+    assert "North Face" in user
+    assert '"category"' in user  # confirms camelCase model_dump_json output
+
+
+def test_format_side_omits_attributes_block_when_absent():
+    user = build_messages(_request())[1]["content"]
+    assert "structured attributes" not in user
 
 
 # --- verify_match --------------------------------------------------------

@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.foundflow.auth.domain.Role;
 import com.foundflow.auth.domain.User;
@@ -117,6 +118,48 @@ class UserServiceTest {
                 )
         );
 
+        verifyNoInteractions(passwordEncoder);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void createUser_shouldRejectStaffWithoutVenueForAdmin() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        CreateUserRequest request = new CreateUserRequest(
+                "staff@example.com",
+                Role.STAFF,
+                "password123",
+                null
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.createUser(request, adminJwt())
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        verifyNoInteractions(passwordEncoder);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void createUser_shouldRejectAdminWithVenueForAdmin() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        CreateUserRequest request = new CreateUserRequest(
+                "admin@example.com",
+                Role.ADMIN,
+                "password123",
+                UUID.randomUUID()
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> userService.createUser(request, adminJwt())
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
         verifyNoInteractions(passwordEncoder);
         verifyNoInteractions(userRepository);
     }

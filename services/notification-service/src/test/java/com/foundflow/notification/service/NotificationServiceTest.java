@@ -52,6 +52,24 @@ class NotificationServiceTest {
     }
 
     @Test
+    void createNotification_shouldAllowAdminRequestWithoutVenue() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        CreateNotificationRequest request = createRequest(UUID.randomUUID(), null);
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationResponse response = service.createNotification(request, adminJwt());
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        assertNull(captor.getValue().getVenueId());
+        assertNull(response.venueId());
+    }
+
+    @Test
     void getNotificationById_shouldReturnResponseForOwnVenue() {
         NotificationService service = new NotificationService(notificationRepository, venueAccessService);
 
@@ -108,6 +126,27 @@ class NotificationServiceTest {
         assertEquals(sentAt, response.get().sentAt());
     }
 
+    @Test
+    void updateNotification_shouldAllowAdminRequestWithoutVenue() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Notification existing = notification(UUID.randomUUID(), venueId, "old@example.com", null);
+        UpdateNotificationRequest request = updateRequest(UUID.randomUUID(), null, null);
+
+        when(notificationRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<NotificationResponse> response = service.updateNotification(id, request, adminJwt());
+
+        assertTrue(response.isPresent());
+        assertNull(response.get().venueId());
+        verify(notificationRepository).findById(id);
+        verify(notificationRepository).save(existing);
+    }
+
     private CreateNotificationRequest createRequest(UUID matchId, UUID venueId) {
         return new CreateNotificationRequest(
                 matchId,
@@ -160,6 +199,13 @@ class NotificationServiceTest {
                 .header("alg", "none")
                 .claim("roles", List.of("STAFF"))
                 .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt adminJwt() {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("ADMIN"))
                 .build();
     }
 }

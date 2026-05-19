@@ -69,7 +69,7 @@ public class FoundItemController {
         ));
     }
 
-    @GetMapping("/{id}") 
+    @GetMapping("/{id}")
     public ResponseEntity<FoundItemResponse> getFoundItemById(
             @PathVariable UUID id,
             JwtAuthenticationToken authentication

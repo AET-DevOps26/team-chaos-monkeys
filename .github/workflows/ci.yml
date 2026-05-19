@@ -161,13 +161,18 @@ jobs:
       - name: Show running containers
         run: docker compose ps
 
-      - name: Wait for gateway and auth
+      - name: Wait for backend services
         shell: bash
         run: |
           set -euo pipefail
 
           services=(
             "auth-service|http://localhost:8081/actuator/health"
+            "lost-item-service|http://localhost:8080/lost-items/v3/api-docs"
+            "found-item-service|http://localhost:8080/found-items/v3/api-docs"
+            "matching-service|http://localhost:8080/matches/v3/api-docs"
+            "notification-service|http://localhost:8080/notifications/v3/api-docs"
+            "operations-service|http://localhost:8080/venues/v3/api-docs"
             "gateway-service|http://localhost:8080/actuator/health"
           )
 

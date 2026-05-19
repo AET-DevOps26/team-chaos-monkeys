@@ -8,6 +8,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.foundflow.auth.domain.Role;
 import com.foundflow.auth.domain.User;
@@ -118,11 +120,17 @@ public class UserService {
         if (isAdmin(jwt)) {
             if ((request.role() == Role.STAFF || request.role() == Role.OPS_MANAGER)
                     && request.venueId() == null) {
-                throw new IllegalArgumentException("STAFF and OPS_MANAGER require a venueId.");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "STAFF and OPS_MANAGER require a venueId."
+                );
             }
 
             if (request.role() == Role.ADMIN && request.venueId() != null) {
-                throw new IllegalArgumentException("ADMIN must not have a venueId.");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "ADMIN must not have a venueId."
+                );
             }
 
             return request.venueId();

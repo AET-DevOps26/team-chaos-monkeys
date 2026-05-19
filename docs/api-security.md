@@ -277,6 +277,8 @@ Base path: `/api/notifications`
 | `POST` | `/api/notifications/bluePrints` | - | Currently dummy endpoint; `ADMIN`, `OPS_MANAGER` only |
 | `PUT` | `/api/notifications/bluePrints/{id}` | - | Currently dummy endpoint; `ADMIN`, `OPS_MANAGER` only |
 
+For notification writes, `STAFF` and `OPS_MANAGER` always receive `venueId` from the JWT. `ADMIN` may provide `venueId`, but can also create venue-independent notifications with `venueId: null`.
+
 Blueprint note: once blueprints are persisted, read/write operations should also verify the blueprint `venueId`. The current dummy implementation only enforces role-based access.
 
 ## Operations Service

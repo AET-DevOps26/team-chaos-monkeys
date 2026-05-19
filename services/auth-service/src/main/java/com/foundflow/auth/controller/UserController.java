@@ -6,6 +6,7 @@ import com.foundflow.auth.dto.UserResponse;
 import com.foundflow.auth.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,27 +24,36 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<UserResponse> createUser(
-            @Valid @RequestBody CreateUserRequest request
+            @Valid @RequestBody CreateUserRequest request,
+            JwtAuthenticationToken authentication
     ) {
-        UserResponse response = userService.createUser(request);
+        UserResponse response = userService.createUser(request, authentication.getToken());
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<List<UserResponse>> getAllUsers(
+            JwtAuthenticationToken authentication
+    ) {
+        return ResponseEntity.ok(userService.getAllUsers(authentication.getToken()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
-        return userService.getUserById(id)
+    public ResponseEntity<UserResponse> getUserById(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return userService.getUserById(id, authentication.getToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/by-email")
-    public ResponseEntity<UserResponse> getUserByEmail(@RequestParam String email) {
-        return userService.getUserByEmail(email)
+    public ResponseEntity<UserResponse> getUserByEmail(
+            @RequestParam String email,
+            JwtAuthenticationToken authentication
+    ) {
+        return userService.getUserByEmail(email, authentication.getToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -51,16 +61,20 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateUserRequest request
+            @Valid @RequestBody UpdateUserRequest request,
+            JwtAuthenticationToken authentication
     ) {
-        return userService.updateUser(id, request)
+        return userService.updateUser(id, request, authentication.getToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
-        if (userService.deleteUser(id)) {
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        if (userService.deleteUser(id, authentication.getToken())) {
             return ResponseEntity.noContent().build();
         } else {
             return ResponseEntity.notFound().build();

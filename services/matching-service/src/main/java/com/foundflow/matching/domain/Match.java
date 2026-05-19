@@ -2,6 +2,8 @@ package com.foundflow.matching.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,6 +26,13 @@ public class Match {
     @Column(name = "lost_report_id", nullable = false)
     private UUID lostReportId;
 
+    @Column(name = "venue_id")
+    private UUID venueId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status;
+
     @Column(name = "attribute_score", nullable = false)
     private float attributeScore;
 
@@ -42,6 +51,8 @@ public class Match {
     public Match(
             UUID foundItemId,
             UUID lostReportId,
+            UUID venueId,
+            MatchStatus status,
             float attributeScore,
             float semanticScore,
             float combinedScore,
@@ -49,6 +60,8 @@ public class Match {
     ) {
         this.foundItemId = foundItemId;
         this.lostReportId = lostReportId;
+        this.venueId = venueId;
+        this.status = status;
         this.attributeScore = attributeScore;
         this.semanticScore = semanticScore;
         this.combinedScore = combinedScore;
@@ -65,6 +78,14 @@ public class Match {
 
     public UUID getLostReportId() {
         return lostReportId;
+    }
+
+    public UUID getVenueId() {
+        return venueId;
+    }
+
+    public MatchStatus getStatus() {
+        return status;
     }
 
     public float getAttributeScore() {
@@ -89,6 +110,14 @@ public class Match {
 
     public void setLostReportId(UUID lostReportId) {
         this.lostReportId = lostReportId;
+    }
+
+    public void setVenueId(UUID venueId) {
+        this.venueId = venueId;
+    }
+
+    public void setStatus(MatchStatus status) {
+        this.status = status;
     }
 
     public void setAttributeScore(float attributeScore) {

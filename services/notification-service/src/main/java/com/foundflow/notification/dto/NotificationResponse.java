@@ -6,6 +6,7 @@ import java.util.UUID;
 public record NotificationResponse(
         UUID id,
         UUID matchId,
+        UUID venueId,
         String recipientAddress,
         String language,
         String subject,

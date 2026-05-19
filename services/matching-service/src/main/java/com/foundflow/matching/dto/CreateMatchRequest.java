@@ -11,6 +11,8 @@ public record CreateMatchRequest(
         @NotNull
         UUID lostReportId,
 
+        UUID venueId,
+
         @NotNull
         Float attributeScore,
 

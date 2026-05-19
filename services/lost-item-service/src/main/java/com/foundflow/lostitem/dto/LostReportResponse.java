@@ -12,6 +12,7 @@ public record LostReportResponse(
         LocalDateTime lostAt,
         String location,
         ReportStatus status,
+        UUID venueId,
         String contactEmail,
         ItemAttributesDto attributes
 ) {

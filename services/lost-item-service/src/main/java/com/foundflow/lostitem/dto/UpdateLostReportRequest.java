@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record UpdateLostReportRequest(
         String photoKey,
@@ -21,6 +22,8 @@ public record UpdateLostReportRequest(
 
         @NotNull
         ReportStatus status,
+
+        UUID venueId,
 
         @NotBlank
         @Email

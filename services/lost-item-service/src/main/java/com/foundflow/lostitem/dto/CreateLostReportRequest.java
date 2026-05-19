@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record CreateLostReportRequest(
         String photoKey,
@@ -17,6 +18,8 @@ public record CreateLostReportRequest(
         LocalDateTime lostAt,
 
         String location,
+
+        UUID venueId,
 
         @NotBlank
         @Email

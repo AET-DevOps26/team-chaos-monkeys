@@ -5,14 +5,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,7 +34,6 @@ import com.foundflow.auth.service.UserService;
 import tools.jackson.databind.json.JsonMapper;
 
 @WebMvcTest(UserController.class)
-@WithMockUser
 class UserControllerTest {
 
         @Autowired
@@ -41,52 +45,62 @@ class UserControllerTest {
         @MockitoBean
         private UserService userService;
 
+        @MockitoBean
+        private JwtDecoder jwtDecoder;
+
         @Test
         void createUser_shouldReturnCreatedUser() throws Exception {
                 UUID id = UUID.randomUUID();
+                UUID venueId = UUID.randomUUID();
 
                 CreateUserRequest request = new CreateUserRequest(
                         "staff@example.com",
                         Role.STAFF,
                         "password123",
-                        UUID.randomUUID()
+                        venueId
                 );
 
                 UserResponse response = new UserResponse(
                         id,
                         "staff@example.com",
-                        Role.STAFF
+                        Role.STAFF,
+                        venueId
                 );
 
-                when(userService.createUser(request)).thenReturn(response);
+                when(userService.createUser(eq(request), any(Jwt.class))).thenReturn(response);
 
                 mockMvc.perform(post("/api/users")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(jsonMapper.writeValueAsString(request))
-                                .with(csrf()))
+                                .with(adminPrincipal()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.id").value(id.toString()))
                         .andExpect(jsonPath("$.email").value("staff@example.com"))
-                        .andExpect(jsonPath("$.role").value("STAFF"));
+                        .andExpect(jsonPath("$.role").value("STAFF"))
+                        .andExpect(jsonPath("$.venueId").value(venueId.toString()));
         }
 
         @Test
         void getAllUsers_shouldReturnUsers() throws Exception {
+                UUID venueId = UUID.randomUUID();
                 UserResponse user1 = new UserResponse(
                         UUID.randomUUID(),
                         "staff@example.com",
-                        Role.STAFF
+                        Role.STAFF,
+                        venueId
                 );
 
                 UserResponse user2 = new UserResponse(
                         UUID.randomUUID(),
                         "admin@example.com",
-                        Role.ADMIN
+                        Role.ADMIN,
+                        null
                 );
 
-                when(userService.getAllUsers()).thenReturn(List.of(user1, user2));
+                when(userService.getAllUsers(any(Jwt.class))).thenReturn(List.of(user1, user2));
 
-                mockMvc.perform(get("/api/users"))
+                mockMvc.perform(get("/api/users")
+                                .with(adminPrincipal()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$[0].email").value("staff@example.com"))
                         .andExpect(jsonPath("$[0].role").value("STAFF"))
@@ -101,12 +115,14 @@ class UserControllerTest {
                 UserResponse response = new UserResponse(
                         id,
                         "manager@example.com",
-                        Role.OPS_MANAGER
+                        Role.OPS_MANAGER,
+                        UUID.randomUUID()
                 );
 
-                when(userService.getUserById(id)).thenReturn(Optional.of(response));
+                when(userService.getUserById(eq(id), any(Jwt.class))).thenReturn(Optional.of(response));
 
-                mockMvc.perform(get("/api/users/{id}", id))
+                mockMvc.perform(get("/api/users/{id}", id)
+                                .with(adminPrincipal()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.id").value(id.toString()))
                         .andExpect(jsonPath("$.email").value("manager@example.com"))
@@ -117,9 +133,10 @@ class UserControllerTest {
         void getUserById_shouldReturnNotFoundWhenMissing() throws Exception {
                 UUID id = UUID.randomUUID();
 
-                when(userService.getUserById(id)).thenReturn(Optional.empty());
+                when(userService.getUserById(eq(id), any(Jwt.class))).thenReturn(Optional.empty());
 
-                mockMvc.perform(get("/api/users/{id}", id))
+                mockMvc.perform(get("/api/users/{id}", id)
+                                .with(adminPrincipal()))
                         .andExpect(status().isNotFound());
         }
 
@@ -128,14 +145,16 @@ class UserControllerTest {
                 UserResponse response = new UserResponse(
                         UUID.randomUUID(),
                         "admin@example.com",
-                        Role.ADMIN
+                        Role.ADMIN,
+                        null
                 );
 
-                when(userService.getUserByEmail("admin@example.com"))
+                when(userService.getUserByEmail(eq("admin@example.com"), any(Jwt.class)))
                         .thenReturn(Optional.of(response));
 
                 mockMvc.perform(get("/api/users/by-email")
-                                .param("email", "admin@example.com"))
+                                .param("email", "admin@example.com")
+                                .with(adminPrincipal()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.email").value("admin@example.com"))
                         .andExpect(jsonPath("$.role").value("ADMIN"));
@@ -143,11 +162,12 @@ class UserControllerTest {
 
         @Test
         void getUserByEmail_shouldReturnNotFoundWhenMissing() throws Exception {
-                when(userService.getUserByEmail("missing@example.com"))
+                when(userService.getUserByEmail(eq("missing@example.com"), any(Jwt.class)))
                         .thenReturn(Optional.empty());
 
                 mockMvc.perform(get("/api/users/by-email")
-                                .param("email", "missing@example.com"))
+                                .param("email", "missing@example.com")
+                                .with(adminPrincipal()))
                         .andExpect(status().isNotFound());
         }
 
@@ -163,16 +183,17 @@ class UserControllerTest {
                 UserResponse response = new UserResponse(
                         id,
                         "updated@example.com",
-                        Role.ADMIN
+                        Role.ADMIN,
+                        null
                 );
 
-                when(userService.updateUser(id, request))
+                when(userService.updateUser(eq(id), eq(request), any(Jwt.class)))
                         .thenReturn(Optional.of(response));
 
                 mockMvc.perform(put("/api/users/{id}", id)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(jsonMapper.writeValueAsString(request))
-                                .with(csrf()))
+                                .with(adminPrincipal()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.id").value(id.toString()))
                         .andExpect(jsonPath("$.email").value("updated@example.com"))
@@ -183,10 +204,18 @@ class UserControllerTest {
         void deleteUser_shouldReturnNoContentWhenDeleted() throws Exception {
                 UUID id = UUID.randomUUID();
 
-                when(userService.deleteUser(id)).thenReturn(true);
+                when(userService.deleteUser(eq(id), any(Jwt.class))).thenReturn(true);
 
                 mockMvc.perform(delete("/api/users/{id}", id)
-                                .with(csrf()))
+                                .with(adminPrincipal()))
                         .andExpect(status().isNoContent());
+        }
+
+        private RequestPostProcessor adminPrincipal() {
+                return jwt()
+                        .jwt(token -> token
+                                .subject("admin@example.com")
+                                .claim("roles", List.of("ADMIN")))
+                        .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
         }
 }

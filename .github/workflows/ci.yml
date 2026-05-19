@@ -104,10 +104,10 @@ jobs:
         working-directory: ./client
         run: npm run build
 
-  docker-smoke-test:
-    name: Start system and run healthchecks
+  e2e-tests:
+    name: Run Docker Compose E2E flow
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     needs:
       - backend-tests
       - client-build
@@ -120,25 +120,28 @@ jobs:
       - name: Prepare CI environment file
         run: cp .env.example .env
 
-      - name: Build and start containers
-        run: docker compose up --build -d
+      - name: Build and start backend stack
+        run: |
+          docker compose up --build -d \
+            auth-service \
+            lost-item-service \
+            found-item-service \
+            matching-service \
+            notification-service \
+            operations-service \
+            gateway-service
 
       - name: Show running containers
         run: docker compose ps
 
-      - name: Wait for backend services and client
+      - name: Wait for gateway and auth
         shell: bash
         run: |
           set -euo pipefail
 
           services=(
             "auth-service|http://localhost:8081/actuator/health"
-            "lost-item-service|http://localhost:8082/actuator/health"
-            "found-item-service|http://localhost:8083/actuator/health"
-            "matching-service|http://localhost:8084/actuator/health"
-            "notification-service|http://localhost:8085/actuator/health"
-            "operations-service|http://localhost:8086/actuator/health"
-            "client|http://localhost:3000"
+            "gateway-service|http://localhost:8080/actuator/health"
           )
 
           check_service() {
@@ -179,6 +182,10 @@ jobs:
           done
 
           exit "$failed"
+
+      - name: Run E2E test suite
+        shell: pwsh
+        run: ./tests/e2e/foundflow-e2e.ps1
 
       - name: Print Docker logs on failure
         if: failure()

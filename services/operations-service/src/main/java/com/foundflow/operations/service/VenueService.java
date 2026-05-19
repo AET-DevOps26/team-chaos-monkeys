@@ -5,6 +5,9 @@ import com.foundflow.operations.dto.CreateVenueRequest;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
 import com.foundflow.operations.repository.VenueRepository;
+import com.foundflow.operations.security.VenueAccessService;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,12 +18,22 @@ import java.util.UUID;
 public class VenueService {
 
     private final VenueRepository venueRepository;
+    private final VenueAccessService venueAccessService;
 
-    public VenueService(VenueRepository venueRepository) {
+    public VenueService(
+            VenueRepository venueRepository,
+            VenueAccessService venueAccessService
+    ) {
         this.venueRepository = venueRepository;
+        this.venueAccessService = venueAccessService;
     }
 
-    public VenueResponse createVenue(CreateVenueRequest request) {
+    public VenueResponse createVenue(
+            CreateVenueRequest request,
+            Jwt jwt
+    ) {
+        verifyAdmin(jwt);
+
         Venue venue = new Venue(
                 request.name(),
                 request.tone(),
@@ -31,22 +44,37 @@ public class VenueService {
         return toResponse(savedVenue);
     }
 
-    public List<VenueResponse> getAllVenues() {
-        return venueRepository.findAll()
+    public List<VenueResponse> getAllVenues(Jwt jwt) {
+        if (venueAccessService.isAdmin(jwt)) {
+            return venueRepository.findAll()
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+
+        return venueRepository.findById(venueAccessService.getVenueId(jwt))
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    public Optional<VenueResponse> getVenueById(UUID id) {
+    public Optional<VenueResponse> getVenueById(
+            UUID id,
+            Jwt jwt
+    ) {
+        verifyVenueAccess(jwt, id);
+
         return venueRepository.findById(id)
                 .map(this::toResponse);
     }
 
     public Optional<VenueResponse> updateVenue(
             UUID id,
-            UpdateVenueRequest request
+            UpdateVenueRequest request,
+            Jwt jwt
     ) {
+        verifyVenueAccess(jwt, id);
+
         return venueRepository.findById(id)
                 .map(venue -> {
                     venue.setName(request.name());
@@ -56,6 +84,29 @@ public class VenueService {
                     Venue updatedVenue = venueRepository.save(venue);
                     return toResponse(updatedVenue);
                 });
+    }
+
+    public boolean deleteVenue(UUID id, Jwt jwt) {
+        verifyAdmin(jwt);
+
+        return venueRepository.findById(id)
+                .map(venue -> {
+                    venueRepository.delete(venue);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    private void verifyVenueAccess(Jwt jwt, UUID venueId) {
+        if (!venueAccessService.canAccessVenue(jwt, venueId)) {
+            throw new AccessDeniedException("No access to this venue.");
+        }
+    }
+
+    private void verifyAdmin(Jwt jwt) {
+        if (!venueAccessService.isAdmin(jwt)) {
+            throw new AccessDeniedException("Only admins can perform this operation.");
+        }
     }
 
     private VenueResponse toResponse(Venue venue) {

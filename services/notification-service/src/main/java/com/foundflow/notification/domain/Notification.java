@@ -21,6 +21,9 @@ public class Notification {
     @Column(name = "match_id", nullable = false)
     private UUID matchId;
 
+    @Column(name = "venue_id")
+    private UUID venueId;
+
     @Column(name = "recipient_address", nullable = false)
     private String recipientAddress;
 
@@ -44,6 +47,7 @@ public class Notification {
 
     public Notification(
             UUID matchId,
+            UUID venueId,
             String recipientAddress,
             String language,
             String subject,
@@ -52,6 +56,7 @@ public class Notification {
             LocalDateTime sentAt
     ) {
         this.matchId = matchId;
+        this.venueId = venueId;
         this.recipientAddress = recipientAddress;
         this.language = language;
         this.subject = subject;
@@ -66,6 +71,10 @@ public class Notification {
 
     public UUID getMatchId() {
         return matchId;
+    }
+
+    public UUID getVenueId() {
+        return venueId;
     }
 
     public String getRecipientAddress() {
@@ -94,6 +103,10 @@ public class Notification {
 
     public void setMatchId(UUID matchId) {
         this.matchId = matchId;
+    }
+
+    public void setVenueId(UUID venueId) {
+        this.venueId = venueId;
     }
 
     public void setRecipientAddress(String recipientAddress) {

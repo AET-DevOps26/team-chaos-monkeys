@@ -1,8 +1,15 @@
 package com.foundflow.auth.domain;
 
-import jakarta.persistence.*;
-
 import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
@@ -22,13 +29,17 @@ public class User {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "venue_id")
+    private UUID venueId;
+
     public User() {
     }
 
-    public User(String email, Role role, String passwordHash) {
+    public User(String email, Role role, String passwordHash, UUID venueId) {
         this.email = email;
         this.role = role;
         this.passwordHash = passwordHash;
+        this.venueId = venueId;
     }
 
     public UUID getId() {
@@ -57,5 +68,13 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public UUID getVenueId() {
+        return venueId;
+    }
+
+    public void setVenueId(UUID venueId) {
+        this.venueId = venueId;
     }
 }

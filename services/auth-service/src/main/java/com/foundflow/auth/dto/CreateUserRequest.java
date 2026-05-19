@@ -1,6 +1,9 @@
 package com.foundflow.auth.dto;
 
+import java.util.UUID;
+
 import com.foundflow.auth.domain.Role;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +19,8 @@ public record CreateUserRequest(
 
         @NotBlank
         @Size(min = 8)
-        String password
+        String password,
+
+        UUID venueId
 ) {
 }

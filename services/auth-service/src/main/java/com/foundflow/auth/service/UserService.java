@@ -1,16 +1,18 @@
 package com.foundflow.auth.service;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.foundflow.auth.domain.Role;
 import com.foundflow.auth.domain.User;
 import com.foundflow.auth.dto.CreateUserRequest;
 import com.foundflow.auth.dto.UpdateUserRequest;
 import com.foundflow.auth.dto.UserResponse;
 import com.foundflow.auth.repository.UserRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service
 public class UserService {
@@ -28,10 +30,19 @@ public class UserService {
     }
 
     public UserResponse createUser(CreateUserRequest request) {
+        if ((request.role() == Role.STAFF || request.role() == Role.OPS_MANAGER) && request.venueId() == null) {
+            throw new IllegalArgumentException("STAFF and OPS_MANAGER require a venueId.");
+        }
+
+        if (request.role() == Role.ADMIN && request.venueId() != null) {
+            throw new IllegalArgumentException("ADMIN must not have a venueId.");
+        }
+        
         User user = new User(
-                request.email(),
-                request.role(),
-                passwordEncoder.encode(request.password())
+            request.email(),
+            request.role(),
+            passwordEncoder.encode(request.password()),
+            request.venueId()
         );
 
         User savedUser = userRepository.save(user);
@@ -67,6 +78,15 @@ public class UserService {
                     User updatedUser = userRepository.save(user);
                     return toResponse(updatedUser);
                 });
+    }
+
+    public boolean deleteUser(UUID id) {
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private UserResponse toResponse(User user) {

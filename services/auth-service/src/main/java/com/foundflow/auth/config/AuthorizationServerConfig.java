@@ -52,6 +52,12 @@ public class AuthorizationServerConfig {
                                         "/swagger-ui.html",
                                         "/v3/api-docs/**"
                                 ).permitAll()
+
+                                .requestMatchers(
+                                        "/api/users",
+                                        "/api/users/**"
+                                ).hasRole("ADMIN")
+
                                 .anyRequest().authenticated()
                 )
                 .formLogin(Customizer.withDefaults());

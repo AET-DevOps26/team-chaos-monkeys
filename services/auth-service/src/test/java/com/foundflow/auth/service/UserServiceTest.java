@@ -1,24 +1,28 @@
 package com.foundflow.auth.service;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import com.foundflow.auth.domain.Role;
 import com.foundflow.auth.domain.User;
 import com.foundflow.auth.dto.CreateUserRequest;
 import com.foundflow.auth.dto.UpdateUserRequest;
 import com.foundflow.auth.dto.UserResponse;
 import com.foundflow.auth.repository.UserRepository;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -36,7 +40,8 @@ class UserServiceTest {
         CreateUserRequest request = new CreateUserRequest(
                 "staff@example.com",
                 Role.STAFF,
-                "password123"
+                "password123",
+                UUID.randomUUID()
         );
 
         when(passwordEncoder.encode("password123")).thenReturn("hashed-password");
@@ -64,8 +69,8 @@ class UserServiceTest {
     void getAllUsers_shouldReturnMappedResponses() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
-        User user1 = new User("staff@example.com", Role.STAFF, "hash-1");
-        User user2 = new User("admin@example.com", Role.ADMIN, "hash-2");
+        User user1 = new User("staff@example.com", Role.STAFF, "hash-1", UUID.randomUUID());
+        User user2 = new User("admin@example.com", Role.ADMIN, "hash-2", UUID.randomUUID());
 
         when(userRepository.findAll()).thenReturn(List.of(user1, user2));
 
@@ -85,7 +90,7 @@ class UserServiceTest {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
         UUID id = UUID.randomUUID();
-        User user = new User("manager@example.com", Role.OPS_MANAGER, "hash");
+        User user = new User("manager@example.com", Role.OPS_MANAGER, "hash", id);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
 
@@ -116,7 +121,7 @@ class UserServiceTest {
     void getUserByEmail_shouldReturnResponseWhenUserExists() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
-        User user = new User("admin@example.com", Role.ADMIN, "hash");
+        User user = new User("admin@example.com", Role.ADMIN, "hash", UUID.randomUUID() );
 
         when(userRepository.findByEmail("admin@example.com"))
                 .thenReturn(Optional.of(user));
@@ -140,7 +145,8 @@ class UserServiceTest {
         User existingUser = new User(
                 "old@example.com",
                 Role.STAFF,
-                "existing-password-hash"
+                "existing-password-hash",
+                UUID.randomUUID()
         );
 
         UpdateUserRequest request = new UpdateUserRequest(
@@ -162,5 +168,20 @@ class UserServiceTest {
         verify(userRepository).findById(id);
         verify(userRepository).save(existingUser);
         verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void deleteUser_shouldDeleteExistingUser() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+
+        when(userRepository.existsById(id)).thenReturn(true);
+
+        boolean result = userService.deleteUser(id);
+
+        assertTrue(result);
+        verify(userRepository).existsById(id);
+        verify(userRepository).deleteById(id);
     }
 }

@@ -35,8 +35,8 @@ The backend is split into six Spring Boot services with narrow responsibilities 
 |---|---|---|
 | `lost-item-service` | `lost_reports`, guest contact reference, optional lost-report photo references | `genai-service` (sync, for attribute extraction and embeddings); publishes lost-report events to RabbitMQ |
 | `found-item-service` | `found_items`, found-item photo references, item custody status | `genai-service` (sync, for embeddings); publishes found-item events to RabbitMQ |
-| `matching-service` | `matches` (candidate pairs, scores, status), vector search index | RabbitMQ (consumes lost/found item events, publishes match events); `genai-service` (sync, for semantic search support); lost/found services (REST reads when details are needed) |
-| `notification-service` | `notifications` (sent log), delivery state, rendered outbound messages | RabbitMQ (consumes match/claim events); `genai-service` (sync, for message generation); SMTP |
+| `matching-service` | `matches` (candidate pairs, scores, status), vector search index | RabbitMQ (consumes lost/found item events, publishes match events); `genai-service` (sync, for embeddings and match verification); lost/found services (REST reads when details are needed) |
+| `notification-service` | `notifications` (sent log), delivery state, rendered outbound messages | RabbitMQ (consumes match/claim events); SMTP |
 | `auth-service` | staff/ops/admin credentials, sessions or refresh tokens, JWT issuance, auth subjects | Frontend and ingress-protected APIs; `operations-service` for profile lookup by auth subject |
 | `operations-service` | staff/ops user profiles, venue configuration, KPI read models, audit timeline | RabbitMQ (consumes domain events to build operational views); `auth-service` (identity); other services through REST for drill-down details |
 | `genai-service` (Python) | nothing persistent (stateless) | Outbound to OpenAI API or local Ollama; returns embeddings synchronously to callers — does not read or write any service database |
@@ -196,7 +196,6 @@ graph TB
     Lost -.-> GenAI
     Found -.-> GenAI
     Match -.-> GenAI
-    Notif -.-> GenAI
     GenAI --> LLMCloud
     GenAI -.alt.-> LLMLocal
     Notif --> ACS

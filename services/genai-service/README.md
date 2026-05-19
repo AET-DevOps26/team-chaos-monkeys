@@ -1,8 +1,8 @@
 # genai-service
 
-Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and notification text generation for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
+Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #53 notification text, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #54 metrics).
 
 ## Provider configuration
 
@@ -58,11 +58,12 @@ uvicorn app.main:app --reload --port 8000
 |---|---|
 | `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only — multi-item descriptions are tracked separately (#88). |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
+| `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /docs` | Swagger UI |
 
-All public endpoints are specified in `api/openapi.yaml`, the single source of truth. The remaining one (`/generate-message`) lands with ticket #53.
+All public endpoints are specified in `api/openapi.yaml`, the single source of truth.
 
 ## Tests
 
@@ -94,12 +95,14 @@ app/
   errors.py          Contract error envelope + exception handlers
   exceptions.py      LLMError hierarchy + ModelOutputError
   extraction.py      Attribute-extraction prompt + output validation
+  verification.py    Match-verification prompt + output validation
   embedding.py       Text-embedding batch fan-out
   dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
     extract.py       POST /extract-attributes
     embed.py         POST /embed
+    verify.py        POST /verify-match
     diagnostic.py    /_diagnostic (internal)
     schemas.py       Pydantic models mirroring api/openapi.yaml
   providers/

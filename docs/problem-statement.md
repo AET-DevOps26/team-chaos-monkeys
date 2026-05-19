@@ -23,7 +23,7 @@ The system covers four core capabilities:
 1. **Found-item intake.** Venue staff register a found item through a web app — a photo and a short note. The item is persisted with structured attributes, indexed for search, and made visible on the operational dashboard.
 2. **Guest lost-item reporting.** Guests describe what they lost in free-text natural language through a public web form, typically reached via a QR code at the venue. The GenAI service extracts structured attributes from the description so the matching service can act on it.
 3. **Matching.** The system continuously searches for likely pairings between open lost reports and found items, combining structured attribute matching with vector-based semantic similarity over item descriptions.
-4. **Notification and claim.** When a candidate match is identified, the system contacts the guest with the relevant details and pickup instructions, generated in the guest's language and the venue's tone. The guest confirms, staff release the item, the case is closed.
+4. **Notification and claim.** When a candidate match is identified, the system contacts the guest with the relevant details and pickup instructions. The guest confirms, staff release the item, the case is closed.
 
 Around these flows the system provides an operational dashboard for staff (open cases, recovery KPIs, audit trail), authentication and configuration, and the operational surface required for the course (containerised deployment, CI/CD, Prometheus and Grafana observability).
 
@@ -49,7 +49,7 @@ The service is load-bearing: removing it would visibly degrade the system, not j
 
 **b) Semantic search over found items via RAG.** Found-item descriptions and guest queries are embedded and stored in a vector index (pgvector or Weaviate; decided during the architecture phase). When attribute matching alone is too narrow or too noisy, semantic similarity recovers the long tail: a guest who describes "brown leather wallet with my German ID" is matched against a staff entry that reads "old leather wallet, brown, contains Personalausweis." Staff use the same retrieval path as a search interface for ad-hoc queries that come in by phone or email. This is the system's primary differentiator.
 
-**c) Match verification and explanation.** Vector similarity is good at recall but noisy on precision — two different black jackets can score highly. When the matching service surfaces a candidate pair, it calls the GenAI component to judge, from the item descriptions alone, whether they are the same physical item, and to produce a short rationale. This makes the LLM a second opinion that catches false positives, and turns the opaque match score staff see into an explanation. It completes the RAG loop: retrieval (embeddings) followed by an LLM reasoning over the retrieved candidate.
+**c) Match verification and explanation.** Vector similarity is good at recall but noisy on precision — two different black jackets can score highly. When the matching service surfaces a candidate pair, it calls the GenAI component to judge, from the item descriptions alone, whether they are the same physical item, and to produce a short rationale. This makes the LLM a second opinion that catches false positives, and turns the opaque match score staff see into an explanation. It completes the RAG loop: retrieval (embeddings) followed by LLM reasoning over the retrieved candidate.
 
 ---
 

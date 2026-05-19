@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
+import { useCreateLostReport } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 
 export default function ReportLostItem() {
   const {
@@ -9,12 +10,15 @@ export default function ReportLostItem() {
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors, isValid },
   } = useForm<ReportLostItemInput>({
     resolver: zodResolver(reportLostItemSchema),
     mode: 'onChange',
-    defaultValues: { description: '', contactEmail: '', photo: null },
+    defaultValues: { description: '', contactEmail: '', lostAt: '', photo: null },
   })
+
+  const { mutate, isPending, isSuccess, isError, error } = useCreateLostReport()
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -30,7 +34,20 @@ export default function ReportLostItem() {
   }, [photo])
 
   const onSubmit = (data: ReportLostItemInput) => {
-    console.log('lost item report payload', data)
+    mutate(
+      {
+        data: {
+          description: data.description,
+          contactEmail: data.contactEmail,
+          lostAt: new Date(data.lostAt).toISOString(),
+        },
+      },
+      {
+        onSuccess: () => {
+          reset()
+        },
+      },
+    )
   }
 
   return (
@@ -53,6 +70,21 @@ export default function ReportLostItem() {
           />
           {errors.description && (
             <span className="text-sm text-red-500">{errors.description.message}</span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="lostAt" className="text-sm font-medium text-text-h">
+            When did you lose it?
+          </label>
+          <input
+            id="lostAt"
+            type="datetime-local"
+            className="rounded border border-border bg-transparent p-3 outline-none focus:border-accent"
+            {...register('lostAt')}
+          />
+          {errors.lostAt && (
+            <span className="text-sm text-red-500">{errors.lostAt.message}</span>
           )}
         </div>
 
@@ -98,11 +130,20 @@ export default function ReportLostItem() {
 
         <button
           type="submit"
-          disabled={!isValid}
+          disabled={!isValid || isPending}
           className="mt-2 self-start rounded bg-accent px-5 py-2.5 font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Submit report
+          {isPending ? 'Submitting…' : 'Submit report'}
         </button>
+
+        {isSuccess && (
+          <p className="text-sm text-green-600">Report submitted. Thanks!</p>
+        )}
+        {isError && (
+          <p className="text-sm text-red-500">
+            {error?.message ?? 'Something went wrong. Please try again.'}
+          </p>
+        )}
       </form>
     </main>
   )

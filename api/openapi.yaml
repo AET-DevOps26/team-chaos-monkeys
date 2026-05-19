@@ -19,7 +19,7 @@ info:
     component that exposes three capabilities to the Spring backend:
       - structured attribute extraction from guest lost-item descriptions,
       - text embedding for the matching service,
-      - guest pickup notification text generation.
+      - LLM verification of candidate lost/found matches.
 
     The GenAI service does not own a database. Embeddings are returned to the
     caller (matching-service) which persists them in its pgvector store; the
@@ -340,11 +340,13 @@ components:
         verdict:
           type: string
           enum: [match, no_match, uncertain]
+          description: Whether the lost report and the found item are the same physical item.
         confidence:
           type: number
           format: float
           minimum: 0
           maximum: 1
+          description: The model's confidence in the verdict, from 0 to 1.
         rationale:
           type: string
           description: Short plain-text explanation, staff-facing.

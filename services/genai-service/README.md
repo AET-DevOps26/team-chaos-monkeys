@@ -56,7 +56,7 @@ uvicorn app.main:app --reload --port 8000
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only — multi-item descriptions are tracked separately (#88). |
+| `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only. |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
 | `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
 | `GET /health` | Liveness probe |
@@ -64,6 +64,30 @@ uvicorn app.main:app --reload --port 8000
 | `GET /docs` | Swagger UI |
 
 All public endpoints are specified in `api/openapi.yaml`, the single source of truth.
+
+## Limitations & failure modes
+
+The service is stateless — no persistence, no caching, no queues. Vectors and verdicts are returned to the caller; nothing is stored here.
+
+**Error envelope.** All non-2xx responses use the flat `{code, message, details?}` envelope declared in `api/openapi.yaml`:
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Request body fails Pydantic validation. |
+| 422 | `MODEL_OUTPUT_INVALID` | The provider call succeeded but the model's output was malformed JSON or failed schema validation. `details` carries `rawOutput` and `schemaErrors`. Callers should retry once before falling back. |
+| 429 | `PROVIDER_RATE_LIMITED` | Upstream provider throttled the request. |
+| 500 | `INTERNAL_ERROR` | Server fault (unknown/misconfigured model, uncaught exception). Message is generic; detail goes to logs only. |
+| 502 | `PROVIDER_UNAVAILABLE` | Upstream provider is unreachable or returned 5xx. |
+| 504 | `PROVIDER_TIMEOUT` | Upstream provider exceeded `GENAI_TIMEOUT_SECONDS`. |
+
+**Known limitations:**
+
+- **Single item per extraction.** `/extract-attributes` returns one `ItemAttributes`; multi-item guest descriptions are not detected or split.
+- **No auth.** Endpoints are unauthenticated — the service is intended for in-cluster callers only.
+- **No streaming.** Responses are buffered until the model finishes.
+- **One provider per process.** Switching `GENAI_PROVIDER` requires a restart.
+- **Provider parity is contract-only.** Both adapters honour the same `LLMProvider` protocol, but model quality differs — the default local `llama3.2:3b` is markedly weaker at structured extraction than `gpt-4o-mini`. The golden regression catches drift over time; absolute quality is a model-choice problem, not a code problem.
+- **Fail-fast on misconfig.** An invalid `GENAI_PROVIDER`, or a missing `OPENAI_API_KEY` when `provider=openai`, crashloops the container at startup — there is no silent fallback to the other provider.
 
 ## Tests
 

@@ -11,10 +11,15 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from app.api.schemas import ItemAttributes, ItemSide, VerificationOutput, VerifyMatchRequest
+from app.api.schemas import (
+    ItemAttributes,
+    ItemSide,
+    VerificationOutput,
+    VerifyMatchRequest,
+)
 from app.exceptions import LLMUnavailableError, ModelOutputError
-from app.verification import build_messages, parse_verification, verify_match
 from app.providers.fake import FakeProvider
+from app.verification import build_messages, parse_verification, verify_match
 
 VALID_OUTPUT = json.dumps(
     {

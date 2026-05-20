@@ -39,6 +39,8 @@ def _map_response_error(e: ollama.ResponseError) -> LLMError:
 
 
 class OllamaProvider:
+    name = "local"
+
     def __init__(
         self,
         *,

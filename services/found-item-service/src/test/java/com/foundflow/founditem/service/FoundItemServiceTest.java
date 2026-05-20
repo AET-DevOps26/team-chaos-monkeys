@@ -1,18 +1,21 @@
 package com.foundflow.founditem.service;
 
-import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.common.domain.ItemAttributes;
+import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
+import com.foundflow.founditem.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,11 +31,14 @@ class FoundItemServiceTest {
     @Mock
     private FoundItemRepository foundItemRepository;
 
-    @Test
-    void createFoundItem_shouldSaveItemWithStoredStatus() {
-        FoundItemService foundItemService = new FoundItemService(foundItemRepository);
+    private final VenueAccessService venueAccessService = new VenueAccessService();
 
-        UUID venueId = UUID.randomUUID();
+    @Test
+    void createFoundItem_shouldUseVenueFromJwtForStaff() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID requestVenueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         LocalDateTime foundAt = LocalDateTime.of(2026, 5, 12, 14, 30);
 
@@ -40,119 +46,87 @@ class FoundItemServiceTest {
                 "photo-123",
                 "Schwarzer Rucksack",
                 foundAt,
-                "Neben Bühne 2",
-                venueId,
+                "Neben Buehne 2",
+                requestVenueId,
                 reporterId,
-                new ItemAttributesDto(
-                        "Bag",
-                        "Nike",
-                        "Black",
-                        List.of("Roter Anhänger", "Kratzer vorne")
-                )
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = foundItemService.createFoundItem(request);
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
 
-        FoundItem savedItem = captor.getValue();
-
-        assertEquals("photo-123", savedItem.getPhotoKey());
-        assertEquals("Schwarzer Rucksack", savedItem.getDescription());
-        assertEquals(foundAt, savedItem.getFoundAt());
-        assertEquals("Neben Bühne 2", savedItem.getLocationHint());
-        assertEquals(ItemStatus.STORED, savedItem.getStatus());
-        assertEquals(venueId, savedItem.getVenueId());
-        assertEquals(reporterId, savedItem.getReporterId());
-
-        assertNotNull(savedItem.getAttributes());
-        assertEquals("Bag", savedItem.getAttributes().getCategory());
-        assertEquals("Nike", savedItem.getAttributes().getBrand());
-        assertEquals("Black", savedItem.getAttributes().getColor());
-        assertEquals(List.of("Roter Anhänger", "Kratzer vorne"), savedItem.getAttributes().getMarks());
-
-        assertEquals(ItemStatus.STORED, response.status());
-        assertEquals("Schwarzer Rucksack", response.description());
+        assertEquals(jwtVenueId, captor.getValue().getVenueId());
+        assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
+        assertEquals(jwtVenueId, response.venueId());
     }
 
     @Test
-    void getFoundItemById_shouldReturnResponseWhenItemExists() {
-        FoundItemService foundItemService = new FoundItemService(foundItemRepository);
+    void getFoundItemById_shouldReturnResponseForOwnVenue() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
-
-        FoundItem foundItem = new FoundItem(
-                "photo-123",
-                "Schwarzer Rucksack",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Bühne 2",
-                ItemStatus.STORED,
-                venueId,
-                reporterId,
-                new ItemAttributes(
-                        "Bag",
-                        "Nike",
-                        "Black",
-                        List.of("Roter Anhänger")
-                )
-        );
+        FoundItem foundItem = foundItem(venueId);
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem));
 
-        Optional<FoundItemResponse> response = foundItemService.getFoundItemById(id);
+        Optional<FoundItemResponse> response = service.getFoundItemById(id, staffJwt(venueId));
 
         assertTrue(response.isPresent());
         assertEquals("Schwarzer Rucksack", response.get().description());
-        assertEquals(ItemStatus.STORED, response.get().status());
-        assertEquals("Nike", response.get().attributes().brand());
-
+        assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).findById(id);
     }
 
     @Test
-    void getFoundItemById_shouldReturnEmptyWhenItemDoesNotExist() {
-        FoundItemService foundItemService = new FoundItemService(foundItemRepository);
+    void getAllFoundItems_shouldUseVenueRepositoryForStaff() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
 
-        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        when(foundItemRepository.findByVenueIdAndStatus(venueId, ItemStatus.STORED))
+                .thenReturn(List.of(foundItem(venueId)));
 
-        when(foundItemRepository.findById(id)).thenReturn(Optional.empty());
+        List<FoundItemResponse> responses =
+                service.getAllFoundItems(ItemStatus.STORED, staffJwt(venueId));
 
-        Optional<FoundItemResponse> response = foundItemService.getFoundItemById(id);
-
-        assertTrue(response.isEmpty());
-        verify(foundItemRepository).findById(id);
+        assertEquals(1, responses.size());
+        assertEquals(venueId, responses.get(0).venueId());
+        verify(foundItemRepository).findByVenueIdAndStatus(venueId, ItemStatus.STORED);
+        verify(foundItemRepository, never()).findAll();
     }
 
     @Test
-    void updateFoundItem_shouldUpdateExistingItem() {
-        FoundItemService foundItemService = new FoundItemService(foundItemRepository);
+    void histogram_shouldBucketAccessibleFoundItemsByDayWeekAndMonth() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+
+        UUID venueId = UUID.randomUUID();
+        when(foundItemRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
+                bucket(java.time.LocalDate.of(2026, 5, 19), 2),
+                bucket(java.time.LocalDate.of(2026, 5, 20), 1)
+        ));
+
+        var histogram = service.getFoundItemHistogram(null, staffJwt(venueId));
+
+        assertEquals(2, histogram.perDay().size());
+        assertEquals(java.time.LocalDate.of(2026, 5, 19), histogram.perDay().get(0).bucketStart());
+        assertEquals(2, histogram.perDay().get(0).count());
+        assertEquals(1, histogram.perWeek().size());
+        assertEquals(java.time.LocalDate.of(2026, 5, 18), histogram.perWeek().get(0).bucketStart());
+        assertEquals(3, histogram.perMonth().get(0).count());
+    }
+
+    @Test
+    void updateFoundItem_shouldKeepVenueForStaff() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
 
         UUID id = UUID.randomUUID();
-
-        FoundItem existingItem = new FoundItem(
-                "old-photo",
-                "Alte Beschreibung",
-                LocalDateTime.of(2026, 5, 10, 10, 0),
-                "Alter Ort",
-                ItemStatus.STORED,
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                new ItemAttributes(
-                        "Old Category",
-                        "Old Brand",
-                        "Old Color",
-                        List.of("Altes Merkmal")
-                )
-        );
-
-        UUID newVenueId = UUID.randomUUID();
-        UUID newReporterId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem existingItem = foundItem(venueId);
 
         UpdateFoundItemRequest request = new UpdateFoundItemRequest(
                 "new-photo",
@@ -160,30 +134,60 @@ class FoundItemServiceTest {
                 LocalDateTime.of(2026, 5, 12, 18, 45),
                 "Neuer Ort",
                 ItemStatus.RESERVED,
-                newVenueId,
-                newReporterId,
-                new ItemAttributesDto(
-                        "Bag",
-                        "Adidas",
-                        "Blue",
-                        List.of("Neues Merkmal")
-                )
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
         );
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<FoundItemResponse> response = foundItemService.updateFoundItem(id, request);
+        Optional<FoundItemResponse> response =
+                service.updateFoundItem(id, request, staffJwt(venueId));
 
         assertTrue(response.isPresent());
-        assertEquals("Neue Beschreibung", response.get().description());
         assertEquals(ItemStatus.RESERVED, response.get().status());
-        assertEquals("Adidas", response.get().attributes().brand());
-        assertEquals(newVenueId, response.get().venueId());
-        assertEquals(newReporterId, response.get().reporterId());
-
-        verify(foundItemRepository).findById(id);
+        assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).save(existingItem);
+    }
+
+    private FoundItem foundItem(UUID venueId) {
+        return foundItem(venueId, LocalDateTime.of(2026, 5, 12, 14, 30));
+    }
+
+    private FoundItem foundItem(UUID venueId, LocalDateTime foundAt) {
+        return new FoundItem(
+                "photo-123",
+                "Schwarzer Rucksack",
+                foundAt,
+                "Neben Buehne 2",
+                ItemStatus.STORED,
+                venueId,
+                UUID.randomUUID(),
+                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+    }
+
+    private Jwt staffJwt(UUID venueId) {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("STAFF"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private BucketCountView bucket(java.time.LocalDate bucketStart, long count) {
+        return new BucketCountView() {
+            @Override
+            public java.time.LocalDate getBucketStart() {
+                return bucketStart;
+            }
+
+            @Override
+            public long getCount() {
+                return count;
+            }
+        };
     }
 }

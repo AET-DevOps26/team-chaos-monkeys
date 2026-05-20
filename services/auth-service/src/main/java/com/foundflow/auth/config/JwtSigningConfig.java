@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.OAuth2Au
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -42,9 +43,11 @@ public class JwtSigningConfig {
     }
 
     @Bean
-    public AuthorizationServerSettings authorizationServerSettings() {
+    public AuthorizationServerSettings authorizationServerSettings(
+            @Value("${foundflow.auth.issuer-uri:http://localhost:8081}") String issuerUri
+    ) {
         return AuthorizationServerSettings.builder()
-                .issuer("http://localhost:8081")
+                .issuer(issuerUri)
                 .build();
     }
 

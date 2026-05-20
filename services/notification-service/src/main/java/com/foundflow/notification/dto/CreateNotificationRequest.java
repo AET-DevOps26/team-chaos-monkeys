@@ -10,6 +10,8 @@ public record CreateNotificationRequest(
         @NotNull
         UUID matchId,
 
+        UUID venueId,
+
         @NotBlank
         @Email
         String recipientAddress,

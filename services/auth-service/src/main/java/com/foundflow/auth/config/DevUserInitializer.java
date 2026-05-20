@@ -1,13 +1,14 @@
 package com.foundflow.auth.config;
 
-import com.foundflow.auth.domain.Role;
-import com.foundflow.auth.domain.User;
-import com.foundflow.auth.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.foundflow.auth.domain.Role;
+import com.foundflow.auth.domain.User;
+import com.foundflow.auth.repository.UserRepository;
 
 @Configuration
 @Profile("dev")
@@ -31,7 +32,8 @@ public class DevUserInitializer {
                 User admin = new User(
                         email,
                         Role.ADMIN,
-                        passwordEncoder.encode(rawPassword)
+                        passwordEncoder.encode(rawPassword),
+                        null
                 );
 
                 userRepository.save(admin);

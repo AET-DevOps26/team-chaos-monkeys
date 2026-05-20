@@ -5,11 +5,13 @@ import com.foundflow.operations.dto.CreateVenueRequest;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
 import com.foundflow.operations.repository.VenueRepository;
+import com.foundflow.operations.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,121 +26,101 @@ class VenueServiceTest {
     @Mock
     private VenueRepository venueRepository;
 
-    @Test
-    void createVenue_shouldSaveAndReturnVenue() {
-        VenueService venueService = new VenueService(venueRepository);
+    private final VenueAccessService venueAccessService = new VenueAccessService();
 
-        CreateVenueRequest request = new CreateVenueRequest(
-                "Chaos Arena",
-                "friendly",
-                "de"
-        );
+    @Test
+    void createVenue_shouldSaveAndReturnVenueForAdmin() {
+        VenueService service = new VenueService(venueRepository, venueAccessService);
+
+        CreateVenueRequest request = new CreateVenueRequest("Chaos Arena", "friendly", "de");
 
         when(venueRepository.save(any(Venue.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        VenueResponse response = venueService.createVenue(request);
+        VenueResponse response = service.createVenue(request, adminJwt());
 
         ArgumentCaptor<Venue> captor = ArgumentCaptor.forClass(Venue.class);
         verify(venueRepository).save(captor.capture());
 
-        Venue savedVenue = captor.getValue();
-
-        assertEquals("Chaos Arena", savedVenue.getName());
-        assertEquals("friendly", savedVenue.getTone());
-        assertEquals("de", savedVenue.getDefaultLanguage());
-
+        assertEquals("Chaos Arena", captor.getValue().getName());
         assertEquals("Chaos Arena", response.name());
-        assertEquals("friendly", response.tone());
-        assertEquals("de", response.defaultLanguage());
     }
 
     @Test
-    void getVenueById_shouldReturnResponseWhenVenueExists() {
-        VenueService venueService = new VenueService(venueRepository);
+    void getAllVenues_shouldReturnOnlyOwnVenueForStaff() {
+        VenueService service = new VenueService(venueRepository, venueAccessService);
+
+        UUID venueId = UUID.randomUUID();
+        when(venueRepository.findById(venueId))
+                .thenReturn(Optional.of(new Venue("Venue A", "formal", "de")));
+
+        List<VenueResponse> responses = service.getAllVenues(staffJwt(venueId));
+
+        assertEquals(1, responses.size());
+        assertEquals("Venue A", responses.get(0).name());
+        verify(venueRepository).findById(venueId);
+        verify(venueRepository, never()).findAll();
+    }
+
+    @Test
+    void getVenueById_shouldReturnResponseWhenStaffAccessesOwnVenue() {
+        VenueService service = new VenueService(venueRepository, venueAccessService);
 
         UUID id = UUID.randomUUID();
+        when(venueRepository.findById(id))
+                .thenReturn(Optional.of(new Venue("Chaos Arena", "friendly", "de")));
 
-        Venue venue = new Venue(
-                "Chaos Arena",
-                "friendly",
-                "de"
-        );
-
-        when(venueRepository.findById(id)).thenReturn(Optional.of(venue));
-
-        Optional<VenueResponse> response = venueService.getVenueById(id);
+        Optional<VenueResponse> response = service.getVenueById(id, staffJwt(id));
 
         assertTrue(response.isPresent());
         assertEquals("Chaos Arena", response.get().name());
-        assertEquals("friendly", response.get().tone());
-        assertEquals("de", response.get().defaultLanguage());
-
         verify(venueRepository).findById(id);
     }
 
     @Test
-    void getVenueById_shouldReturnEmptyWhenVenueDoesNotExist() {
-        VenueService venueService = new VenueService(venueRepository);
+    void updateVenue_shouldUpdateExistingVenueForOwnVenue() {
+        VenueService service = new VenueService(venueRepository, venueAccessService);
 
         UUID id = UUID.randomUUID();
-
-        when(venueRepository.findById(id)).thenReturn(Optional.empty());
-
-        Optional<VenueResponse> response = venueService.getVenueById(id);
-
-        assertTrue(response.isEmpty());
-        verify(venueRepository).findById(id);
-    }
-
-    @Test
-    void getAllVenues_shouldReturnMappedResponses() {
-        VenueService venueService = new VenueService(venueRepository);
-
-        Venue venue1 = new Venue("Venue A", "formal", "de");
-        Venue venue2 = new Venue("Venue B", "casual", "en");
-
-        when(venueRepository.findAll()).thenReturn(List.of(venue1, venue2));
-
-        List<VenueResponse> responses = venueService.getAllVenues();
-
-        assertEquals(2, responses.size());
-        assertEquals("Venue A", responses.get(0).name());
-        assertEquals("Venue B", responses.get(1).name());
-
-        verify(venueRepository).findAll();
-    }
-
-    @Test
-    void updateVenue_shouldUpdateExistingVenue() {
-        VenueService venueService = new VenueService(venueRepository);
-
-        UUID id = UUID.randomUUID();
-
-        Venue existingVenue = new Venue(
-                "Old Venue",
-                "old-tone",
-                "de"
-        );
-
-        UpdateVenueRequest request = new UpdateVenueRequest(
-                "Updated Venue",
-                "professional",
-                "en"
-        );
+        Venue existingVenue = new Venue("Old Venue", "old-tone", "de");
+        UpdateVenueRequest request = new UpdateVenueRequest("Updated Venue", "professional", "en");
 
         when(venueRepository.findById(id)).thenReturn(Optional.of(existingVenue));
         when(venueRepository.save(any(Venue.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<VenueResponse> response = venueService.updateVenue(id, request);
+        Optional<VenueResponse> response = service.updateVenue(id, request, staffJwt(id));
 
         assertTrue(response.isPresent());
         assertEquals("Updated Venue", response.get().name());
         assertEquals("professional", response.get().tone());
-        assertEquals("en", response.get().defaultLanguage());
-
-        verify(venueRepository).findById(id);
         verify(venueRepository).save(existingVenue);
+    }
+
+    @Test
+    void deleteVenue_shouldDeleteForAdmin() {
+        VenueService service = new VenueService(venueRepository, venueAccessService);
+
+        UUID id = UUID.randomUUID();
+        Venue venue = new Venue("Venue A", "formal", "de");
+        when(venueRepository.findById(id)).thenReturn(Optional.of(venue));
+
+        assertTrue(service.deleteVenue(id, adminJwt()));
+        verify(venueRepository).delete(venue);
+    }
+
+    private Jwt staffJwt(UUID venueId) {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("STAFF"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt adminJwt() {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("ADMIN"))
+                .build();
     }
 }

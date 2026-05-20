@@ -9,8 +9,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8081
-          jwk-set-uri: http://auth-service:8081/oauth2/jwks
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8081}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
 
   cloud:
     gateway:
@@ -25,7 +25,7 @@ spring:
             - id: lost-item-service
               uri: http://lost-item-service:8082
               predicates:
-                - Path=/api/lost-reports/**
+                - Path=/api/lost-items/**,/api/lost-reports/**
 
             - id: found-item-service
               uri: http://found-item-service:8083

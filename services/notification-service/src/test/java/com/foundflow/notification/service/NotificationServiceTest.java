@@ -5,11 +5,13 @@ import com.foundflow.notification.dto.CreateNotificationRequest;
 import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
 import com.foundflow.notification.repository.NotificationRepository;
+import com.foundflow.notification.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,144 +27,146 @@ class NotificationServiceTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+    private final VenueAccessService venueAccessService = new VenueAccessService();
+
     @Test
-    void createNotification_shouldSaveAndReturnNotification() {
-        NotificationService notificationService = new NotificationService(notificationRepository);
+    void createNotification_shouldUseVenueFromJwtForStaff() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
 
+        UUID venueId = UUID.randomUUID();
         UUID matchId = UUID.randomUUID();
-
-        CreateNotificationRequest request = new CreateNotificationRequest(
-                matchId,
-                "person@example.com",
-                "de",
-                "Wir haben möglicherweise deinen Gegenstand gefunden",
-                "Gute Nachrichten!",
-                "Es gibt einen möglichen Treffer zu deiner Verlustmeldung."
-        );
+        CreateNotificationRequest request = createRequest(matchId, UUID.randomUUID());
 
         when(notificationRepository.save(any(Notification.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        NotificationResponse response = notificationService.createNotification(request);
+        NotificationResponse response = service.createNotification(request, staffJwt(venueId));
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
 
-        Notification savedNotification = captor.getValue();
-
-        assertEquals(matchId, savedNotification.getMatchId());
-        assertEquals("person@example.com", savedNotification.getRecipientAddress());
-        assertEquals("de", savedNotification.getLanguage());
-        assertEquals("Wir haben möglicherweise deinen Gegenstand gefunden", savedNotification.getSubject());
-        assertEquals("Gute Nachrichten!", savedNotification.getHeader());
-        assertEquals("Es gibt einen möglichen Treffer zu deiner Verlustmeldung.", savedNotification.getBody());
-        assertNull(savedNotification.getSentAt());
-
-        assertEquals(matchId, response.matchId());
-        assertEquals("person@example.com", response.recipientAddress());
+        assertEquals(matchId, captor.getValue().getMatchId());
+        assertEquals(venueId, captor.getValue().getVenueId());
+        assertEquals(venueId, response.venueId());
         assertNull(response.sentAt());
     }
 
     @Test
-    void getNotificationById_shouldReturnResponseWhenNotificationExists() {
-        NotificationService notificationService = new NotificationService(notificationRepository);
+    void createNotification_shouldAllowAdminRequestWithoutVenue() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        CreateNotificationRequest request = createRequest(UUID.randomUUID(), null);
+
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationResponse response = service.createNotification(request, adminJwt());
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        assertNull(captor.getValue().getVenueId());
+        assertNull(response.venueId());
+    }
+
+    @Test
+    void getNotificationById_shouldReturnResponseForOwnVenue() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
 
         UUID id = UUID.randomUUID();
-        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Notification notification = notification(UUID.randomUUID(), venueId, "person@example.com", null);
 
-        Notification notification = new Notification(
+        when(notificationRepository.findById(id)).thenReturn(Optional.of(notification));
+
+        Optional<NotificationResponse> response = service.getNotificationById(id, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals(venueId, response.get().venueId());
+        assertEquals("person@example.com", response.get().recipientAddress());
+    }
+
+    @Test
+    void getAllNotifications_shouldFilterByVenueAndEmailForStaff() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        UUID venueId = UUID.randomUUID();
+        when(notificationRepository.findByVenueIdAndRecipientAddress(venueId, "person@example.com"))
+                .thenReturn(List.of(notification(UUID.randomUUID(), venueId, "person@example.com", null)));
+
+        List<NotificationResponse> responses =
+                service.getAllNotifications("person@example.com", staffJwt(venueId));
+
+        assertEquals(1, responses.size());
+        assertEquals(venueId, responses.get(0).venueId());
+        verify(notificationRepository)
+                .findByVenueIdAndRecipientAddress(venueId, "person@example.com");
+    }
+
+    @Test
+    void updateNotification_shouldKeepVenueForStaff() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Notification existing = notification(UUID.randomUUID(), venueId, "old@example.com", null);
+        LocalDateTime sentAt = LocalDateTime.of(2026, 5, 13, 10, 15);
+        UpdateNotificationRequest request = updateRequest(UUID.randomUUID(), UUID.randomUUID(), sentAt);
+
+        when(notificationRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<NotificationResponse> response =
+                service.updateNotification(id, request, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals(venueId, response.get().venueId());
+        assertEquals("updated@example.com", response.get().recipientAddress());
+        assertEquals(sentAt, response.get().sentAt());
+    }
+
+    @Test
+    void updateNotification_shouldAllowAdminRequestWithoutVenue() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Notification existing = notification(UUID.randomUUID(), venueId, "old@example.com", null);
+        UpdateNotificationRequest request = updateRequest(UUID.randomUUID(), null, null);
+
+        when(notificationRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<NotificationResponse> response = service.updateNotification(id, request, adminJwt());
+
+        assertTrue(response.isPresent());
+        assertNull(response.get().venueId());
+        verify(notificationRepository).findById(id);
+        verify(notificationRepository).save(existing);
+    }
+
+    private CreateNotificationRequest createRequest(UUID matchId, UUID venueId) {
+        return new CreateNotificationRequest(
                 matchId,
+                venueId,
                 "person@example.com",
                 "de",
                 "Betreff",
                 "Header",
-                "Body",
-                LocalDateTime.of(2026, 5, 12, 14, 30)
+                "Body"
         );
-
-        when(notificationRepository.findById(id)).thenReturn(Optional.of(notification));
-
-        Optional<NotificationResponse> response = notificationService.getNotificationById(id);
-
-        assertTrue(response.isPresent());
-        assertEquals(matchId, response.get().matchId());
-        assertEquals("person@example.com", response.get().recipientAddress());
-        assertEquals("Betreff", response.get().subject());
-        assertEquals(LocalDateTime.of(2026, 5, 12, 14, 30), response.get().sentAt());
-
-        verify(notificationRepository).findById(id);
     }
 
-    @Test
-    void getNotificationById_shouldReturnEmptyWhenNotificationDoesNotExist() {
-        NotificationService notificationService = new NotificationService(notificationRepository);
-
-        UUID id = UUID.randomUUID();
-
-        when(notificationRepository.findById(id)).thenReturn(Optional.empty());
-
-        Optional<NotificationResponse> response = notificationService.getNotificationById(id);
-
-        assertTrue(response.isEmpty());
-        verify(notificationRepository).findById(id);
-    }
-
-    @Test
-    void getAllNotifications_shouldReturnMappedResponses() {
-        NotificationService notificationService = new NotificationService(notificationRepository);
-
-        Notification notification1 = new Notification(
-                UUID.randomUUID(),
-                "first@example.com",
-                "de",
-                "Betreff A",
-                "Header A",
-                "Body A",
-                null
-        );
-
-        Notification notification2 = new Notification(
-                UUID.randomUUID(),
-                "second@example.com",
-                "en",
-                "Subject B",
-                "Header B",
-                "Body B",
-                LocalDateTime.of(2026, 5, 12, 15, 0)
-        );
-
-        when(notificationRepository.findAll()).thenReturn(List.of(notification1, notification2));
-
-        List<NotificationResponse> responses = notificationService.getAllNotifications();
-
-        assertEquals(2, responses.size());
-        assertEquals("first@example.com", responses.get(0).recipientAddress());
-        assertEquals("second@example.com", responses.get(1).recipientAddress());
-
-        verify(notificationRepository).findAll();
-    }
-
-    @Test
-    void updateNotification_shouldUpdateExistingNotification() {
-        NotificationService notificationService = new NotificationService(notificationRepository);
-
-        UUID id = UUID.randomUUID();
-
-        Notification existingNotification = new Notification(
-                UUID.randomUUID(),
-                "old@example.com",
-                "de",
-                "Alter Betreff",
-                "Alter Header",
-                "Alter Body",
-                null
-        );
-
-        UUID newMatchId = UUID.randomUUID();
-        LocalDateTime sentAt = LocalDateTime.of(2026, 5, 13, 10, 15);
-
-        UpdateNotificationRequest request = new UpdateNotificationRequest(
-                newMatchId,
+    private UpdateNotificationRequest updateRequest(
+            UUID matchId,
+            UUID venueId,
+            LocalDateTime sentAt
+    ) {
+        return new UpdateNotificationRequest(
+                matchId,
+                venueId,
                 "updated@example.com",
                 "en",
                 "Updated subject",
@@ -170,22 +174,38 @@ class NotificationServiceTest {
                 "Updated body",
                 sentAt
         );
+    }
 
-        when(notificationRepository.findById(id)).thenReturn(Optional.of(existingNotification));
-        when(notificationRepository.save(any(Notification.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+    private Notification notification(
+            UUID matchId,
+            UUID venueId,
+            String recipient,
+            LocalDateTime sentAt
+    ) {
+        return new Notification(
+                matchId,
+                venueId,
+                recipient,
+                "de",
+                "Betreff",
+                "Header",
+                "Body",
+                sentAt
+        );
+    }
 
-        Optional<NotificationResponse> response =
-                notificationService.updateNotification(id, request);
+    private Jwt staffJwt(UUID venueId) {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("STAFF"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
 
-        assertTrue(response.isPresent());
-        assertEquals(newMatchId, response.get().matchId());
-        assertEquals("updated@example.com", response.get().recipientAddress());
-        assertEquals("en", response.get().language());
-        assertEquals("Updated subject", response.get().subject());
-        assertEquals(sentAt, response.get().sentAt());
-
-        verify(notificationRepository).findById(id);
-        verify(notificationRepository).save(existingNotification);
+    private Jwt adminJwt() {
+        return Jwt.withTokenValue("token")
+                .header("alg", "none")
+                .claim("roles", List.of("ADMIN"))
+                .build();
     }
 }

@@ -11,6 +11,8 @@ public record UpdateNotificationRequest(
         @NotNull
         UUID matchId,
 
+        UUID venueId,
+
         @NotBlank
         @Email
         String recipientAddress,

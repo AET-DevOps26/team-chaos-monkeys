@@ -41,6 +41,9 @@ public class LostReport {
     @Enumerated(EnumType.STRING)
     private ReportStatus status;
 
+    @Column(name = "venue_id")
+    private UUID venueId;
+
     @Column(name = "contact_email")
     private String contactEmail;
 
@@ -63,6 +66,7 @@ public class LostReport {
             LocalDateTime lostAt,
             String location,
             ReportStatus status,
+            UUID venueId,
             String contactEmail,
             ItemAttributes attributes
     ) {
@@ -71,6 +75,7 @@ public class LostReport {
         this.lostAt = lostAt;
         this.location = location;
         this.status = status;
+        this.venueId = venueId;
         this.contactEmail = contactEmail;
         this.attributes = attributes;
     }
@@ -99,6 +104,10 @@ public class LostReport {
         return status;
     }
 
+    public UUID getVenueId() {
+        return venueId;
+    }
+
     public String getContactEmail() {
         return contactEmail;
     }
@@ -125,6 +134,10 @@ public class LostReport {
 
     public void setStatus(ReportStatus status) {
         this.status = status;
+    }
+
+    public void setVenueId(UUID venueId) {
+        this.venueId = venueId;
     }
 
     public void setContactEmail(String contactEmail) {

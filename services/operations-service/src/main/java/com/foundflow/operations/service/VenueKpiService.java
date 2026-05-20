@@ -3,6 +3,7 @@ package com.foundflow.operations.service;
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.security.VenueAccessService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -48,9 +49,16 @@ public class VenueKpiService {
     }
 
     public VenueKpiResponse getKpis(UUID venueId, Jwt jwt) {
-        UUID effectiveVenueId = venueAccessService.isAdmin(jwt)
-                ? venueId
-                : venueAccessService.getVenueId(jwt);
+        UUID effectiveVenueId;
+        if (venueAccessService.isAdmin(jwt)) {
+            effectiveVenueId = venueId;
+        } else {
+            UUID jwtVenueId = venueAccessService.getVenueId(jwt);
+            if (venueId != null && !venueId.equals(jwtVenueId)) {
+                throw new AccessDeniedException("No access to KPIs for venue " + venueId + ".");
+            }
+            effectiveVenueId = jwtVenueId;
+        }
 
         return new VenueKpiResponse(
                 effectiveVenueId,

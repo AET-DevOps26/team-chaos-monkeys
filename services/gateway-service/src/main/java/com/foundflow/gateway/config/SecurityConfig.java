@@ -14,8 +14,11 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/actuator/health").permitAll()
-                        .pathMatchers("/api/users/**").permitAll()
+                        .pathMatchers(
+                                "/actuator/health",
+                                "/actuator/info",
+                                "/actuator/prometheus"
+                        ).permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/lost-items", "/api/lost-reports").permitAll()
                         .pathMatchers(
                                 "/swagger-ui.html",

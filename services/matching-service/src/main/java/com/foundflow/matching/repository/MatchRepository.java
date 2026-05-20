@@ -16,9 +16,9 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
             value = """
                     SELECT *
                     FROM matches
-                    WHERE (:venueId IS NULL OR venue_id = :venueId)
-                      AND (:foundItemId IS NULL OR found_item_id = :foundItemId)
-                      AND (:lostReportId IS NULL OR lost_report_id = :lostReportId)
+                    WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
+                      AND (CAST(:foundItemId AS uuid) IS NULL OR found_item_id = CAST(:foundItemId AS uuid))
+                      AND (CAST(:lostReportId AS uuid) IS NULL OR lost_report_id = CAST(:lostReportId AS uuid))
                       AND (:status IS NULL OR status = :status)
                     """,
             nativeQuery = true
@@ -34,9 +34,9 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
             value = """
                     SELECT COUNT(*)
                     FROM matches
-                    WHERE (:venueId IS NULL OR venue_id = :venueId)
-                      AND (:foundItemId IS NULL OR found_item_id = :foundItemId)
-                      AND (:lostReportId IS NULL OR lost_report_id = :lostReportId)
+                    WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
+                      AND (CAST(:foundItemId AS uuid) IS NULL OR found_item_id = CAST(:foundItemId AS uuid))
+                      AND (CAST(:lostReportId AS uuid) IS NULL OR lost_report_id = CAST(:lostReportId AS uuid))
                       AND (:status IS NULL OR status = :status)
                     """,
             nativeQuery = true
@@ -52,9 +52,9 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
             value = """
                     SELECT CAST(created_at AS DATE) AS bucketStart, COUNT(*) AS count
                     FROM matches
-                    WHERE (:venueId IS NULL OR venue_id = :venueId)
-                      AND (:foundItemId IS NULL OR found_item_id = :foundItemId)
-                      AND (:lostReportId IS NULL OR lost_report_id = :lostReportId)
+                    WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
+                      AND (CAST(:foundItemId AS uuid) IS NULL OR found_item_id = CAST(:foundItemId AS uuid))
+                      AND (CAST(:lostReportId AS uuid) IS NULL OR lost_report_id = CAST(:lostReportId AS uuid))
                       AND (:status IS NULL OR status = :status)
                     GROUP BY CAST(created_at AS DATE)
                     ORDER BY CAST(created_at AS DATE)

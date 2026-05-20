@@ -12,9 +12,11 @@ import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -100,6 +102,12 @@ public class FoundItemService {
                     foundItem.setLocationHint(request.locationHint());
                     foundItem.setStatus(request.status());
                     if (venueAccessService.isAdmin(jwt)) {
+                        if (request.venueId() == null) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "venueId is required when updating a found item."
+                            );
+                        }
                         foundItem.setVenueId(request.venueId());
                     }
                     foundItem.setReporterId(request.reporterId());

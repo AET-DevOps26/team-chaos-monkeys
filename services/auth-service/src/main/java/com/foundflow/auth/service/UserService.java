@@ -63,19 +63,13 @@ public class UserService {
 
     public Optional<UserResponse> getUserById(UUID id, Jwt jwt) {
         return userRepository.findById(id)
-                .map(user -> {
-                    verifyUserAccess(user, jwt);
-                    return user;
-                })
+                .filter(user -> canAccessUser(user, jwt))
                 .map(this::toResponse);
     }
 
     public Optional<UserResponse> getUserByEmail(String email, Jwt jwt) {
         return userRepository.findByEmail(email)
-                .map(user -> {
-                    verifyUserAccess(user, jwt);
-                    return user;
-                })
+                .filter(user -> canAccessUser(user, jwt))
                 .map(this::toResponse);
     }
 
@@ -151,6 +145,14 @@ public class UserService {
         if (user.getVenueId() == null || !user.getVenueId().equals(getVenueId(jwt))) {
             throw new AccessDeniedException("No access to users outside your venue.");
         }
+    }
+
+    private boolean canAccessUser(User user, Jwt jwt) {
+        if (isAdmin(jwt)) {
+            return true;
+        }
+
+        return user.getVenueId() != null && user.getVenueId().equals(getVenueId(jwt));
     }
 
     private boolean isAdmin(Jwt jwt) {

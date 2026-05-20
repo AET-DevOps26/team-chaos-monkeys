@@ -14,12 +14,11 @@ drift apart.
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import ValidationError
 
-from app.api.schemas import ItemAttributes, ModelInfo
-from app.config import Settings
+from app.api.schemas import ItemAttributes
 from app.exceptions import ModelOutputError
 from app.providers import LLMProvider, Message
 
@@ -160,22 +159,3 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
 def _format_validation_error(err: dict[str, Any]) -> str:
     loc = ".".join(str(part) for part in err.get("loc", ())) or "(root)"
     return f"{loc}: {err.get('msg', 'invalid')}"
-
-
-def resolve_model_info(
-    settings: Settings, kind: Literal["chat", "embed"] = "chat"
-) -> ModelInfo:
-    """The provider and the model that served a request, for `ModelInfo`.
-
-    `kind` selects the model family: `/extract-attributes` and
-    `/verify-match` run on the chat model, `/embed` on the embed model.
-    Defaults to `"chat"` so existing callers are unaffected.
-    """
-    if settings.provider == "openai":
-        chat_model = settings.openai_chat_model
-        embed_model = settings.openai_embed_model
-    else:
-        chat_model = settings.ollama_chat_model
-        embed_model = settings.ollama_embed_model
-    model = chat_model if kind == "chat" else embed_model
-    return ModelInfo(provider=settings.provider, model=model)

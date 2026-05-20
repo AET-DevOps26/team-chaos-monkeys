@@ -19,7 +19,7 @@ info:
     component that exposes three capabilities to the Spring backend:
       - structured attribute extraction from guest lost-item descriptions,
       - text embedding for the matching service,
-      - guest pickup notification text generation.
+      - LLM verification of candidate lost/found matches.
 
     The GenAI service does not own a database. Embeddings are returned to the
     caller (matching-service) which persists them in its pgvector store; the
@@ -40,7 +40,7 @@ security:
 
 tags:
   - name: genai
-    description: GenAI service endpoints (issues #49, #50, #53)
+    description: GenAI service endpoints (issues #49, #50, #104)
   - name: ops
     description: Operational endpoints (health, readiness)
 
@@ -128,46 +128,31 @@ paths:
         '502': { $ref: '#/components/responses/ProviderUnavailable' }
         '504': { $ref: '#/components/responses/ProviderTimeout' }
 
-  /generate-message:
+  /verify-match:
     post:
       tags: [genai]
-      operationId: generateMessage
-      summary: Generate guest pickup notification text
+      operationId: verifyMatch
+      summary: Verify and explain a candidate lost/found match
       description: |
-        Called synchronously by `notification-service` when a match is confirmed.
-        Static templates handle the common path in the notification-service
-        itself; this endpoint is invoked when the guest's language or the
-        venue's tone falls outside the template set. The returned subject and
-        body are plain text — the notification-service is responsible for
-        wrapping them in the email/SMS transport.
-
-        On any failure the caller is expected to fall back to its static
-        template — generation is best-effort, not the system of record.
+        Called synchronously by `matching-service` for its top-K candidate
+        pairs. The service judges whether the lost report and the candidate
+        found item describe the same physical item, purely from item content
+        — it is not given the matching-service's similarity scores, so it is
+        an independent second opinion. Returns a verdict, a confidence, and a
+        short staff-facing rationale.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerateMessageRequest'
-            examples:
-              germanPickup:
-                summary: Hotel pickup, German, formal tone
-                value:
-                  messageType: pickup_notification
-                  language: de
-                  tone: formal
-                  context:
-                    itemDescription: "brown leather wallet"
-                    pickupLocation: "Hotel reception"
-                    pickupHours: "08:00-22:00 daily"
-                    caseReference: "FF-2026-04812"
+              $ref: '#/components/schemas/VerifyMatchRequest'
       responses:
         '200':
-          description: Message generated successfully
+          description: Verification completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerateMessageResponse'
+                $ref: '#/components/schemas/VerifyMatchResponse'
         '400': { $ref: '#/components/responses/ValidationError' }
         '422': { $ref: '#/components/responses/ModelOutputInvalid' }
         '429': { $ref: '#/components/responses/ProviderRateLimited' }
@@ -320,58 +305,51 @@ components:
         modelInfo:
           $ref: '#/components/schemas/ModelInfo'
 
-    # --- /generate-message ------------------------------------------------------
+    # --- /verify-match ----------------------------------------------------------
 
-    GenerateMessageRequest:
+    VerifyMatchRequest:
       type: object
-      required: [messageType, language, tone, context]
+      required: [lost, found]
       properties:
-        messageType:
-          type: string
-          enum: [pickup_notification]
-          description: |
-            Currently only `pickup_notification`. Held as an enum so future
-            variants (e.g. `claim_reminder`) can be added without breaking
-            existing callers.
+        lost:
+          $ref: '#/components/schemas/ItemSide'
+        found:
+          $ref: '#/components/schemas/ItemSide'
         language:
           type: string
           pattern: '^[a-z]{2}$'
-          description: ISO 639-1 target language for the generated text.
-        tone:
-          type: string
-          enum: [formal, casual, terse]
-          description: |
-            Venue-driven tone hint. The notification-service maps venue type
-            to tone (`hotel` → formal, `transit_hub` → terse, etc.).
-        context:
-          $ref: '#/components/schemas/PickupContext'
+          default: en
+          description: ISO 639-1 language for the rationale. Defaults to `en`.
 
-    PickupContext:
+    ItemSide:
       type: object
-      required: [itemDescription, pickupLocation, pickupHours, caseReference]
+      description: One item in a candidate match — a lost report or a found item.
+      required: [description]
       properties:
-        itemDescription:
+        description:
           type: string
-          description: One-line item description shown to the guest.
-        pickupLocation:
-          type: string
-        pickupHours:
-          type: string
-          description: Free-text hours, e.g. `08:00-22:00 daily`.
-        caseReference:
-          type: string
-          description: Human-readable case id the guest can quote.
+          minLength: 1
+          description: Free-text description of the item.
+        attributes:
+          $ref: '#/components/schemas/ItemAttributes'
 
-    GenerateMessageResponse:
+    VerifyMatchResponse:
       type: object
-      required: [subject, body, modelInfo]
+      required: [verdict, confidence, rationale, modelInfo]
       properties:
-        subject:
+        verdict:
           type: string
-          maxLength: 200
-        body:
+          enum: [match, no_match, uncertain]
+          description: Whether the lost report and the found item are the same physical item.
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: The model's confidence in the verdict, from 0 to 1.
+        rationale:
           type: string
-          description: Plain-text body. The notification-service handles transport-specific wrapping.
+          description: Short plain-text explanation, staff-facing.
         modelInfo:
           $ref: '#/components/schemas/ModelInfo'
 

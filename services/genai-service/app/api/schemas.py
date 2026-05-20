@@ -5,8 +5,8 @@ These mirror `components.schemas` of the repo-root OpenAPI contract
 wire format is camelCase; `CamelModel` maps between snake_case Python
 attributes and camelCase JSON so the rest of the service stays Pythonic.
 
-This revision covers `/extract-attributes` (#49) and `/embed` (#50).
-Models for `/generate-message` (#53) are added by that ticket.
+This revision covers `/extract-attributes` (#49), `/embed` (#50), and
+`/verify-match`.
 """
 
 from __future__ import annotations
@@ -122,6 +122,53 @@ class EmbedResponse(CamelModel):
     embeddings: list[list[float]]
     dimensions: int
     model_info: ModelInfo
+
+
+class ItemSide(CamelModel):
+    """One item in a candidate match — a lost report or a found item.
+
+    `description` is the free-text description; `attributes` carries the
+    structured `ItemAttributes` when extracted (optional, so a description-only
+    input is valid).
+    """
+
+    description: str = Field(min_length=1)
+    attributes: ItemAttributes | None = None
+
+
+class VerifyMatchRequest(CamelModel):
+    """Request body for `POST /verify-match`."""
+
+    lost: ItemSide
+    found: ItemSide
+    language: str = Field(default="en", pattern=r"^[a-z]{2}$")
+
+
+class VerifyMatchResponse(CamelModel):
+    """Response body for `POST /verify-match`.
+
+    `verdict` and `confidence` are the verification signal; `rationale` is a
+    short staff-facing explanation. The matching-service combines these with
+    its own attribute/semantic scores.
+    """
+
+    verdict: Literal["match", "no_match", "uncertain"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    rationale: str
+    model_info: ModelInfo
+
+
+class VerificationOutput(CamelModel):
+    """The LLM's verification output — used for validation only.
+
+    Not part of the API surface. `app.verification.parse_verification`
+    validates the model's JSON against this before the route builds the
+    `VerifyMatchResponse`.
+    """
+
+    verdict: Literal["match", "no_match", "uncertain"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    rationale: str = Field(min_length=1)
 
 
 class ErrorCode(StrEnum):

@@ -6,11 +6,9 @@ import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
 import com.foundflow.notification.repository.NotificationRepository;
 import com.foundflow.notification.security.VenueAccessService;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,18 +32,9 @@ public class NotificationService {
             CreateNotificationRequest request,
             Jwt jwt
     ) {
-        UUID venueId;
-        if (venueAccessService.isAdmin(jwt)) {
-            if (request.venueId() == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "venueId is required when creating a notification."
-                );
-            }
-            venueId = request.venueId();
-        } else {
-            venueId = venueAccessService.getVenueId(jwt);
-        }
+        UUID venueId = venueAccessService.isAdmin(jwt)
+                ? request.venueId()
+                : venueAccessService.getVenueId(jwt);
 
         Notification notification = new Notification(
                 request.matchId(),
@@ -95,12 +84,6 @@ public class NotificationService {
 
                     notification.setMatchId(request.matchId());
                     if (venueAccessService.isAdmin(jwt)) {
-                        if (request.venueId() == null) {
-                            throw new ResponseStatusException(
-                                    HttpStatus.BAD_REQUEST,
-                                    "venueId is required when updating a notification."
-                            );
-                        }
                         notification.setVenueId(request.venueId());
                     }
                     notification.setRecipientAddress(request.recipientAddress());

@@ -1,3 +1,25 @@
 # infra/prometheus/alerts.yml
-# Placeholder — real rules land in Task 3.
-groups: []
+groups:
+  - name: foundflow-availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Prometheus has not been able to scrape {{ $labels.job }} for 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          sum by (job) (rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]))
+            /
+          sum by (job) (rate(http_server_requests_seconds_count[5m]))
+            > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }}: server error rate > 1%"
+          description: "5xx rate has exceeded 1% over the last 5 minutes."

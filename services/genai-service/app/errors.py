@@ -45,6 +45,7 @@ from app.exceptions import (
     LLMUnavailableError,
     ModelOutputError,
 )
+from app.metrics import validation_errors_total
 
 logger = logging.getLogger("genai.errors")
 
@@ -81,6 +82,9 @@ async def _handle_request_validation(
 async def _handle_model_output(
     request: Request, exc: ModelOutputError
 ) -> JSONResponse:
+    validation_errors_total.labels(
+        endpoint=request.url.path.lstrip("/"), reason=exc.reason
+    ).inc()
     return error_response(
         422,
         ErrorCode.MODEL_OUTPUT_INVALID,

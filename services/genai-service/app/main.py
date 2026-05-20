@@ -16,10 +16,12 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api import diagnostic, embed, extract, health, verify
 from app.config import Settings
 from app.errors import register_exception_handlers
+from app.metrics import build_info
 from app.providers import build_provider
 
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()
     app.state.settings = settings
     app.state.llm = build_provider(settings)
+    build_info.info({"provider": settings.provider})
     try:
         yield
     finally:
@@ -41,6 +44,13 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+# `/metrics` exposes the default HTTP histograms/counters plus the
+# GenAI-specific metrics defined in `app.metrics`. Kept out of the
+# OpenAPI schema since it is not part of the service contract.
+Instrumentator().instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
 
 app.include_router(health.router)
 app.include_router(extract.router)

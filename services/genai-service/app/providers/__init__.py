@@ -22,6 +22,11 @@ class Message(TypedDict):
 
 @runtime_checkable
 class LLMProvider(Protocol):
+    # Short, stable identifier used as a metric label. Mirrors the
+    # `GENAI_PROVIDER` setting ("openai" / "local") in production
+    # implementations so dashboards can be filtered consistently.
+    name: str
+
     async def chat(
         self, messages: list[Message], *, json_mode: bool = False
     ) -> str: ...

@@ -20,11 +20,15 @@ class FakeProvider:
     def __init__(
         self,
         *,
+        name: str = "fake",
         chat_response: str | Callable[[list[Message], bool], str] = "ok",
         embed_vector: list[float] | Callable[[str], list[float]] | None = None,
         raise_on_chat: Exception | None = None,
         raise_on_embed: Exception | None = None,
     ) -> None:
+        # Label used by metric tests; production code reads `llm.name` and
+        # routes it onto `genai_provider_requests_total{provider}`.
+        self.name = name
         self._chat_response = chat_response
         self._embed_vector: list[float] | Callable[[str], list[float]] = (
             embed_vector if embed_vector is not None else [0.1, 0.2, 0.3]

@@ -154,6 +154,21 @@ services:
       ollama-init:
         condition: service_completed_successfully
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: foundflow-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
   client:
     build:
       context: ./client
@@ -261,3 +276,4 @@ volumes:
   matching-db-data:
   notification-db-data:
   operations-db-data:
+  prometheus-data:

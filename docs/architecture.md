@@ -35,18 +35,18 @@ The backend is split into six Spring Boot services with narrow responsibilities 
 |---|---|---|
 | `lost-item-service` | `lost_reports`, guest contact reference, optional lost-report photo references | `genai-service` (sync, for attribute extraction and embeddings); publishes lost-report events to RabbitMQ |
 | `found-item-service` | `found_items`, found-item photo references, item custody status | `genai-service` (sync, for embeddings); publishes found-item events to RabbitMQ |
-| `matching-service` | `matches` (candidate pairs, scores, status), vector search index | RabbitMQ (consumes lost/found item events, publishes match events); `genai-service` (sync, for semantic search support); lost/found services (REST reads when details are needed) |
-| `notification-service` | `notifications` (sent log), delivery state, rendered outbound messages | RabbitMQ (consumes match/claim events); `genai-service` (sync, for message generation); SMTP |
+| `matching-service` | `matches` (candidate pairs, scores, status), vector search index | RabbitMQ (consumes lost/found item events, publishes match events); `genai-service` (sync, for embeddings and match verification); lost/found services (REST reads when details are needed) |
+| `notification-service` | `notifications` (sent log), delivery state, rendered outbound messages | RabbitMQ (consumes match/claim events); SMTP |
 | `auth-service` | staff/ops/admin credentials, sessions or refresh tokens, JWT issuance, auth subjects | Frontend and ingress-protected APIs; `operations-service` for profile lookup by auth subject |
 | `operations-service` | staff/ops user profiles, venue configuration, KPI read models, audit timeline | RabbitMQ (consumes domain events to build operational views); `auth-service` (identity); other services through REST for drill-down details |
-| `genai-service` (Python) | nothing persistent (stateless) | Outbound to OpenAI API or local Ollama; reads/writes embeddings via `matching-service` |
+| `genai-service` (Python) | nothing persistent (stateless) | Outbound to OpenAI API or local Ollama; returns embeddings synchronously to callers — does not read or write any service database |
 
 RabbitMQ is the broker for durable domain events. The core event stream includes `LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, `NotificationSent`, and `CaseClosed`. Services still expose REST APIs for user-facing commands and query/detail reads, but event-driven flows handle background work and operational projections.
 
 ### 1.3 Data Storage
 
 - **PostgreSQL** with database-level service ownership: each Spring service uses its own database and database user. Services do not share schemas or read each other's tables directly.
-- **pgvector** extension in the `matching-service` database, used for embedding similarity. Vectors are produced by `genai-service` and persisted in the matching database alongside the match/search index, referenced to intake records by ID.
+- **pgvector** extension in the `matching-service` database, used for embedding similarity. The `matching-service` is the sole owner of this database: when it consumes a `LostReportCreated` or `FoundItemLogged` event, it calls `genai-service` synchronously to obtain the embedding vector, then persists the vector alongside the match/search index referenced to intake records by ID. `genai-service` never touches the database directly.
 - **Object storage** (MinIO/Azure Blob) holds photos. Services store only the object key, not the photo bytes.
 - **RabbitMQ** stores transient event queues and dead-letter queues. It is not the system of record; PostgreSQL remains authoritative for service state.
 - **Database migrations** managed with Flyway, one migration history per service-owned database.
@@ -196,7 +196,6 @@ graph TB
     Lost -.-> GenAI
     Found -.-> GenAI
     Match -.-> GenAI
-    Notif -.-> GenAI
     GenAI --> LLMCloud
     GenAI -.alt.-> LLMLocal
     Notif --> ACS

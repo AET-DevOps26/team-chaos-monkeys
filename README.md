@@ -30,3 +30,15 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 ```
 
 Additional service directories, shared API contracts (`api/`), and infrastructure definitions (`infra/`) will be added as implementation work progresses.
+
+## Frontend routes
+
+- `/report` - public page for submitting a lost-item report (description, when it was lost, contact email, optional photo). Submits to the `lost-item-service` via the generated API client.
+
+## Local development overrides
+
+If a host port clashes with something else on your machine (e.g. another project running on `3000`), or you want to mount a debug volume into one service, **don't edit `docker-compose.yml`** — copy [`docker-compose.override.yml.example`](docker-compose.override.yml.example) to `docker-compose.override.yml` (gitignored) and adjust it. Compose automatically merges that file with `docker-compose.yml` whenever you run `docker compose up`. No flags, no env vars, no committed-file edits.
+
+This keeps the committed compose readable as the canonical source of truth while letting each developer customize their local stack independently.
+
+> **Heads-up:** Compose merges list-type fields (`ports`, `volumes`, etc.) by appending, not replacing. To swap a published port cleanly, use the `!override` tag — the example file shows the pattern. Requires Compose v2.24+.

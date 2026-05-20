@@ -2,8 +2,6 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #54 metrics).
-
 ## Provider configuration
 
 The service speaks to one LLM provider, picked at startup via `GENAI_PROVIDER`. The same code path (`app/providers/`) serves both — switching providers is a config change, never a code change.

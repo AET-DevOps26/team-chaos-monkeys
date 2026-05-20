@@ -27,7 +27,7 @@ public interface LostReportRepository extends JpaRepository<LostReport, UUID> {
             value = """
                     SELECT CAST(lost_at AS DATE) AS bucketStart, COUNT(*) AS count
                     FROM lost_reports
-                    WHERE (:venueId IS NULL OR venue_id = :venueId)
+                    WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
                       AND (:status IS NULL OR status = :status)
                     GROUP BY CAST(lost_at AS DATE)
                     ORDER BY CAST(lost_at AS DATE)

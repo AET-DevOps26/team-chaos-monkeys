@@ -27,7 +27,7 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, UUID> {
             value = """
                     SELECT CAST(found_at AS DATE) AS bucketStart, COUNT(*) AS count
                     FROM found_items
-                    WHERE (:venueId IS NULL OR venue_id = :venueId)
+                    WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
                       AND (:status IS NULL OR status = :status)
                     GROUP BY CAST(found_at AS DATE)
                     ORDER BY CAST(found_at AS DATE)

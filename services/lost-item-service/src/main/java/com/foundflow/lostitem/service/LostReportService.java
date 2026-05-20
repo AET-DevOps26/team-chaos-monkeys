@@ -115,6 +115,12 @@ public class LostReportService {
                     existingReport.setLocation(request.location());
                     existingReport.setStatus(request.status());
                     if (venueAccessService.isAdmin(jwt)) {
+                        if (request.venueId() == null) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "venueId is required when updating a lost report."
+                            );
+                        }
                         existingReport.setVenueId(request.venueId());
                     }
                     existingReport.setContactEmail(request.contactEmail());

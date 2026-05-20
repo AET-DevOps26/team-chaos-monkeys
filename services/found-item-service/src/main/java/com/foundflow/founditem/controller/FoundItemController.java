@@ -33,8 +33,8 @@ public class FoundItemController {
     ) {
         FoundItemResponse response = foundItemService.createFoundItem(request, authentication.getToken());
         return ResponseEntity
-        .created(URI.create("/api/found-items/" + response.id()))
-        .body(response);
+                .created(URI.create("/api/found-items/" + response.id()))
+                .body(response);
     }
 
     @GetMapping
@@ -78,7 +78,7 @@ public class FoundItemController {
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
-    
+
     @PutMapping("/{id}")
     public ResponseEntity<FoundItemResponse> updateFoundItem(
             @PathVariable UUID id,

@@ -14,6 +14,7 @@ export interface LostReportResponse {
   lostAt?: string;
   location?: string;
   status?: LostReportResponseStatus;
+  venueId?: string;
   contactEmail?: string;
   attributes?: ItemAttributesDto;
 }

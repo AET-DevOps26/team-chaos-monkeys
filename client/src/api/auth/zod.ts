@@ -24,6 +24,11 @@ export const updateUserBody = zod.object({
 })
 
 
+export const deleteUserParams = zod.object({
+  "id": zod.uuid()
+})
+
+
 
 export const createUserBodyPasswordMin = 8;
 export const createUserBodyPasswordMax = 2147483647;
@@ -33,7 +38,34 @@ export const createUserBodyPasswordMax = 2147483647;
 export const createUserBody = zod.object({
   "email": zod.email().min(1),
   "role": zod.enum(['STAFF', 'OPS_MANAGER', 'ADMIN']),
-  "password": zod.string().min(createUserBodyPasswordMin).max(createUserBodyPasswordMax)
+  "password": zod.string().min(createUserBodyPasswordMin).max(createUserBodyPasswordMax),
+  "venueId": zod.uuid().optional()
+})
+
+
+
+
+
+export const refreshBody = zod.object({
+  "refreshToken": zod.string().min(1)
+})
+
+
+
+
+
+export const logoutBody = zod.object({
+  "refreshToken": zod.string().min(1)
+})
+
+
+
+
+
+
+export const loginBody = zod.object({
+  "email": zod.email().min(1),
+  "password": zod.string().min(1)
 })
 
 

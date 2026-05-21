@@ -5,9 +5,18 @@
  * OpenAPI spec version: v0
  */
 
+export * from './countFoundItemsParams';
+export * from './countFoundItemsStatus';
+export * from './countResponse';
 export * from './createFoundItemRequest';
 export * from './foundItemResponse';
 export * from './foundItemResponseStatus';
+export * from './getAllFoundItemsParams';
+export * from './getAllFoundItemsStatus';
+export * from './getFoundItemHistogramParams';
+export * from './getFoundItemHistogramStatus';
+export * from './histogramResponse';
 export * from './itemAttributesDto';
+export * from './timeBucketCount';
 export * from './updateFoundItemRequest';
 export * from './updateFoundItemRequestStatus';

@@ -6,10 +6,11 @@ import type { CreateFoundItemRequest } from '@/api/found-items/model'
 import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
-// Valid-format UUID placeholder used when the authenticated session does not
-// expose a UUID-shaped venue/subject yet. The backend requires UUID values, so
-// the nil UUID keeps requests well-formed until real IDs are wired through.
-// (Today the auth-service `sub` is an email, not a UUID — hence the guard.)
+// The backend requires UUID values
+// The auth-service `sub` is an email, not a UUID, hence the guard.
+// TODO: wire real venue/reporter UUIDs. until the backend change items are written with the
+// nil UUID, collapsing all records under one fake venue/reporter.
+// tracked in issue #120
 const PLACEHOLDER_UUID = '00000000-0000-0000-0000-000000000000'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const asUuidOrPlaceholder = (value: string | null | undefined): string =>

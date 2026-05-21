@@ -34,6 +34,10 @@ export default function Login() {
     try {
       const tokens = await loginRequest({ data })
       if (!tokens.accessToken) throw new Error('No access token in response')
+      // TODO: persist tokens.refreshToken + silent refresh; today only the
+      // in-memory access token is kept, so the session is lost on reload.
+      // TODO: Also we dont yet check if the token is expired, which will cause errors.
+      // tracked in issue #119
       login(tokens.accessToken)
       navigate(from, { replace: true })
     } catch (err) {

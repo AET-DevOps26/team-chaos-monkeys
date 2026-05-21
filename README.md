@@ -58,7 +58,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 ```
 .
 ├── api/
-│   └── openapi.yaml            — GenAI service contract (Spring paths land via #61)
+│   └── openapi.yaml            — single source of truth for sync APIs
 ├── client/                     — React + Vite + TypeScript frontend
 ├── docs/                       — architecture, problem statement, security model
 ├── services/
@@ -124,18 +124,13 @@ Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-c
 
 ## API contract
 
-The project runs a mixed contract model today; [#61](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/61) is the planned reconciliation.
+`api/openapi.yaml` is the single source of truth for synchronous APIs. The frontend client (Orval), Spring controller signatures, and the Python client are all derived from it. Edit the spec, regenerate downstream artifacts:
 
-- **GenAI service** is contract-first against `api/openapi.yaml`. The Pydantic models in `services/genai-service/app/api/schemas.py` mirror the spec, and `services/genai-service/tests/golden/_contract.py` enforces alignment. Lint with `npx @redocly/cli lint api/openapi.yaml`; preview with `npx @redocly/cli preview-docs api/openapi.yaml` (config in `redocly.yaml`).
-- **Spring services** are code-first. Controllers are hand-written; springdoc reverse-generates `/v3/api-docs` from the annotations, and the gateway aggregates them at `http://localhost:8080/swagger-ui.html`.
-- **Frontend** runs Orval against the gateway's aggregated springdoc output, not `api/openapi.yaml`:
+```bash
+cd client && npm run codegen
+```
 
-  ```bash
-  cd client
-  npm run codegen:fetch    # fetches /v3/api-docs from the gateway, then regenerates
-  # or, against cached specs in client/openapi/:
-  npm run codegen
-  ```
+A local Redocly preview can be opened with `npx @redocly/cli preview-docs api/openapi.yaml` (config in `redocly.yaml`).
 
 ## Per-developer Compose overrides
 

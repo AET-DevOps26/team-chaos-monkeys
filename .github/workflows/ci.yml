@@ -76,6 +76,10 @@ jobs:
         working-directory: ./services/genai-service
         run: pip install -e '.[dev]'
 
+      - name: Lint with ruff
+        working-directory: ./services/genai-service
+        run: ruff check
+
       - name: Run unit + contract tests
         working-directory: ./services/genai-service
         run: pytest -v

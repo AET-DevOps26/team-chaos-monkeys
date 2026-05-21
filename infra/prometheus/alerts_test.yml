@@ -63,3 +63,103 @@ tests:
       - eval_time: 6m
         alertname: HighErrorRate
         exp_alerts: []
+
+  # GenAIProviderFailureRate: 10% non-ok outcomes for 5m → firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="ok"}'
+        values: '0+90x10'                       # 90/min ok
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="timeout"}'
+        values: '0+10x10'                       # 10/min timeout → 10% failure
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: GenAIProviderFailureRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              provider: openai
+              endpoint: extract-attributes
+            exp_annotations:
+              summary: "GenAI provider openai failing on extract-attributes"
+              description: "Non-ok provider outcomes exceed 5% of calls over the last 5 minutes."
+
+  # GenAIProviderFailureRate: 1% non-ok outcomes → no firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="ok"}'
+        values: '0+99x10'                       # 99/min ok
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="timeout"}'
+        values: '0+1x10'                        # 1/min timeout → 1%
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: GenAIProviderFailureRate
+        exp_alerts: []
+
+  # GenAIProviderSlow: 95% of provider calls between 5s and 7.5s → p95 ≈ 7.4s → firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="5"}'
+        values: '0+5x15'                        # 5/min observations <= 5s
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="7.5"}'
+        values: '0+100x15'                      # 100/min observations <= 7.5s (cumulative)
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="10"}'
+        values: '0+100x15'
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="+Inf"}'
+        values: '0+100x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: GenAIProviderSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              provider: openai
+              endpoint: extract-attributes
+            exp_annotations:
+              summary: "GenAI provider openai slow on extract-attributes"
+              description: "p95 provider-call latency > 5s over the last 10 minutes."
+
+  # GenAIProviderSlow: 95% of provider calls <= 5s → p95 lands in (0, 5] → no firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="5"}'
+        values: '0+95x15'                       # 95/min observations <= 5s
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="7.5"}'
+        values: '0+100x15'
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="10"}'
+        values: '0+100x15'
+      - series: 'genai_provider_request_duration_seconds_bucket{provider="openai", endpoint="extract-attributes", le="+Inf"}'
+        values: '0+100x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: GenAIProviderSlow
+        exp_alerts: []
+
+  # GenAIValidationErrorSpike: validation failures = 15% of ok provider calls → firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="ok"}'
+        values: '0+100x15'                      # 100/min ok provider calls
+      - series: 'genai_validation_errors_total{endpoint="extract-attributes", reason="json_decode"}'
+        values: '0+15x15'                       # 15/min validation failures → 15%
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: GenAIValidationErrorSpike
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              endpoint: extract-attributes
+            exp_annotations:
+              summary: "Model output failing validation on extract-attributes"
+              description: "Validation failures exceed 10% of successful provider calls over the last 5 minutes."
+
+  # GenAIValidationErrorSpike: validation failures = 5% of ok provider calls → no firing
+  - interval: 1m
+    input_series:
+      - series: 'genai_provider_requests_total{provider="openai", endpoint="extract-attributes", outcome="ok"}'
+        values: '0+100x15'
+      - series: 'genai_validation_errors_total{endpoint="extract-attributes", reason="json_decode"}'
+        values: '0+5x15'                        # 5/min validation failures → 5%
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: GenAIValidationErrorSpike
+        exp_alerts: []

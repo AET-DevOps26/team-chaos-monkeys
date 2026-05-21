@@ -1,0 +1,9 @@
+ALTER TABLE matches
+ADD COLUMN status VARCHAR(255);
+
+UPDATE matches
+SET status = 'PENDING'
+WHERE status IS NULL;
+
+ALTER TABLE matches
+ALTER COLUMN status SET NOT NULL;

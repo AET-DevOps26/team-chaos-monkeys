@@ -1,0 +1,238 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8081}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service
+              uri: http://auth-service:8081
+              predicates:
+                - Path=/api/auth/**,/api/users/**
+
+            - id: lost-item-service
+              uri: http://lost-item-service:8082
+              predicates:
+                - Path=/api/lost-items/**,/api/lost-reports/**
+
+            - id: found-item-service
+              uri: http://found-item-service:8083
+              predicates:
+                - Path=/api/found-items/**
+
+            - id: matching-service
+              uri: http://matching-service:8084
+              predicates:
+                - Path=/api/matches/**
+
+            - id: notification-service
+              uri: http://notification-service:8085
+              predicates:
+                - Path=/api/notifications/**
+
+            - id: operations-service
+              uri: http://operations-service:8086
+              predicates:
+                - Path=/api/venues/**
+
+            - id: auth-service-health
+              uri: http://auth-service:8081
+              predicates:
+                - Path=/auth/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: auth-service-prometheus
+              uri: http://auth-service:8081
+              predicates:
+                - Path=/auth/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: auth-service-info
+              uri: http://auth-service:8081
+              predicates:
+                - Path=/auth/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: lost-item-service-health
+              uri: http://lost-item-service:8082
+              predicates:
+                - Path=/lost-items/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: lost-item-service-prometheus
+              uri: http://lost-item-service:8082
+              predicates:
+                - Path=/lost-items/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: lost-item-service-info
+              uri: http://lost-item-service:8082
+              predicates:
+                - Path=/lost-items/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: found-item-service-health
+              uri: http://found-item-service:8083
+              predicates:
+                - Path=/found-items/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: found-item-service-prometheus
+              uri: http://found-item-service:8083
+              predicates:
+                - Path=/found-items/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: found-item-service-info
+              uri: http://found-item-service:8083
+              predicates:
+                - Path=/found-items/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: matching-service-health
+              uri: http://matching-service:8084
+              predicates:
+                - Path=/matches/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: matching-service-prometheus
+              uri: http://matching-service:8084
+              predicates:
+                - Path=/matches/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: matching-service-info
+              uri: http://matching-service:8084
+              predicates:
+                - Path=/matches/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: notification-service-health
+              uri: http://notification-service:8085
+              predicates:
+                - Path=/notifications/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: notification-service-prometheus
+              uri: http://notification-service:8085
+              predicates:
+                - Path=/notifications/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: notification-service-info
+              uri: http://notification-service:8085
+              predicates:
+                - Path=/notifications/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: operations-service-health
+              uri: http://operations-service:8086
+              predicates:
+                - Path=/venues/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: operations-service-prometheus
+              uri: http://operations-service:8086
+              predicates:
+                - Path=/venues/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: operations-service-info
+              uri: http://operations-service:8086
+              predicates:
+                - Path=/venues/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
+            - id: auth-service-docs
+              uri: http://auth-service:8081
+              predicates:
+                - Path=/auth/v3/api-docs
+              filters:
+                - RewritePath=/auth/v3/api-docs, /v3/api-docs
+
+            - id: lost-item-service-docs
+              uri: http://lost-item-service:8082
+              predicates:
+                - Path=/lost-items/v3/api-docs
+              filters:
+                - RewritePath=/lost-items/v3/api-docs, /v3/api-docs
+
+            - id: found-item-service-docs
+              uri: http://found-item-service:8083
+              predicates:
+                - Path=/found-items/v3/api-docs
+              filters:
+                - RewritePath=/found-items/v3/api-docs, /v3/api-docs
+
+            - id: matching-service-docs
+              uri: http://matching-service:8084
+              predicates:
+                - Path=/matches/v3/api-docs
+              filters:
+                - RewritePath=/matches/v3/api-docs, /v3/api-docs
+
+            - id: notification-service-docs
+              uri: http://notification-service:8085
+              predicates:
+                - Path=/notifications/v3/api-docs
+              filters:
+                - RewritePath=/notifications/v3/api-docs, /v3/api-docs
+
+            - id: operations-service-docs
+              uri: http://operations-service:8086
+              predicates:
+                - Path=/venues/v3/api-docs
+              filters:
+                - RewritePath=/venues/v3/api-docs, /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: auth-service
+        url: /auth/v3/api-docs
+      - name: lost-item-service
+        url: /lost-items/v3/api-docs
+      - name: found-item-service
+        url: /found-items/v3/api-docs
+      - name: matching-service
+        url: /matches/v3/api-docs
+      - name: notification-service
+        url: /notifications/v3/api-docs
+      - name: operations-service
+        url: /venues/v3/api-docs

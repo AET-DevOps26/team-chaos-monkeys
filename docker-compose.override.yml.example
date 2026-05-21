@@ -1,0 +1,48 @@
+# Per-developer Compose customization.
+#
+# Copy this file to `docker-compose.override.yml` (gitignored) and edit
+# it for your machine. Docker Compose automatically merges that file
+# on top of `docker-compose.yml` when you run `docker compose up` —
+# no flags, no env vars, no edits to the committed compose file.
+#
+# Common reasons to use this:
+#   - A host port is already taken by another project on your machine.
+#   - You want to mount a local debug volume into a service.
+#   - You need to override an env var for one service without exporting
+#     it system-wide.
+#
+# IMPORTANT — list merging behaviour:
+#   By default, Compose *appends* list values from the override file
+#   instead of replacing them. So writing `ports: ["3001:80"]` without
+#   any tag results in BOTH 3000 AND 3001 being published — your
+#   conflicting port stays. Use the `!override` tag to replace the list
+#   cleanly, or `!reset` to clear it entirely. Available in Compose
+#   v2.24+ (run `docker compose version` to check).
+#
+# Only override the keys you want to change. Anything not mentioned
+# here is inherited from docker-compose.yml.
+#
+# Uncomment and adjust the examples below as needed.
+
+services:
+  # Move the client off host port 3000 if something else on your laptop
+  # is already using it (e.g. another React dev server).
+  # `!override` REPLACES the ports list — without it, both 3000 and
+  # 3001 would be published and the conflict would persist.
+  # client:
+  #   ports: !override
+  #     - "3001:80"
+  #   volumes:
+  #     - ./client/src:/app/src:ro
+
+  # Move any Spring service to a different host port. The container-side
+  # port stays the same — service-to-service traffic inside the Compose
+  # network is unaffected; only host-side curls change.
+  # auth-service:
+  #   ports: !override
+  #     - "9081:8081"
+  #   environment:
+  #     LOG_LEVEL: DEBUG
+  # lost-item-service:
+  #   ports: !override
+  #     - "9082:8082"

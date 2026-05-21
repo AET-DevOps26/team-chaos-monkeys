@@ -1,0 +1,23 @@
+# Redocly config for FoundFlow's OpenAPI spec.
+# Used by pre-commit hook and CI (see issue #61 for the cross-service rollout).
+#
+# Usage:
+#   npx @redocly/cli lint           # lints all registered APIs
+#   npx @redocly/cli lint foundflow # lints only the named API
+
+apis:
+  foundflow:
+    root: api/openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  # Course project — no public license URL. The `info.license.name` is set;
+  # the strict form wants a URL we don't have. Re-enable if the repo gets a
+  # real LICENSE file.
+  info-license-strict: off
+
+  # /health is intentionally always-200 so K8s liveness probes can use it
+  # without ambiguity. Readiness is the gated probe (see /ready when added).
+  operation-4xx-response: off

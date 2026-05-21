@@ -1,0 +1,453 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://found-item-service:8083",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/found-items/{id}": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getFoundItemById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "updateFoundItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFoundItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "deleteFoundItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/found-items": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getAllFoundItems",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FoundItemResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "createFoundItem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFoundItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/found-items/histogram": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getFoundItemHistogram",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/found-items/count": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "countFoundItems",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ItemAttributesDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "marks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateFoundItemRequest": {
+        "type": "object",
+        "properties": {
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "foundAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "locationHint": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "STORED",
+              "RESERVED",
+              "RETURNED",
+              "DISPOSED"
+            ]
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reporterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "foundAt",
+          "reporterId",
+          "status",
+          "venueId"
+        ]
+      },
+      "FoundItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "foundAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "locationHint": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "STORED",
+              "RESERVED",
+              "RETURNED",
+              "DISPOSED"
+            ]
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reporterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        }
+      },
+      "CreateFoundItemRequest": {
+        "type": "object",
+        "properties": {
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "foundAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "locationHint": {
+            "type": "string"
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reporterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "foundAt",
+          "reporterId",
+          "venueId"
+        ]
+      },
+      "HistogramResponse": {
+        "type": "object",
+        "properties": {
+          "perDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perWeek": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          }
+        }
+      },
+      "TimeBucketCount": {
+        "type": "object",
+        "properties": {
+          "bucketStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CountResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

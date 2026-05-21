@@ -1,0 +1,138 @@
+package com.foundflow.matching.domain;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "matches")
+public class Match {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "found_item_id", nullable = false)
+    private UUID foundItemId;
+
+    @Column(name = "lost_report_id", nullable = false)
+    private UUID lostReportId;
+
+    @Column(name = "venue_id")
+    private UUID venueId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status;
+
+    @Column(name = "attribute_score", nullable = false)
+    private float attributeScore;
+
+    @Column(name = "semantic_score", nullable = false)
+    private float semanticScore;
+
+    @Column(name = "combined_score", nullable = false)
+    private float combinedScore;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    public Match() {
+    }
+
+    public Match(
+            UUID foundItemId,
+            UUID lostReportId,
+            UUID venueId,
+            MatchStatus status,
+            float attributeScore,
+            float semanticScore,
+            float combinedScore,
+            LocalDateTime createdAt
+    ) {
+        this.foundItemId = foundItemId;
+        this.lostReportId = lostReportId;
+        this.venueId = venueId;
+        this.status = status;
+        this.attributeScore = attributeScore;
+        this.semanticScore = semanticScore;
+        this.combinedScore = combinedScore;
+        this.createdAt = createdAt;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getFoundItemId() {
+        return foundItemId;
+    }
+
+    public UUID getLostReportId() {
+        return lostReportId;
+    }
+
+    public UUID getVenueId() {
+        return venueId;
+    }
+
+    public MatchStatus getStatus() {
+        return status;
+    }
+
+    public float getAttributeScore() {
+        return attributeScore;
+    }
+
+    public float getSemanticScore() {
+        return semanticScore;
+    }
+
+    public float getCombinedScore() {
+        return combinedScore;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setFoundItemId(UUID foundItemId) {
+        this.foundItemId = foundItemId;
+    }
+
+    public void setLostReportId(UUID lostReportId) {
+        this.lostReportId = lostReportId;
+    }
+
+    public void setVenueId(UUID venueId) {
+        this.venueId = venueId;
+    }
+
+    public void setStatus(MatchStatus status) {
+        this.status = status;
+    }
+
+    public void setAttributeScore(float attributeScore) {
+        this.attributeScore = attributeScore;
+    }
+
+    public void setSemanticScore(float semanticScore) {
+        this.semanticScore = semanticScore;
+    }
+
+    public void setCombinedScore(float combinedScore) {
+        this.combinedScore = combinedScore;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+}

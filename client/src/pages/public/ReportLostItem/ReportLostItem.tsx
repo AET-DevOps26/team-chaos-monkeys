@@ -4,6 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
 import { useCreateLostReport } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 
+// TODO(FRND-122): temporary — the public form has no way to derive a venue yet.
+// Replace with a real source (route param from a per-venue QR link, query
+// string, or a public venue picker) before multi-venue rollout.
+const PLACEHOLDER_VENUE_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+
 export default function ReportLostItem() {
   const {
     register,
@@ -45,6 +50,7 @@ export default function ReportLostItem() {
           // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
           // intent is preserved instead of collapsed to UTC.
           lostAt: data.lostAt,
+          venueId: PLACEHOLDER_VENUE_ID,
         },
       },
       {

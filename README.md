@@ -27,10 +27,12 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 |---|---|
 | http://localhost:3000 | Frontend (React) |
 | http://localhost:8080 | API gateway — single entry point for all backend calls |
+| http://localhost:8080/swagger-ui.html | Aggregated OpenAPI UI for the Spring services, proxied through the gateway |
+| http://localhost:8081/swagger-ui.html | `auth-service` OpenAPI UI (direct) |
 | http://localhost:8000/docs | `genai-service` FastAPI docs |
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
-| http://localhost:808{1..6}/swagger-ui.html | Spring services' OpenAPI UI (`auth` 8081, `lost-item` 8082, `found-item` 8083, `matching` 8084, `notification` 8085, `operations` 8086) |
-| http://localhost:808{1..6}/actuator/prometheus | Spring services' Prometheus scrape endpoints |
+
+`auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `notification`, `operations`), so their ports stay inside the Compose network.
 
 To stop and clean up volumes: `docker compose down -v`.
 

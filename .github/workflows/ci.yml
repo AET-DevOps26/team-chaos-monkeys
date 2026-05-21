@@ -84,6 +84,22 @@ jobs:
         working-directory: ./services/genai-service
         run: pytest -v
 
+  prometheus-rules-tests:
+    name: Test Prometheus alert rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Run promtool test rules
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/infra/prometheus:/etc/prometheus" \
+            prom/prometheus:v2.55.1 \
+            test rules /etc/prometheus/alerts_test.yml
+
   client-build:
     name: Build client
     runs-on: ubuntu-24.04

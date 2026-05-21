@@ -20,7 +20,8 @@ from app.api.schemas import (
 )
 from app.config import Settings
 from app.dependencies import get_llm, get_settings
-from app.extraction import extract_attributes, resolve_model_info
+from app.extraction import extract_attributes
+from app.model_info import resolve_model_info
 from app.providers import LLMProvider
 
 router = APIRouter(tags=["genai"])

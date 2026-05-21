@@ -14,6 +14,7 @@ export interface UpdateLostReportRequest {
   lostAt: string;
   location?: string;
   status: UpdateLostReportRequestStatus;
+  venueId?: string;
   /** @minLength 1 */
   contactEmail: string;
   attributes?: ItemAttributesDto;

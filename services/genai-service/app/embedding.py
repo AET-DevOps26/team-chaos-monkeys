@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 
+from app.metrics import ENDPOINT_EMBED, observe_provider_call
 from app.providers import LLMProvider
 
 
@@ -30,8 +31,12 @@ async def embed_texts(
     vector or vectors of differing length — a provider-integration fault
     that surfaces as HTTP 500.
     """
+    async def _embed_one(text: str) -> list[float]:
+        async with observe_provider_call(llm.name, ENDPOINT_EMBED):
+            return await llm.embed(text)
+
     embeddings: list[list[float]] = list(
-        await asyncio.gather(*(llm.embed(text) for text in texts))
+        await asyncio.gather(*(_embed_one(text) for text in texts))
     )
     dimensions = len(embeddings[0])
     if dimensions == 0 or any(len(vector) != dimensions for vector in embeddings):

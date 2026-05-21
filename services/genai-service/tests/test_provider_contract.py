@@ -30,7 +30,6 @@ from app.providers import LLMProvider
 from app.providers.ollama import OllamaProvider
 from app.providers.openai import OpenAIProvider
 
-
 # ---------------------------------------------------------------------------
 # Per-provider harness: same surface, different wire format underneath
 # ---------------------------------------------------------------------------

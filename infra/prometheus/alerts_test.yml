@@ -1,0 +1,65 @@
+# infra/prometheus/alerts_test.yml
+# Run with: promtool test rules infra/prometheus/alerts_test.yml
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ServiceDown: up == 0 for 1m → firing
+  - interval: 1m
+    input_series:
+      - series: 'up{job="auth-service", instance="auth-service:8081"}'
+        values: '0x10'                          # 0 for 10 minutes
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: auth-service
+              instance: auth-service:8081
+            exp_annotations:
+              summary: "auth-service is down"
+              description: "Prometheus has not been able to scrape auth-service for 1 minute."
+
+  # ServiceDown: up flapping back to 1 before 1m → should NOT fire
+  - interval: 30s
+    input_series:
+      - series: 'up{job="auth-service", instance="auth-service:8081"}'
+        values: '0 0 1 1'                       # 0 at 0s, 0 at 30s, 1 at 60s, 1 at 90s
+    alert_rule_test:
+      - eval_time: 90s
+        alertname: ServiceDown
+        exp_alerts: []                          # no firing
+
+  # HighErrorRate: 5xx rate > 1% over 5m → firing
+  - interval: 1m
+    input_series:
+      # 200 5xx + 9800 ok per minute → 2% error rate → firing after 5m for-window
+      - series: 'http_server_requests_seconds_count{job="lost-item-service", outcome="SERVER_ERROR"}'
+        values: '0+200x10'                      # cumulative: 0, 200, 400, 600, …
+      - series: 'http_server_requests_seconds_count{job="lost-item-service", outcome="SUCCESS"}'
+        values: '0+9800x10'                     # cumulative: 0, 9800, 19600, …
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: lost-item-service
+            exp_annotations:
+              summary: "lost-item-service: server error rate > 1%"
+              description: "5xx rate has exceeded 1% over the last 5 minutes."
+
+  # HighErrorRate: 5xx rate well under 1% → no firing
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="lost-item-service", outcome="SERVER_ERROR"}'
+        values: '0+5x10'                        # 5/min
+      - series: 'http_server_requests_seconds_count{job="lost-item-service", outcome="SUCCESS"}'
+        values: '0+9995x10'                     # 9995/min → 0.05%
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HighErrorRate
+        exp_alerts: []

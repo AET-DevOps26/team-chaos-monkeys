@@ -14,13 +14,19 @@ drift apart.
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import ValidationError
 
-from app.api.schemas import ItemAttributes, ModelInfo
-from app.config import Settings
+from app.api.schemas import ItemAttributes
 from app.exceptions import ModelOutputError
+from app.metrics import (
+    ENDPOINT_EXTRACT,
+    VALIDATION_JSON_DECODE,
+    VALIDATION_SCHEMA,
+    VALIDATION_WRONG_TYPE,
+    observe_provider_call,
+)
 from app.providers import LLMProvider, Message
 
 
@@ -114,7 +120,8 @@ async def extract_attributes(
     (`LLMError` subclasses) propagate unchanged for the caller to map.
     """
     messages = build_messages(description, language)
-    raw = await llm.chat(messages, json_mode=True)
+    async with observe_provider_call(llm.name, ENDPOINT_EXTRACT):
+        raw = await llm.chat(messages, json_mode=True)
     return parse_item_attributes(raw)
 
 
@@ -136,6 +143,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     except json.JSONDecodeError as exc:
         raise ModelOutputError(
             "model did not return valid JSON",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_JSON_DECODE,
             raw_output=_truncate(raw),
             schema_errors=[f"JSON decode error: {exc}"],
         ) from exc
@@ -143,6 +152,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     if not isinstance(parsed, dict):
         raise ModelOutputError(
             "model output was not a JSON object",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_WRONG_TYPE,
             raw_output=_truncate(raw),
             schema_errors=[f"expected a JSON object, got {type(parsed).__name__}"],
         )
@@ -152,6 +163,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     except ValidationError as exc:
         raise ModelOutputError(
             "model output failed ItemAttributes validation",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_SCHEMA,
             raw_output=_truncate(raw),
             schema_errors=[_format_validation_error(e) for e in exc.errors()],
         ) from exc
@@ -160,22 +173,3 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
 def _format_validation_error(err: dict[str, Any]) -> str:
     loc = ".".join(str(part) for part in err.get("loc", ())) or "(root)"
     return f"{loc}: {err.get('msg', 'invalid')}"
-
-
-def resolve_model_info(
-    settings: Settings, kind: Literal["chat", "embed"] = "chat"
-) -> ModelInfo:
-    """The provider and the model that served a request, for `ModelInfo`.
-
-    `kind` selects the model family: `/extract-attributes` and
-    `/verify-match` run on the chat model, `/embed` on the embed model.
-    Defaults to `"chat"` so existing callers are unaffected.
-    """
-    if settings.provider == "openai":
-        chat_model = settings.openai_chat_model
-        embed_model = settings.openai_embed_model
-    else:
-        chat_model = settings.ollama_chat_model
-        embed_model = settings.ollama_embed_model
-    model = chat_model if kind == "chat" else embed_model
-    return ModelInfo(provider=settings.provider, model=model)

@@ -24,8 +24,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CountFoundItemsParams,
+  CountResponse,
   CreateFoundItemRequest,
   FoundItemResponse,
+  GetAllFoundItemsParams,
+  GetFoundItemHistogramParams,
+  HistogramResponse,
   UpdateFoundItemRequest
 } from '.././model';
 
@@ -179,14 +184,70 @@ const {mutation: mutationOptions} = options ?
 
       return useMutation(mutationOptions, queryClient);
     }
-    export const getAllFoundItems = (
+    export const deleteFoundItem = (
+    id: string,
+ ) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/found-items/${id}`, method: 'DELETE'
+    },
+      );
+    }
+  
+
+
+export const getDeleteFoundItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFoundItem>>, TError,{id: string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFoundItem>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteFoundItem'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFoundItem>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteFoundItem(id,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFoundItemMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFoundItem>>>
     
+    export type DeleteFoundItemMutationError = ErrorType<unknown>
+
+    export const useDeleteFoundItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFoundItem>>, TError,{id: string}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFoundItem>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteFoundItemMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    export const getAllFoundItems = (
+    params?: GetAllFoundItemsParams,
  signal?: AbortSignal
 ) => {
       
       
       return customInstance<FoundItemResponse[]>(
-      {url: `/api/found-items`, method: 'GET', signal
+      {url: `/api/found-items`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -194,23 +255,23 @@ const {mutation: mutationOptions} = options ?
 
 
 
-export const getGetAllFoundItemsQueryKey = () => {
+export const getGetAllFoundItemsQueryKey = (params?: GetAllFoundItemsParams,) => {
     return [
-    `/api/found-items`
+    `/api/found-items`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getGetAllFoundItemsQueryOptions = <TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
+export const getGetAllFoundItemsQueryOptions = <TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>(params?: GetAllFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetAllFoundItemsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetAllFoundItemsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAllFoundItems>>> = ({ signal }) => getAllFoundItems(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAllFoundItems>>> = ({ signal }) => getAllFoundItems(params, signal);
 
       
 
@@ -224,7 +285,7 @@ export type GetAllFoundItemsQueryError = ErrorType<unknown>
 
 
 export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>> & Pick<
+ params: undefined |  GetAllFoundItemsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAllFoundItems>>,
           TError,
@@ -234,7 +295,7 @@ export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoun
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>> & Pick<
+ params?: GetAllFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAllFoundItems>>,
           TError,
@@ -244,16 +305,16 @@ export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoun
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
+ params?: GetAllFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 
 export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoundItems>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
+ params?: GetAllFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAllFoundItems>>, TError, TData>>, }
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getGetAllFoundItemsQueryOptions(options)
+  const queryOptions = getGetAllFoundItemsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -323,4 +384,177 @@ const {mutation: mutationOptions} = options ?
 
       return useMutation(mutationOptions, queryClient);
     }
+    export const getFoundItemHistogram = (
+    params?: GetFoundItemHistogramParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<HistogramResponse>(
+      {url: `/api/found-items/histogram`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetFoundItemHistogramQueryKey = (params?: GetFoundItemHistogramParams,) => {
+    return [
+    `/api/found-items/histogram`, ...(params ? [params]: [])
+    ] as const;
+    }
+
     
+export const getGetFoundItemHistogramQueryOptions = <TData = Awaited<ReturnType<typeof getFoundItemHistogram>>, TError = ErrorType<unknown>>(params?: GetFoundItemHistogramParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFoundItemHistogramQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFoundItemHistogram>>> = ({ signal }) => getFoundItemHistogram(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetFoundItemHistogramQueryResult = NonNullable<Awaited<ReturnType<typeof getFoundItemHistogram>>>
+export type GetFoundItemHistogramQueryError = ErrorType<unknown>
+
+
+export function useGetFoundItemHistogram<TData = Awaited<ReturnType<typeof getFoundItemHistogram>>, TError = ErrorType<unknown>>(
+ params: undefined |  GetFoundItemHistogramParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemHistogram>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemHistogram>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemHistogram<TData = Awaited<ReturnType<typeof getFoundItemHistogram>>, TError = ErrorType<unknown>>(
+ params?: GetFoundItemHistogramParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemHistogram>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemHistogram>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemHistogram<TData = Awaited<ReturnType<typeof getFoundItemHistogram>>, TError = ErrorType<unknown>>(
+ params?: GetFoundItemHistogramParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetFoundItemHistogram<TData = Awaited<ReturnType<typeof getFoundItemHistogram>>, TError = ErrorType<unknown>>(
+ params?: GetFoundItemHistogramParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemHistogram>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetFoundItemHistogramQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const countFoundItems = (
+    params?: CountFoundItemsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<CountResponse>(
+      {url: `/api/found-items/count`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getCountFoundItemsQueryKey = (params?: CountFoundItemsParams,) => {
+    return [
+    `/api/found-items/count`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getCountFoundItemsQueryOptions = <TData = Awaited<ReturnType<typeof countFoundItems>>, TError = ErrorType<unknown>>(params?: CountFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCountFoundItemsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof countFoundItems>>> = ({ signal }) => countFoundItems(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type CountFoundItemsQueryResult = NonNullable<Awaited<ReturnType<typeof countFoundItems>>>
+export type CountFoundItemsQueryError = ErrorType<unknown>
+
+
+export function useCountFoundItems<TData = Awaited<ReturnType<typeof countFoundItems>>, TError = ErrorType<unknown>>(
+ params: undefined |  CountFoundItemsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof countFoundItems>>,
+          TError,
+          Awaited<ReturnType<typeof countFoundItems>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useCountFoundItems<TData = Awaited<ReturnType<typeof countFoundItems>>, TError = ErrorType<unknown>>(
+ params?: CountFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof countFoundItems>>,
+          TError,
+          Awaited<ReturnType<typeof countFoundItems>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useCountFoundItems<TData = Awaited<ReturnType<typeof countFoundItems>>, TError = ErrorType<unknown>>(
+ params?: CountFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useCountFoundItems<TData = Awaited<ReturnType<typeof countFoundItems>>, TError = ErrorType<unknown>>(
+ params?: CountFoundItemsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof countFoundItems>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getCountFoundItemsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+

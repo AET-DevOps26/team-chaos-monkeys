@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends
 from app.api.schemas import ErrorResponse, VerifyMatchRequest, VerifyMatchResponse
 from app.config import Settings
 from app.dependencies import get_llm, get_settings
-from app.extraction import resolve_model_info
+from app.model_info import resolve_model_info
 from app.providers import LLMProvider
 from app.verification import verify_match
 

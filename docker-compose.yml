@@ -20,8 +20,6 @@ services:
       context: .
       dockerfile: services/auth-service/Dockerfile
     container_name: foundflow-auth-service
-    ports:
-      - "8081:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_DB_NAME:?AUTH_DB_NAME is required}
@@ -156,6 +154,38 @@ services:
       ollama-init:
         condition: service_completed_successfully
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: foundflow-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: foundflow-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3030:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
   client:
     build:
       context: ./client
@@ -263,3 +293,5 @@ volumes:
   matching-db-data:
   notification-db-data:
   operations-db-data:
+  prometheus-data:
+  grafana-data:

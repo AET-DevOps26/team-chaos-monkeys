@@ -31,6 +31,8 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 | http://localhost:8081/swagger-ui.html | `auth-service` OpenAPI UI (direct) |
 | http://localhost:8000/docs | `genai-service` FastAPI docs |
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
+| http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
+| http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
 
 `auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `notification`, `operations`), so their ports stay inside the Compose network.
 
@@ -144,9 +146,14 @@ If a host port clashes with something else on your machine (e.g. another project
 
 ## Observability
 
-- Every Spring service exposes `/actuator/prometheus`; `genai-service` exposes `/metrics`.
-- Per-service base metrics (request count, latency, error rate) are exported by Micrometer; domain metrics (matches/min, GenAI extraction latency, vector search latency) are added incrementally as features ship.
-- Prometheus and Grafana scrape configuration plus committed dashboards (`infra/grafana/dashboards/`) are planned in a later milestone.
+`docker compose up` brings up a Prometheus + Grafana stack that scrapes every FoundFlow service out of the box:
+
+| URL | What it is |
+|---|---|
+| http://localhost:9090 | Prometheus — `/targets` for scrape health, `/alerts` for the configured rules (`ServiceDown`, `HighErrorRate`) |
+| http://localhost:3030 | Grafana — log in with `admin`/`admin` (override via `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in `.env`). The provisioned **Services — RED** dashboard is the default view. |
+
+Every Spring service exposes `/actuator/prometheus` (Micrometer); `genai-service` exposes `/metrics` (`prometheus_client` + `prometheus-fastapi-instrumentator`). Scrape config lives under `infra/prometheus/`; provisioned dashboards under `infra/grafana/dashboards/`. Per-service RED metrics are wired today; domain metrics (matches/min, GenAI extraction latency, vector search latency) are added incrementally as features ship.
 
 ## Documentation index
 

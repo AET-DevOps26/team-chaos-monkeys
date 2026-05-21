@@ -44,6 +44,8 @@ npm run preview   # serve built bundle
 ```
 Stack: React 19, Vite 8, TypeScript 6, ESLint 10. No test runner is wired up yet — when adding one, prefer Vitest (it composes with Vite).
 
+**Always use the orval-generated models, requests, and zod schemas** under `client/src/api/**` — never hand-write a type, request DTO, or validation schema that the generated client already provides. For form validation, resolve against the generated `*Body` zod schema (e.g. `loginBody` from `@/api/auth/zod`) and type the form with the generated request interface (e.g. `LoginRequest` from `@/api/auth/model`). If custom UI error copy is needed, extend the generated schema rather than redefining the field contract. Hand-written types are only acceptable for shapes with no OpenAPI representation (e.g. decoded-JWT claims).
+
 ### Spring Boot services (`services/<name>/`)
 The auth-service is the reference scaffold; new services should mirror its Gradle setup (Spring Boot 4.0.6, Java 21 toolchain, JUnit 5).
 ```

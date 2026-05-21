@@ -3,8 +3,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogin } from '@/api/auth/auth-controller/auth-controller'
+import { loginBody } from '@/api/auth/zod'
+import type { LoginRequest } from '@/api/auth/model'
 import { useAuth } from '@/auth/useAuth'
-import { loginSchema, type LoginInput } from './schema'
 
 const inputCls =
   'rounded border border-border bg-transparent p-2 text-sm outline-none focus:border-accent'
@@ -23,13 +24,13 @@ export default function Login() {
     register,
     handleSubmit,
     formState: { errors, isValid },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<LoginRequest>({
+    resolver: zodResolver(loginBody),
     mode: 'onChange',
     defaultValues: { email: '', password: '' },
   })
 
-  const onSubmit = async (data: LoginInput) => {
+  const onSubmit = async (data: LoginRequest) => {
     setSubmitError(null)
     try {
       const tokens = await loginRequest({ data })

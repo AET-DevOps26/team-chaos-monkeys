@@ -165,6 +165,7 @@ def parse_verification(raw: str) -> VerificationOutput:
     except json.JSONDecodeError as exc:
         raise ModelOutputError(
             "model did not return valid JSON",
+            endpoint=ENDPOINT_VERIFY,
             reason=VALIDATION_JSON_DECODE,
             raw_output=_truncate(raw),
             schema_errors=[f"JSON decode error: {exc}"],
@@ -173,6 +174,7 @@ def parse_verification(raw: str) -> VerificationOutput:
     if not isinstance(parsed, dict):
         raise ModelOutputError(
             "model output was not a JSON object",
+            endpoint=ENDPOINT_VERIFY,
             reason=VALIDATION_WRONG_TYPE,
             raw_output=_truncate(raw),
             schema_errors=[f"expected a JSON object, got {type(parsed).__name__}"],
@@ -183,6 +185,7 @@ def parse_verification(raw: str) -> VerificationOutput:
     except ValidationError as exc:
         raise ModelOutputError(
             "model output failed VerificationOutput validation",
+            endpoint=ENDPOINT_VERIFY,
             reason=VALIDATION_SCHEMA,
             raw_output=_truncate(raw),
             schema_errors=[_format_validation_error(e) for e in exc.errors()],

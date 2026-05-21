@@ -1,5 +1,11 @@
 # infra/prometheus/alerts_test.yml
-# Run with: promtool test rules infra/prometheus/alerts_test.yml
+# Run locally with one of:
+#   promtool test rules infra/prometheus/alerts_test.yml
+#   docker run --rm --entrypoint promtool \
+#     -v "$PWD/infra/prometheus:/etc/prometheus" \
+#     prom/prometheus:v2.55.1 \
+#     test rules /etc/prometheus/alerts_test.yml
+# CI runs the docker form (see .github/workflows/ci.yml).
 rule_files:
   - alerts.yml
 

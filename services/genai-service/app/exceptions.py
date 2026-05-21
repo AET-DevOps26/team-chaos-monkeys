@@ -45,12 +45,26 @@ class ModelOutputError(Exception):
     MODEL_OUTPUT_INVALID; the caller should retry once before falling back.
 
     Carries the raw model output and the validation errors so the response
-    `details` can expose `{rawOutput, schemaErrors}` per the contract.
+    `details` can expose `{rawOutput, schemaErrors}` per the contract. The
+    `endpoint` and `reason` discriminators are consumed by `app.metrics` for
+    the `genai_validation_errors_total{endpoint, reason}` counter so
+    dashboards can break failures down by kind (json_decode / wrong_type /
+    schema). Both are sourced from the constants in `app.metrics` at the
+    raise site so the label values stay aligned with the provider metrics
+    that share the same `endpoint` label.
     """
 
     def __init__(
-        self, message: str, *, raw_output: str, schema_errors: list[str]
+        self,
+        message: str,
+        *,
+        endpoint: str,
+        reason: str,
+        raw_output: str,
+        schema_errors: list[str],
     ) -> None:
         super().__init__(message)
+        self.endpoint = endpoint
+        self.reason = reason
         self.raw_output = raw_output
         self.schema_errors = schema_errors

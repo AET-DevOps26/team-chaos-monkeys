@@ -2,7 +2,7 @@
 
 Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See `docs/architecture.md` for how it fits with the Spring services and `matching-service`.
 
-Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation, #54 metrics).
+Endpoints beyond `/health` and `/_diagnostic` are added under follow-up tickets (#52 output validation).
 
 ## Provider configuration
 
@@ -61,9 +61,39 @@ uvicorn app.main:app --reload --port 8000
 | `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
+| `GET /metrics` | Prometheus exposition. See [Metrics](#metrics). Excluded from the OpenAPI schema. |
 | `GET /docs` | Swagger UI |
 
 All public endpoints are specified in `api/openapi.yaml`, the single source of truth.
+
+## Metrics
+
+`GET /metrics` exposes the Prometheus exposition for the service. The shared infra Prometheus already scrapes it; for ad-hoc inspection:
+
+```
+curl -s http://localhost:8000/metrics | grep -E '^(http_|genai_)'
+```
+
+Two layers of metrics are exposed:
+
+**HTTP-level** — wired by `prometheus-fastapi-instrumentator`, standard names:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `http_requests_total` | counter | `handler`, `method`, `status` (`2xx`/`4xx`/`5xx`) |
+| `http_request_duration_seconds` | histogram | `handler`, `method` |
+| `http_request_size_bytes`, `http_response_size_bytes` | summary | `handler` |
+
+**GenAI-specific** — defined in `app/metrics.py`:
+
+| Metric | Type | Labels | What it tells you |
+|---|---|---|---|
+| `genai_provider_requests_total` | counter | `provider`, `endpoint`, `outcome` | Provider invocations by outcome: `ok`, `timeout`, `rate_limit`, `unavailable`, `bad_request`, `error`. Drives the provider health panel. |
+| `genai_provider_request_duration_seconds` | histogram | `provider`, `endpoint` | Latency of the provider call itself, not the full HTTP request. |
+| `genai_validation_errors_total` | counter | `endpoint`, `reason` | Structured-output parse failures by reason: `json_decode`, `wrong_type`, `schema`. Surfaces `ModelOutputError` rate without tailing logs. |
+| `genai_build_info` | gauge | `provider` | Set once at startup so dashboards can filter panels by deployment. |
+
+`provider` is the value of `GENAI_PROVIDER` (`openai` / `local`). `endpoint` is one of `extract-attributes`, `embed`, `verify-match`. A parse failure does *not* count as a provider failure: the provider call succeeded, the output was just unusable — the validation counter takes care of surfacing it.
 
 ## Tests
 
@@ -97,6 +127,7 @@ app/
   extraction.py      Attribute-extraction prompt + output validation
   verification.py    Match-verification prompt + output validation
   embedding.py       Text-embedding batch fan-out
+  metrics.py         Prometheus metric definitions + observe_provider_call
   dependencies.py    FastAPI dependencies: get_llm(), get_settings()
   api/
     health.py        /health
@@ -120,6 +151,7 @@ tests/
   test_golden_compare.py        golden-set fuzzy comparator
   test_diagnostic.py
   test_health.py
+  test_metrics.py               /metrics endpoint + counter/histogram coverage
   golden/                       22-case attribute-extraction set
   integration/                  env-gated, hits a real provider
 Dockerfile           python:3.12-slim, non-root user, uvicorn entrypoint

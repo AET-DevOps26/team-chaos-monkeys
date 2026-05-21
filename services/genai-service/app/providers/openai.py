@@ -22,6 +22,8 @@ from app.providers import Message
 
 
 class OpenAIProvider:
+    name = "openai"
+
     def __init__(
         self,
         *,

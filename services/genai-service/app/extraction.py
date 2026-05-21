@@ -20,6 +20,13 @@ from pydantic import ValidationError
 
 from app.api.schemas import ItemAttributes
 from app.exceptions import ModelOutputError
+from app.metrics import (
+    ENDPOINT_EXTRACT,
+    VALIDATION_JSON_DECODE,
+    VALIDATION_SCHEMA,
+    VALIDATION_WRONG_TYPE,
+    observe_provider_call,
+)
 from app.providers import LLMProvider, Message
 
 
@@ -113,7 +120,8 @@ async def extract_attributes(
     (`LLMError` subclasses) propagate unchanged for the caller to map.
     """
     messages = build_messages(description, language)
-    raw = await llm.chat(messages, json_mode=True)
+    async with observe_provider_call(llm.name, ENDPOINT_EXTRACT):
+        raw = await llm.chat(messages, json_mode=True)
     return parse_item_attributes(raw)
 
 
@@ -135,6 +143,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     except json.JSONDecodeError as exc:
         raise ModelOutputError(
             "model did not return valid JSON",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_JSON_DECODE,
             raw_output=_truncate(raw),
             schema_errors=[f"JSON decode error: {exc}"],
         ) from exc
@@ -142,6 +152,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     if not isinstance(parsed, dict):
         raise ModelOutputError(
             "model output was not a JSON object",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_WRONG_TYPE,
             raw_output=_truncate(raw),
             schema_errors=[f"expected a JSON object, got {type(parsed).__name__}"],
         )
@@ -151,6 +163,8 @@ def parse_item_attributes(raw: str) -> ItemAttributes:
     except ValidationError as exc:
         raise ModelOutputError(
             "model output failed ItemAttributes validation",
+            endpoint=ENDPOINT_EXTRACT,
+            reason=VALIDATION_SCHEMA,
             raw_output=_truncate(raw),
             schema_errors=[_format_validation_error(e) for e in exc.errors()],
         ) from exc

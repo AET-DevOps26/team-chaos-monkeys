@@ -159,6 +159,10 @@ $publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
     }
 }
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
+$publicLostReportBody = Read-Json $publicLostReport
+if ($publicLostReportBody.venueId -ne $publicVenueId) {
+    throw "Public POST /api/lost-items should create a report for venueId $publicVenueId but got $($publicLostReportBody.venueId)."
+}
 
 $adminToken = Get-AccessToken $AdminEmail $AdminPassword
 $adminClient = New-GatewayClient $adminToken

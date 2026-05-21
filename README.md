@@ -31,6 +31,13 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 
 Additional service directories, shared API contracts (`api/`), and infrastructure definitions (`infra/`) will be added as implementation work progresses.
 
+## Observability
+
+After `docker compose up`, Prometheus scrapes every FoundFlow service and Grafana ships a provisioned **Services — RED** dashboard:
+
+- Prometheus: `http://localhost:9090` — see `/targets` for scrape health and `/alerts` for the configured rules (`ServiceDown`, `HighErrorRate`).
+- Grafana: `http://localhost:3030` — log in with `admin`/`admin` (override via `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` in `.env`). The Services — RED dashboard is the default starting view.
+
 ## Frontend routes
 
 - `/report` - public page for submitting a lost-item report (description, when it was lost, contact email, optional photo). Submits to the `lost-item-service` via the generated API client.

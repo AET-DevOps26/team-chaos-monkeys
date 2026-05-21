@@ -32,6 +32,16 @@ export const updateFoundItemBody = zod.object({
 })
 
 
+export const deleteFoundItemParams = zod.object({
+  "id": zod.uuid()
+})
+
+
+export const getAllFoundItemsQueryParams = zod.object({
+  "status": zod.enum(['STORED', 'RESERVED', 'RETURNED', 'DISPOSED']).optional()
+})
+
+
 export const createFoundItemBody = zod.object({
   "photoKey": zod.string().optional(),
   "description": zod.string().optional(),
@@ -45,4 +55,16 @@ export const createFoundItemBody = zod.object({
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
+})
+
+
+export const getFoundItemHistogramQueryParams = zod.object({
+  "status": zod.enum(['STORED', 'RESERVED', 'RETURNED', 'DISPOSED']).optional(),
+  "venueId": zod.uuid().optional()
+})
+
+
+export const countFoundItemsQueryParams = zod.object({
+  "status": zod.enum(['STORED', 'RESERVED', 'RETURNED', 'DISPOSED']).optional(),
+  "venueId": zod.uuid().optional()
 })

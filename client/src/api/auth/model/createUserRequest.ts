@@ -15,4 +15,5 @@ export interface CreateUserRequest {
    * @maxLength 2147483647
    */
   password: string;
+  venueId?: string;
 }

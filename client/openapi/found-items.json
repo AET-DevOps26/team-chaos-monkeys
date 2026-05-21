@@ -79,6 +79,28 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "deleteFoundItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/found-items": {
@@ -87,6 +109,22 @@
           "found-item-controller"
         ],
         "operationId": "getAllFoundItems",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -125,6 +163,96 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/found-items/histogram": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getFoundItemHistogram",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/found-items/count": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "countFoundItems",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "STORED",
+                "RESERVED",
+                "RETURNED",
+                "DISPOSED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
                 }
               }
             }
@@ -274,6 +402,51 @@
           "reporterId",
           "venueId"
         ]
+      },
+      "HistogramResponse": {
+        "type": "object",
+        "properties": {
+          "perDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perWeek": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          }
+        }
+      },
+      "TimeBucketCount": {
+        "type": "object",
+        "properties": {
+          "bucketStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CountResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       }
     }
   }

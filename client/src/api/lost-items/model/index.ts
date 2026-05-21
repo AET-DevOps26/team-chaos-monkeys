@@ -5,9 +5,24 @@
  * OpenAPI spec version: v0
  */
 
+export * from './countLostReports1Params';
+export * from './countLostReports1Status';
+export * from './countLostReportsParams';
+export * from './countLostReportsStatus';
+export * from './countResponse';
 export * from './createLostReportRequest';
+export * from './getAllLostReports1Params';
+export * from './getAllLostReports1Status';
+export * from './getAllLostReportsParams';
+export * from './getAllLostReportsStatus';
+export * from './getLostReportHistogram1Params';
+export * from './getLostReportHistogram1Status';
+export * from './getLostReportHistogramParams';
+export * from './getLostReportHistogramStatus';
+export * from './histogramResponse';
 export * from './itemAttributesDto';
 export * from './lostReportResponse';
 export * from './lostReportResponseStatus';
+export * from './timeBucketCount';
 export * from './updateLostReportRequest';
 export * from './updateLostReportRequestStatus';

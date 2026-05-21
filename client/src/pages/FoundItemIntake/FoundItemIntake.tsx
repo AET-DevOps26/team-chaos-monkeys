@@ -3,12 +3,17 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useCreateFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
 import type { CreateFoundItemRequest } from '@/api/found-items/model'
+import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
-// TODO: derive venueId from tenant subdomain (e.g. tenant-a.localhost)
-const VENUE_ID = '1'
-// TODO: pull reporterId from authenticated staff session
-const REPORTER_ID = '00000000-0000-0000-0000-000000000000'
+// Valid-format UUID placeholder used when the authenticated session does not
+// expose a UUID-shaped venue/subject yet. The backend requires UUID values, so
+// the nil UUID keeps requests well-formed until real IDs are wired through.
+// (Today the auth-service `sub` is an email, not a UUID — hence the guard.)
+const PLACEHOLDER_UUID = '00000000-0000-0000-0000-000000000000'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const asUuidOrPlaceholder = (value: string | null | undefined): string =>
+  value && UUID_RE.test(value) ? value : PLACEHOLDER_UUID
 
 function nowForDatetimeLocal() {
   const d = new Date()
@@ -78,6 +83,7 @@ export default function FoundItemIntake() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  const { user } = useAuth()
   const createFoundItem = useCreateFoundItem()
 
   useEffect(() => {
@@ -103,10 +109,12 @@ export default function FoundItemIntake() {
     // TODO: upload data.photo to object storage and pass the returned key as photoKey
     const payload: CreateFoundItemRequest = {
       description: data.description || undefined,
-      foundAt: new Date(data.foundAt).toISOString(),
+      // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
+      // send it as-is so it binds to the backend LocalDateTime (no trailing Z).
+      foundAt: data.foundAt,
       locationHint: data.locationHint || undefined,
-      venueId: VENUE_ID,
-      reporterId: REPORTER_ID,
+      venueId: asUuidOrPlaceholder(user?.venueId),
+      reporterId: asUuidOrPlaceholder(user?.sub),
       attributes: hasAttributes ? attributes : undefined,
     }
 

@@ -56,6 +56,11 @@ public class AuthorizationServerConfig {
                 .authorizeHttpRequests(authorize ->
                         authorize
                                 .requestMatchers(
+                                        "/api/auth/login",
+                                        "/api/auth/refresh",
+                                        "/api/auth/logout"
+                                ).permitAll()
+                                .requestMatchers(
                                         "/api/users",
                                         "/api/users/**"
                                 ).hasAnyRole("ADMIN", "OPS_MANAGER")

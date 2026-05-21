@@ -13,7 +13,7 @@ The script covers:
 
 - gateway health and unauthenticated `401`
 - public lost-item reporting
-- OAuth2 authorization-code + PKCE login
+- JSON token login, refresh, and logout via `/api/auth`
 - admin user and KPI access
 - OPS_MANAGER own-venue user management
 - same-venue matching
@@ -25,7 +25,6 @@ Defaults:
 ```powershell
 .\tests\e2e\foundflow-e2e.ps1 `
   -GatewayBaseUrl http://localhost:8080 `
-  -AuthBaseUrl http://localhost:8081 `
   -AdminEmail admin@foundflow.local `
   -AdminPassword admin12345
 ```

@@ -1,6 +1,5 @@
 param(
     [string]$GatewayBaseUrl = "http://localhost:8080",
-    [string]$AuthBaseUrl = "http://localhost:8081",
     [string]$AdminEmail = "admin@foundflow.local",
     [string]$AdminPassword = "admin12345"
 )
@@ -28,64 +27,61 @@ function Assert-Status {
     Write-Host "[OK] $Label -> HTTP $actual"
 }
 
-function New-NoRedirectClient {
-    $handler = [System.Net.Http.HttpClientHandler]::new()
-    $handler.AllowAutoRedirect = $false
-    $handler.UseCookies = $true
-    $handler.CookieContainer = [System.Net.CookieContainer]::new()
-
-    return [System.Net.Http.HttpClient]::new($handler)
-}
-
-function Get-AccessToken {
+function Get-TokenPair {
     param(
         [string]$Username,
         [string]$Password
     )
 
-    $client = New-NoRedirectClient
-    $verifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~abc"
-    $sha = [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-        [Text.Encoding]::ASCII.GetBytes($verifier)
-    )
-    $challenge = [Convert]::ToBase64String($sha).TrimEnd("=").Replace("+", "-").Replace("/", "_")
-    $redirect = "http://localhost:3000/callback"
-    $authorize = "$AuthBaseUrl/oauth2/authorize?response_type=code&client_id=foundflow-client&scope=openid%20profile&redirect_uri=$([uri]::EscapeDataString($redirect))&code_challenge=$challenge&code_challenge_method=S256"
-
-    $client.GetAsync($authorize).Result | Out-Null
-
-    $loginPairs = [System.Collections.Generic.List[System.Collections.Generic.KeyValuePair[string,string]]]::new()
-    $loginPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("username", $Username))
-    $loginPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("password", $Password))
-
-    $client.PostAsync("$AuthBaseUrl/login", [System.Net.Http.FormUrlEncodedContent]::new($loginPairs)).Result | Out-Null
-
-    $authorizationResponse = $client.GetAsync($authorize).Result
-    $location = [string]$authorizationResponse.Headers.Location
-    if ($location -notmatch "code=([^&]+)") {
-        throw "No authorization code in redirect for $Username. Redirect was: $location"
-    }
-
-    $code = [uri]::UnescapeDataString($Matches[1])
-
-    $tokenPairs = [System.Collections.Generic.List[System.Collections.Generic.KeyValuePair[string,string]]]::new()
-    $tokenPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("grant_type", "authorization_code"))
-    $tokenPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("client_id", "foundflow-client"))
-    $tokenPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("redirect_uri", $redirect))
-    $tokenPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("code", $code))
-    $tokenPairs.Add([System.Collections.Generic.KeyValuePair[string,string]]::new("code_verifier", $verifier))
-
-    $tokenResponse = $client.PostAsync(
-        "$AuthBaseUrl/oauth2/token",
-        [System.Net.Http.FormUrlEncodedContent]::new($tokenPairs)
-    ).Result
+    $client = [System.Net.Http.HttpClient]::new()
+    $tokenResponse = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+        email = $Username
+        password = $Password
+    })).Result
     $tokenBody = $tokenResponse.Content.ReadAsStringAsync().Result
 
     if (-not $tokenResponse.IsSuccessStatusCode) {
-        throw "Token request failed for $Username. Body: $tokenBody"
+        throw "Login failed for $Username. Body: $tokenBody"
     }
 
-    return ($tokenBody | ConvertFrom-Json).access_token
+    $tokens = $tokenBody | ConvertFrom-Json
+    if ($tokens.expiresIn -ne 1800) {
+        throw "Login for $Username should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
+    }
+
+    return $tokens
+}
+
+function Refresh-TokenPair {
+    param([string]$RefreshToken)
+
+    $client = [System.Net.Http.HttpClient]::new()
+    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
+        refreshToken = $RefreshToken
+    })).Result
+    $body = $response.Content.ReadAsStringAsync().Result
+
+    if (-not $response.IsSuccessStatusCode) {
+        throw "Refresh token request failed. Body: $body"
+    }
+
+    $tokens = $body | ConvertFrom-Json
+    if ($tokens.expiresIn -ne 1800) {
+        throw "Refresh should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
+    }
+
+    return $tokens
+}
+
+function Logout-RefreshToken {
+    param([string]$RefreshToken)
+
+    $client = [System.Net.Http.HttpClient]::new()
+    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/logout", (JsonContent @{
+        refreshToken = $RefreshToken
+    })).Result
+
+    Assert-Status $response 204 "Refresh token can be logged out"
 }
 
 function New-GatewayClient {
@@ -160,8 +156,9 @@ $publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
 }
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
 
-$adminToken = Get-AccessToken $AdminEmail $AdminPassword
-$adminClient = New-GatewayClient $adminToken
+$adminTokens = Get-TokenPair $AdminEmail $AdminPassword
+$adminTokens = Refresh-TokenPair $adminTokens.refreshToken
+$adminClient = New-GatewayClient $adminTokens.accessToken
 
 $users = $adminClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $users 200 "Admin can list users"
@@ -187,8 +184,8 @@ $opsResponse = Post-Json $adminClient "$GatewayBaseUrl/api/users" @{
 Assert-Status $opsResponse 200 "Admin can create OPS_MANAGER"
 $opsUser = Read-Json $opsResponse
 
-$opsToken = Get-AccessToken $opsEmail $opsPassword
-$opsClient = New-GatewayClient $opsToken
+$opsTokens = Get-TokenPair $opsEmail $opsPassword
+$opsClient = New-GatewayClient $opsTokens.accessToken
 
 $opsUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $opsUsers 200 "OPS_MANAGER can list own venue users"
@@ -301,5 +298,8 @@ $kpiBody = Read-Json $kpis
 if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1 -or $kpiBody.pendingMatches -lt 1) {
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
+
+Logout-RefreshToken $opsTokens.refreshToken
+Logout-RefreshToken $adminTokens.refreshToken
 
 Write-Host "[OK] FoundFlow E2E suite completed successfully."

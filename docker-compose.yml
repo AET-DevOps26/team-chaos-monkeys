@@ -20,8 +20,6 @@ services:
       context: .
       dockerfile: services/auth-service/Dockerfile
     container_name: foundflow-auth-service
-    ports:
-      - "8081:8081"
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_DB_NAME:?AUTH_DB_NAME is required}

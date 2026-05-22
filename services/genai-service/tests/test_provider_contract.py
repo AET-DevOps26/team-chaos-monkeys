@@ -101,6 +101,7 @@ def _ollama_harness(respx_mock: respx.MockRouter) -> ProviderHarness:
     provider = OllamaProvider(
         base_url="http://ollama-test:11434",
         chat_model="llama3.2:3b",
+        vision_model="llava:7b",
         embed_model="nomic-embed-text",
         timeout_seconds=5,
     )

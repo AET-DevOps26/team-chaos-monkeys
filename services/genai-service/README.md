@@ -54,7 +54,7 @@ uvicorn app.main:app --reload --port 8000
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /extract-attributes` | Extract structured `ItemAttributes` from a free-text lost-item description. Single-item only. |
+| `POST /extract-attributes` | Extract structured `ItemAttributes` from a lost-item description, photo, or both. Single-item only. At least one of `description` or `image` is required; both is supported with per-field reconciliation (see ADR 0001). |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
 | `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
 | `GET /health` | Liveness probe |
@@ -72,7 +72,8 @@ The service is stateless — no persistence, no caching, no queues. Vectors and 
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | Request body fails Pydantic validation. |
+| 400 | `VALIDATION_ERROR` | Request body fails Pydantic validation. For image input, `details.reason` discriminates: `at_least_one_required`, `image_base64_invalid`, `image_mime_unsupported`, `image_too_large`, `image_decode_failed`. |
+| 413 | `PAYLOAD_TOO_LARGE` | HTTP body exceeded the 8 MiB cap. Enforced at the middleware layer before Pydantic — caller should downscale and retry. |
 | 422 | `MODEL_OUTPUT_INVALID` | The provider call succeeded but the model's output was malformed JSON or failed schema validation. `details` carries `rawOutput` and `schemaErrors`. Callers should retry once before falling back. |
 | 429 | `PROVIDER_RATE_LIMITED` | Upstream provider throttled the request. |
 | 500 | `INTERNAL_ERROR` | Server fault (unknown/misconfigured model, uncaught exception). Message is generic; detail goes to logs only. |
@@ -85,6 +86,8 @@ The service is stateless — no persistence, no caching, no queues. Vectors and 
 - **No auth.** Endpoints are unauthenticated — the service is intended for in-cluster callers only.
 - **No streaming.** Responses are buffered until the model finishes.
 - **One provider per process.** Switching `GENAI_PROVIDER` requires a restart.
+- **Image input is JPEG / PNG / WebP only**, base64-encoded in the request body, with a 5 MiB decoded cap (8 MiB HTTP body cap). Convert HEIC upstream — the photo-storage abstraction (#67) is the right place. The image pipeline downscales to ≤ 1024 px and strips EXIF before forwarding to the provider.
+- **Local-provider vision uses `OLLAMA_VISION_MODEL` (default `llava:7b`)** — see ADR 0001 §7. CPU latency is ~15-30 s per call; the demo path is `GENAI_PROVIDER=openai`. NSFW content filtering exists on the OpenAI path (provider-side) but **not** on the local llava path.
 - **Provider parity is contract-only.** Both adapters honour the same `LLMProvider` protocol, but model quality differs — the default local `llama3.2:3b` is markedly weaker at structured extraction than `gpt-4o-mini`. The golden regression catches drift over time; absolute quality is a model-choice problem, not a code problem.
 - **Fail-fast on misconfig.** An invalid `GENAI_PROVIDER`, or a missing `OPENAI_API_KEY` when `provider=openai`, crashloops the container at startup — there is no silent fallback to the other provider.
 

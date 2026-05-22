@@ -36,6 +36,33 @@ class LLMBadRequestError(LLMError):
     """
 
 
+class ImageProcessingError(Exception):
+    """The image input could not be decoded, validated, or processed.
+
+    Distinct from `LLMError` (provider failed) and `ModelOutputError`
+    (provider succeeded but the model's response was bad): this fires
+    before any provider call, when the request's `image` field cannot be
+    decoded or rejects one of the server-side checks.
+
+    `app.errors` maps it to HTTP 400 `VALIDATION_ERROR`; the `reason` is
+    carried into `details.reason` so the caller can distinguish base64
+    decode failures from MIME, size, or Pillow-decode rejections.
+    `details` carries the extra structured context (sizes, field name)
+    that the error envelope advertises in `api/openapi.yaml`.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.details: dict[str, object] = dict(details) if details else {}
+
+
 class ModelOutputError(Exception):
     """The LLM returned output that failed our schema validation.
 
@@ -62,9 +89,15 @@ class ModelOutputError(Exception):
         reason: str,
         raw_output: str,
         schema_errors: list[str],
+        modality: str = "text",
     ) -> None:
         super().__init__(message)
         self.endpoint = endpoint
         self.reason = reason
         self.raw_output = raw_output
         self.schema_errors = schema_errors
+        # Carries the request modality (text/image/both) so the metrics
+        # helper in `app.errors` can stamp the correct label when this
+        # exception is observed. Defaults to "text" for back-compat with
+        # any older raise sites.
+        self.modality = modality

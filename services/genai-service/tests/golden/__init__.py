@@ -1,11 +1,17 @@
-"""Golden attribute-extraction test set for the GenAI service (issue #55).
+"""Golden attribute-extraction test set for the GenAI service (issues #55, #90).
 
 `load_golden_set()` is importable so the #49 extraction regression suite can
 reuse the same cases.
 
-Scope: text-description extraction only. A lost report may carry an optional
-photo (`LostReport.photoKey`), but image-based attribute extraction is out of
-scope this iteration (docs/architecture.md §3.2), so the set has no photo cases.
+Scope:
+- Text-description cases — the original set from #55.
+- Image-bearing cases (added under #90) carry an optional `imagePath` field;
+  the runner reads the file, base64-encodes it, and passes it through
+  `app.image.prepare_image` before calling `extract_attributes`. Fixtures
+  live in `tests/golden/images/`.
+
+Image fixtures must be PII-free (staged photos or neutral stock images) and
+have EXIF stripped before commit — see ADR 0001 §11.
 """
 
 from __future__ import annotations

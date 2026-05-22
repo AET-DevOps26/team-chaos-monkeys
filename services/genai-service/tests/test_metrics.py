@@ -86,7 +86,12 @@ def test_http_request_counter_increments_on_extract(client_with_fake, fake_provi
 
 def test_provider_counter_ok_on_extract_success(client_with_fake, fake_provider):
     fake_provider._chat_response = _VALID_EXTRACT_OUTPUT
-    labels = {"provider": "fake", "endpoint": "extract-attributes", "outcome": "ok"}
+    labels = {
+        "provider": "fake",
+        "endpoint": "extract-attributes",
+        "outcome": "ok",
+        "modality": "text",
+    }
     before = _sample("genai_provider_requests_total", labels)
 
     response = client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -101,6 +106,7 @@ def test_provider_counter_timeout(client_with_fake, fake_provider):
         "provider": "fake",
         "endpoint": "extract-attributes",
         "outcome": "timeout",
+        "modality": "text",
     }
     before = _sample("genai_provider_requests_total", labels)
 
@@ -116,6 +122,7 @@ def test_provider_counter_rate_limit(client_with_fake, fake_provider):
         "provider": "fake",
         "endpoint": "extract-attributes",
         "outcome": "rate_limit",
+        "modality": "text",
     }
     before = _sample("genai_provider_requests_total", labels)
 
@@ -133,11 +140,13 @@ def test_provider_counter_distinguishes_endpoints(
         "provider": "fake",
         "endpoint": "extract-attributes",
         "outcome": "ok",
+        "modality": "text",
     }
     verify_labels = {
         "provider": "fake",
         "endpoint": "verify-match",
         "outcome": "ok",
+        "modality": "text",
     }
     extract_before = _sample("genai_provider_requests_total", extract_labels)
     verify_before = _sample("genai_provider_requests_total", verify_labels)
@@ -159,7 +168,7 @@ def test_provider_counter_distinguishes_endpoints(
 
 def test_provider_duration_observed_on_success(client_with_fake, fake_provider):
     fake_provider._chat_response = _VALID_EXTRACT_OUTPUT
-    labels = {"provider": "fake", "endpoint": "extract-attributes"}
+    labels = {"provider": "fake", "endpoint": "extract-attributes", "modality": "text"}
     before = _sample("genai_provider_request_duration_seconds_count", labels)
 
     client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -172,7 +181,7 @@ def test_provider_duration_observed_on_success(client_with_fake, fake_provider):
 
 def test_provider_duration_observed_on_failure(client_with_fake, fake_provider):
     fake_provider._raise_on_chat = LLMTimeoutError("upstream slow")
-    labels = {"provider": "fake", "endpoint": "extract-attributes"}
+    labels = {"provider": "fake", "endpoint": "extract-attributes", "modality": "text"}
     before = _sample("genai_provider_request_duration_seconds_count", labels)
 
     client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -188,7 +197,7 @@ def test_provider_duration_observed_on_failure(client_with_fake, fake_provider):
 
 def test_validation_errors_json_decode(client_with_fake, fake_provider):
     fake_provider._chat_response = "not valid json"
-    labels = {"endpoint": "extract-attributes", "reason": "json_decode"}
+    labels = {"endpoint": "extract-attributes", "reason": "json_decode", "modality": "text"}
     before = _sample("genai_validation_errors_total", labels)
 
     response = client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -199,7 +208,7 @@ def test_validation_errors_json_decode(client_with_fake, fake_provider):
 
 def test_validation_errors_wrong_type(client_with_fake, fake_provider):
     fake_provider._chat_response = '"a JSON string, not an object"'
-    labels = {"endpoint": "extract-attributes", "reason": "wrong_type"}
+    labels = {"endpoint": "extract-attributes", "reason": "wrong_type", "modality": "text"}
     before = _sample("genai_validation_errors_total", labels)
 
     response = client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -217,7 +226,7 @@ def test_validation_errors_schema(client_with_fake, fake_provider):
         '"distinguishingMarks":"not a list",'
         '"approximateTime":null,"location":null}'
     )
-    labels = {"endpoint": "extract-attributes", "reason": "schema"}
+    labels = {"endpoint": "extract-attributes", "reason": "schema", "modality": "text"}
     before = _sample("genai_validation_errors_total", labels)
 
     response = client_with_fake.post("/extract-attributes", json=_VALID_EXTRACT_BODY)
@@ -241,13 +250,19 @@ def test_validation_failure_does_not_bump_provider_error_counter(
         "provider": "fake",
         "endpoint": "extract-attributes",
         "outcome": "ok",
+        "modality": "text",
     }
     provider_err = {
         "provider": "fake",
         "endpoint": "extract-attributes",
         "outcome": "error",
+        "modality": "text",
     }
-    validation = {"endpoint": "extract-attributes", "reason": "json_decode"}
+    validation = {
+        "endpoint": "extract-attributes",
+        "reason": "json_decode",
+        "modality": "text",
+    }
 
     ok_before = _sample("genai_provider_requests_total", provider_ok)
     err_before = _sample("genai_provider_requests_total", provider_err)
@@ -275,7 +290,12 @@ def test_build_info_labels_match_settings_provider(client_with_fake):
 
 def test_embed_endpoint_increments_provider_counter(client_with_fake, fake_provider):
     fake_provider._embed_vector = [0.1, 0.2, 0.3]
-    labels = {"provider": "fake", "endpoint": "embed", "outcome": "ok"}
+    labels = {
+        "provider": "fake",
+        "endpoint": "embed",
+        "outcome": "ok",
+        "modality": "text",
+    }
     before = _sample("genai_provider_requests_total", labels)
 
     response = client_with_fake.post(
@@ -288,7 +308,12 @@ def test_embed_endpoint_increments_provider_counter(client_with_fake, fake_provi
 
 def test_embed_records_one_observation_per_text(client_with_fake, fake_provider):
     fake_provider._embed_vector = [0.1, 0.2, 0.3]
-    labels = {"provider": "fake", "endpoint": "embed", "outcome": "ok"}
+    labels = {
+        "provider": "fake",
+        "endpoint": "embed",
+        "outcome": "ok",
+        "modality": "text",
+    }
     before = _sample("genai_provider_requests_total", labels)
 
     client_with_fake.post(
@@ -303,7 +328,12 @@ def test_verify_match_endpoint_increments_provider_counter(
     client_with_fake, fake_provider
 ):
     fake_provider._chat_response = _VALID_VERIFY_OUTPUT
-    labels = {"provider": "fake", "endpoint": "verify-match", "outcome": "ok"}
+    labels = {
+        "provider": "fake",
+        "endpoint": "verify-match",
+        "outcome": "ok",
+        "modality": "text",
+    }
     before = _sample("genai_provider_requests_total", labels)
 
     response = client_with_fake.post("/verify-match", json=_VALID_VERIFY_BODY)

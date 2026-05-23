@@ -15,19 +15,31 @@ from app.config import Settings
 
 
 def resolve_model_info(
-    settings: Settings, kind: Literal["chat", "embed"] = "chat"
+    settings: Settings, kind: Literal["chat", "embed", "vision"] = "chat"
 ) -> ModelInfo:
     """The provider and the model that served a request, for `ModelInfo`.
 
-    `kind` selects the model family: `/extract-attributes` and
-    `/verify-match` run on the chat model, `/embed` on the embed model.
-    Defaults to `"chat"` so existing callers are unaffected.
+    `kind` selects the model family:
+      - `"chat"`   — `/extract-attributes` (text-only) and `/verify-match`
+      - `"embed"`  — `/embed`
+      - `"vision"` — `/extract-attributes` with image content (modality
+        `image` or `both`). For OpenAI this is still the chat model
+        (`gpt-4o-mini` is vision-capable by default); for Ollama, the
+        adapter routes vision calls to `OLLAMA_VISION_MODEL` and we
+        report that here for honest provenance (see ADR 0001 §7).
     """
     if settings.provider == "openai":
-        chat_model = settings.openai_chat_model
-        embed_model = settings.openai_embed_model
+        if kind == "embed":
+            model = settings.openai_embed_model
+        else:
+            # OpenAI's default chat model is vision-capable; the "vision"
+            # kind reports the same string.
+            model = settings.openai_chat_model
     else:
-        chat_model = settings.ollama_chat_model
-        embed_model = settings.ollama_embed_model
-    model = chat_model if kind == "chat" else embed_model
+        if kind == "embed":
+            model = settings.ollama_embed_model
+        elif kind == "vision":
+            model = settings.ollama_vision_model
+        else:
+            model = settings.ollama_chat_model
     return ModelInfo(provider=settings.provider, model=model)

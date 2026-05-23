@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = Field(default="http://ollama:11434", alias="OLLAMA_BASE_URL")
     ollama_chat_model: str = Field(default="llama3.2:3b", alias="OLLAMA_CHAT_MODEL")
+    ollama_vision_model: str = Field(default="llava:7b", alias="OLLAMA_VISION_MODEL")
     ollama_embed_model: str = Field(
         default="nomic-embed-text", alias="OLLAMA_EMBED_MODEL"
     )

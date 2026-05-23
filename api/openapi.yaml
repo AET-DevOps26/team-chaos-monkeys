@@ -76,6 +76,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExtractAttributesResponse'
         '400': { $ref: '#/components/responses/ValidationError' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '422': { $ref: '#/components/responses/ModelOutputInvalid' }
         '429': { $ref: '#/components/responses/ProviderRateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -201,13 +202,21 @@ components:
 
     ExtractAttributesRequest:
       type: object
-      required: [description]
+      description: |
+        Request body for `/extract-attributes`. At least one of `description`
+        or `image` must be present; sending both is supported and triggers
+        per-field reconciliation in the LLM call (image is authoritative for
+        visible attributes; description is authoritative for time and
+        location). See ADR 0001 in the genai-service for the policy.
       properties:
         description:
           type: string
           minLength: 1
           maxLength: 4000
-          description: Free-text lost-item description from the guest.
+          description: |
+            Free-text lost-item description. Optional when `image` is provided.
+        image:
+          $ref: '#/components/schemas/ImageContent'
         language:
           type: string
           description: |
@@ -216,6 +225,33 @@ components:
             in the source language so downstream matching is not warped by
             translation.
           pattern: '^[a-z]{2}$'
+      anyOf:
+        - required: [description]
+        - required: [image]
+
+    ImageContent:
+      type: object
+      description: |
+        Inline image carried in the request body. The decoded payload must be
+        ≤ 5 MiB; the service downscales to ≤ 1024 px on the longest edge,
+        strips EXIF, and re-encodes to JPEG before forwarding to the LLM
+        provider. Oversized HTTP bodies (above 8 MiB) are rejected at the
+        middleware layer with `413 PAYLOAD_TOO_LARGE`.
+      required: [contentType, dataBase64]
+      properties:
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+          description: |
+            MIME type of the encoded image. HEIC/HEIF and other formats are
+            rejected — convert upstream (e.g. in the photo-storage layer).
+        dataBase64:
+          type: string
+          minLength: 1
+          maxLength: 6700000
+          description: |
+            Base64-encoded image bytes. `maxLength` is sized to admit ≈ 5 MiB
+            of decoded payload; bytes-after-decode are re-checked server-side.
 
     ExtractAttributesResponse:
       type: object
@@ -392,6 +428,7 @@ components:
           type: string
           enum:
             - VALIDATION_ERROR
+            - PAYLOAD_TOO_LARGE
             - MODEL_OUTPUT_INVALID
             - PROVIDER_RATE_LIMITED
             - PROVIDER_UNAVAILABLE
@@ -404,6 +441,7 @@ components:
 
             HTTP mapping:
               - `VALIDATION_ERROR`       → 400 — request body failed schema validation
+              - `PAYLOAD_TOO_LARGE`      → 413 — HTTP body exceeded the 8 MiB cap (middleware-level)
               - `MODEL_OUTPUT_INVALID`   → 422 — LLM output failed our schema validation (see issue #52)
               - `PROVIDER_RATE_LIMITED`  → 429 — upstream provider returned 429; caller should back off
               - `PROVIDER_UNAVAILABLE`   → 502 — provider endpoint unreachable
@@ -417,9 +455,16 @@ components:
           type: object
           description: |
             Structured context for debugging. Shape depends on `code`:
-              - `VALIDATION_ERROR`: `{ field, reason }` or array of such
+              - `VALIDATION_ERROR`: `{ field, reason, ... }` or array of such.
+                Reason values include:
+                  - `at_least_one_required`     — request had neither `description` nor `image`
+                  - `image_base64_invalid`      — `image.dataBase64` did not decode
+                  - `image_mime_unsupported`    — `image.contentType` not in the JPEG/PNG/WebP allowlist
+                  - `image_too_large`           — decoded image bytes exceeded the 5 MiB cap
+                  - `image_decode_failed`       — Pillow rejected the bytes (corrupt or decompression-bomb)
               - `MODEL_OUTPUT_INVALID`: `{ rawOutput, schemaErrors }`
               - `PROVIDER_*`: `{ provider, upstreamStatus, retryAfterMs }`
+              - `PAYLOAD_TOO_LARGE`: `{ maxBytes, actualBytes }`
             Always optional. May be omitted in production responses to bound payload size.
           additionalProperties: true
 
@@ -435,6 +480,21 @@ components:
             details:
               field: description
               reason: "must not be empty"
+    PayloadTooLarge:
+      description: |
+        HTTP request body exceeded the service-level cap (8 MiB). Rejected at
+        the middleware layer before Pydantic validation, so the body itself is
+        not consumed. Callers should downscale or re-encode the image and
+        retry; this is not a transient failure.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: PAYLOAD_TOO_LARGE
+            message: "Request body exceeds the 8 MiB limit"
+            details:
+              maxBytes: 8388608
+              actualBytes: 12345678
     ModelOutputInvalid:
       description: |
         The LLM produced output that failed schema validation. The caller should

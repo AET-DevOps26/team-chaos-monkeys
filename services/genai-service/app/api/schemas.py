@@ -14,8 +14,23 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
+
+# Allowed MIME types for `ImageContent.contentType`. Kept in sync with the
+# OpenAPI enum and the `image_mime_unsupported` validation reason in
+# `app.errors`. HEIC/HEIF and other formats are intentionally absent —
+# callers convert upstream (e.g. in the photo-storage layer).
+ALLOWED_IMAGE_MIME_TYPES: tuple[str, ...] = (
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+)
+
+# Cap on the base64-encoded `dataBase64` string. Sized to admit ≈ 5 MiB of
+# decoded payload (5 MiB × 4/3 ≈ 6.7 M chars). The decoded byte count is
+# re-checked in `app.image` after base64 decoding.
+MAX_IMAGE_BASE64_LENGTH = 6_700_000
 
 
 class CamelModel(BaseModel):
@@ -83,11 +98,37 @@ class ModelInfo(CamelModel):
     model: str
 
 
-class ExtractAttributesRequest(CamelModel):
-    """Request body for `POST /extract-attributes`."""
+class ImageContent(CamelModel):
+    """Inline image payload — the `ImageContent` schema.
 
-    description: str = Field(min_length=1, max_length=4000)
+    `dataBase64` is sized at the Pydantic layer for a fast reject; the
+    decoded byte count is re-checked in `app.image` because base64 padding
+    and whitespace can produce small overshoots that should still be
+    rejected before reaching the LLM provider.
+    """
+
+    content_type: Literal["image/jpeg", "image/png", "image/webp"]
+    data_base64: str = Field(min_length=1, max_length=MAX_IMAGE_BASE64_LENGTH)
+
+
+class ExtractAttributesRequest(CamelModel):
+    """Request body for `POST /extract-attributes`.
+
+    Either `description` or `image` (or both) must be present — the
+    `_at_least_one` validator enforces this. The OpenAPI contract carries
+    the same constraint as an `anyOf` so generated clients reject empty
+    requests without round-tripping.
+    """
+
+    description: str | None = Field(default=None, min_length=1, max_length=4000)
+    image: ImageContent | None = None
     language: str | None = Field(default=None, pattern=r"^[a-z]{2}$")
+
+    @model_validator(mode="after")
+    def _at_least_one(self) -> "ExtractAttributesRequest":
+        if self.description is None and self.image is None:
+            raise ValueError("at_least_one_required")
+        return self
 
 
 class ExtractAttributesResponse(CamelModel):
@@ -179,6 +220,7 @@ class ErrorCode(StrEnum):
     """
 
     VALIDATION_ERROR = "VALIDATION_ERROR"
+    PAYLOAD_TOO_LARGE = "PAYLOAD_TOO_LARGE"
     MODEL_OUTPUT_INVALID = "MODEL_OUTPUT_INVALID"
     PROVIDER_RATE_LIMITED = "PROVIDER_RATE_LIMITED"
     PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"

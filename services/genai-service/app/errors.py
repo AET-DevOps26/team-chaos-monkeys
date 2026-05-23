@@ -38,6 +38,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.schemas import ErrorCode
 from app.exceptions import (
+    ImageProcessingError,
     LLMBadRequestError,
     LLMError,
     LLMRateLimitError,
@@ -73,16 +74,49 @@ async def _handle_request_validation(
     field = ".".join(
         str(part) for part in first.get("loc", ()) if part != "body"
     )
-    details = {"field": field or "(body)", "reason": first.get("msg", "invalid")}
+    details = {
+        "field": field or "(body)",
+        "reason": _validation_reason(first),
+    }
     return error_response(
         400, ErrorCode.VALIDATION_ERROR, "Request body failed validation", details
     )
 
 
+def _validation_reason(err: dict[str, Any]) -> str:
+    """Extract a clean `reason` string from a Pydantic v2 error dict.
+
+    Custom `ValueError` raised inside a `model_validator` surfaces as
+    `{"type": "value_error", "msg": "Value error, <raw>"}`; we strip the
+    "Value error, " prefix so the documented reasons
+    (`at_least_one_required`, etc.) appear verbatim in the API response.
+    Falls back to the raw `msg` for the standard built-in validators.
+    """
+    raw_msg = err.get("msg", "invalid")
+    if err.get("type") == "value_error" and raw_msg.startswith("Value error, "):
+        return raw_msg.removeprefix("Value error, ")
+    return raw_msg
+
+
+async def _handle_image_processing(
+    request: Request, exc: ImageProcessingError
+) -> JSONResponse:
+    """Image input failed one of the server-side checks (decode / MIME /
+    size / Pillow). Maps to 400 `VALIDATION_ERROR`; the `details.reason`
+    carries the specific failure mode (`image_base64_invalid`,
+    `image_mime_unsupported`, `image_too_large`, `image_decode_failed`).
+    """
+    details = dict(exc.details)
+    details.setdefault("reason", exc.reason)
+    return error_response(400, ErrorCode.VALIDATION_ERROR, str(exc), details)
+
+
 async def _handle_model_output(
     request: Request, exc: ModelOutputError
 ) -> JSONResponse:
-    validation_errors_total.labels(endpoint=exc.endpoint, reason=exc.reason).inc()
+    validation_errors_total.labels(
+        endpoint=exc.endpoint, reason=exc.reason, modality=exc.modality
+    ).inc()
     return error_response(
         422,
         ErrorCode.MODEL_OUTPUT_INVALID,
@@ -145,6 +179,7 @@ async def _handle_uncaught(request: Request, exc: Exception) -> JSONResponse:
 def register_exception_handlers(app: FastAPI) -> None:
     """Install the contract error handlers on the FastAPI app."""
     app.add_exception_handler(RequestValidationError, _handle_request_validation)
+    app.add_exception_handler(ImageProcessingError, _handle_image_processing)
     app.add_exception_handler(ModelOutputError, _handle_model_output)
     app.add_exception_handler(LLMRateLimitError, _handle_rate_limit)
     app.add_exception_handler(LLMTimeoutError, _handle_timeout)

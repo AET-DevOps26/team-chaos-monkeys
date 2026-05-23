@@ -15,9 +15,51 @@ from typing import Literal, Protocol, TypedDict, runtime_checkable
 from app.config import Settings
 
 
+class TextContentPart(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class ImageContentPart(TypedDict):
+    """Multimodal image part — a single image attached to a user turn.
+
+    `dataBase64` mirrors the wire field name from `ImageContent` in
+    `app.api.schemas` so message construction can carry the request payload
+    through unchanged. Adapters translate this into provider-specific shapes
+    (OpenAI: data URL; Ollama: separate `images` field on the message).
+    """
+
+    type: Literal["image"]
+    contentType: str
+    dataBase64: str
+
+
+ContentPart = TextContentPart | ImageContentPart
+
+
 class Message(TypedDict):
     role: Literal["system", "user", "assistant"]
-    content: str
+    # Either a plain string (text-only — the original shape) or a list of
+    # content parts for multimodal turns. Existing text-only call sites
+    # keep using strings; the vision-aware extraction path (issue #90)
+    # emits content-part lists.
+    content: str | list[ContentPart]
+
+
+def has_image_content(messages: list[Message]) -> bool:
+    """True if any message in `messages` carries an image content part.
+
+    Used by adapters to decide whether to route a call to a vision-capable
+    model. Cheap — O(n) over messages and content parts; called once per
+    chat invocation.
+    """
+    for msg in messages:
+        content = msg["content"]
+        if isinstance(content, list):
+            for part in content:
+                if part["type"] == "image":
+                    return True
+    return False
 
 
 @runtime_checkable
@@ -52,10 +94,19 @@ def build_provider(settings: Settings) -> LLMProvider:
         return OllamaProvider(
             base_url=settings.ollama_base_url,
             chat_model=settings.ollama_chat_model,
+            vision_model=settings.ollama_vision_model,
             embed_model=settings.ollama_embed_model,
             timeout_seconds=settings.timeout_seconds,
         )
     raise ValueError(f"unknown provider: {settings.provider!r}")
 
 
-__all__ = ["LLMProvider", "Message", "build_provider"]
+__all__ = [
+    "ContentPart",
+    "ImageContentPart",
+    "LLMProvider",
+    "Message",
+    "TextContentPart",
+    "build_provider",
+    "has_image_content",
+]

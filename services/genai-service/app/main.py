@@ -22,6 +22,7 @@ from app.api import diagnostic, embed, extract, health, verify
 from app.config import Settings
 from app.errors import register_exception_handlers
 from app.metrics import build_info
+from app.middleware import MaxBodySizeMiddleware
 from app.providers import build_provider
 
 
@@ -44,6 +45,11 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+# Reject oversized request bodies (default 8 MiB) at the ASGI layer
+# before Pydantic parses anything. See ADR 0001 §2/§8 for sizing and
+# `app.middleware` for the implementation.
+app.add_middleware(MaxBodySizeMiddleware)
 
 # `/metrics` exposes the default HTTP histograms/counters plus the
 # GenAI-specific metrics defined in `app.metrics`. Kept out of the

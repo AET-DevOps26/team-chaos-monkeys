@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "openai>=1.55",
     "ollama>=0.4",
+    "pillow>=10.4,<12",
     "prometheus-client>=0.21",
     "prometheus-fastapi-instrumentator>=7.0",
 ]

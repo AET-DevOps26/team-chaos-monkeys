@@ -9,6 +9,7 @@ import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
@@ -33,13 +34,16 @@ public class FoundItemService {
 
     private final FoundItemRepository foundItemRepository;
     private final VenueAccessService venueAccessService;
+    private final FoundItemEventPublisher eventPublisher;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
-            VenueAccessService venueAccessService
+            VenueAccessService venueAccessService,
+            FoundItemEventPublisher eventPublisher
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
+        this.eventPublisher = eventPublisher;
     }
 
     public FoundItemResponse createFoundItem(
@@ -62,6 +66,7 @@ public class FoundItemService {
         );
 
         FoundItem savedFoundItem = foundItemRepository.save(foundItem);
+        eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);
     }
 

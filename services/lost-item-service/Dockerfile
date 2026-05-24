@@ -3,6 +3,7 @@ FROM gradle:9-jdk21 AS build
 WORKDIR /workspace
 
 COPY shared/common-domain ./shared/common-domain
+COPY shared/domain-events ./shared/domain-events
 COPY services/lost-item-service ./services/lost-item-service
 
 WORKDIR /workspace/services/lost-item-service

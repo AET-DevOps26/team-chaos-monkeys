@@ -7,6 +7,7 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
@@ -31,11 +32,14 @@ class FoundItemServiceTest {
     @Mock
     private FoundItemRepository foundItemRepository;
 
+    @Mock
+    private FoundItemEventPublisher eventPublisher;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
     void createFoundItem_shouldUseVenueFromJwtForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+        FoundItemService service = foundItemService();
 
         UUID jwtVenueId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
@@ -63,11 +67,12 @@ class FoundItemServiceTest {
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
         assertEquals(jwtVenueId, response.venueId());
+        verify(eventPublisher).publishFoundItemLogged(captor.getValue());
     }
 
     @Test
     void getFoundItemById_shouldReturnResponseForOwnVenue() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+        FoundItemService service = foundItemService();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -85,7 +90,7 @@ class FoundItemServiceTest {
 
     @Test
     void getAllFoundItems_shouldUseVenueRepositoryForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+        FoundItemService service = foundItemService();
 
         UUID venueId = UUID.randomUUID();
         when(foundItemRepository.findByVenueIdAndStatus(venueId, ItemStatus.STORED))
@@ -102,7 +107,7 @@ class FoundItemServiceTest {
 
     @Test
     void histogram_shouldBucketAccessibleFoundItemsByDayWeekAndMonth() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+        FoundItemService service = foundItemService();
 
         UUID venueId = UUID.randomUUID();
         when(foundItemRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
@@ -122,7 +127,7 @@ class FoundItemServiceTest {
 
     @Test
     void updateFoundItem_shouldKeepVenueForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService);
+        FoundItemService service = foundItemService();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -150,6 +155,15 @@ class FoundItemServiceTest {
         assertEquals(ItemStatus.RESERVED, response.get().status());
         assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).save(existingItem);
+        verify(eventPublisher, never()).publishFoundItemLogged(any());
+    }
+
+    private FoundItemService foundItemService() {
+        return new FoundItemService(
+                foundItemRepository,
+                venueAccessService,
+                eventPublisher
+        );
     }
 
     private FoundItem foundItem(UUID venueId) {

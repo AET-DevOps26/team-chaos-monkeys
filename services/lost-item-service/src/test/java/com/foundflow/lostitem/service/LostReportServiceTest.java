@@ -7,6 +7,7 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
@@ -31,11 +32,14 @@ class LostReportServiceTest {
     @Mock
     private LostReportRepository lostReportRepository;
 
+    @Mock
+    private LostReportEventPublisher eventPublisher;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
     void createLostReport_shouldUseVenueFromJwtForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(UUID.randomUUID());
@@ -51,11 +55,12 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
     @Test
     void createLostReport_shouldUseRequestVenueForPublicReport() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(venueId);
@@ -71,11 +76,12 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
     @Test
     void getLostReportById_shouldReturnResponseForOwnVenue() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -91,7 +97,7 @@ class LostReportServiceTest {
 
     @Test
     void getAllLostReports_shouldUseVenueRepositoryForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findByVenueIdAndStatus(venueId, ReportStatus.OPEN))
@@ -107,7 +113,7 @@ class LostReportServiceTest {
 
     @Test
     void histogram_shouldBucketAccessibleLostReportsByDayWeekAndMonth() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
@@ -126,7 +132,7 @@ class LostReportServiceTest {
 
     @Test
     void updateLostReport_shouldKeepVenueForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = lostReportService();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -143,6 +149,15 @@ class LostReportServiceTest {
         assertTrue(response.isPresent());
         assertEquals(venueId, response.get().venueId());
         assertEquals(ReportStatus.MATCHED, response.get().status());
+        verify(eventPublisher, never()).publishLostReportCreated(any());
+    }
+
+    private LostReportService lostReportService() {
+        return new LostReportService(
+                lostReportRepository,
+                venueAccessService,
+                eventPublisher
+        );
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {

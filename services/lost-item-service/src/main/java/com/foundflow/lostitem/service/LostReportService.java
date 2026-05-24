@@ -9,6 +9,7 @@ import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.TimeBucketCount;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
@@ -33,13 +34,16 @@ public class LostReportService {
 
     private final LostReportRepository lostReportRepository;
     private final VenueAccessService venueAccessService;
+    private final LostReportEventPublisher eventPublisher;
 
     public LostReportService(
             LostReportRepository lostReportRepository,
-            VenueAccessService venueAccessService
+            VenueAccessService venueAccessService,
+            LostReportEventPublisher eventPublisher
     ) {
         this.lostReportRepository = lostReportRepository;
         this.venueAccessService = venueAccessService;
+        this.eventPublisher = eventPublisher;
     }
 
     public LostReportResponse createLostReport(
@@ -60,6 +64,7 @@ public class LostReportService {
         );
 
         LostReport savedLostReport = lostReportRepository.save(lostReport);
+        eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
     }
 

@@ -2,6 +2,7 @@ package com.foundflow.photo.storage;
 
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
+import io.minio.GetObjectResponse;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.Http.Method;
 import io.minio.MakeBucketArgs;
@@ -9,8 +10,8 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
-import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
+import okhttp3.Headers;
 
 import java.net.URI;
 import java.time.Clock;
@@ -75,19 +76,14 @@ public class MinioPhotoStorage implements PhotoStorage {
     @Override
     public PhotoData retrieve(String photoKey) {
         try {
-            StatObjectResponse stat = minioClient.statObject(StatObjectArgs.builder()
+            GetObjectResponse response = minioClient.getObject(GetObjectArgs.builder()
                     .bucket(bucketName)
                     .object(photoKey)
                     .build());
-
-            return new PhotoData(
-                    minioClient.getObject(GetObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(photoKey)
-                            .build()),
-                    stat.contentType(),
-                    stat.size()
-            );
+            Headers headers = response.headers();
+            String contentType = headerOrFallback(headers, "Content-Type", keyFactory.contentTypeFor(photoKey));
+            long sizeBytes = parseLength(headers.get("Content-Length"));
+            return new PhotoData(response, contentType, sizeBytes);
         } catch (ErrorResponseException exception) {
             if (isMissingObject(exception)) {
                 throw new PhotoNotFoundException(photoKey, exception);
@@ -95,6 +91,22 @@ public class MinioPhotoStorage implements PhotoStorage {
             throw new PhotoStorageException("Could not retrieve photo.", exception);
         } catch (Exception exception) {
             throw new PhotoStorageException("Could not retrieve photo.", exception);
+        }
+    }
+
+    private static String headerOrFallback(Headers headers, String name, String fallback) {
+        String value = headers.get(name);
+        return (value == null || value.isBlank()) ? fallback : value;
+    }
+
+    private static long parseLength(String value) {
+        if (value == null || value.isBlank()) {
+            return -1L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return -1L;
         }
     }
 
@@ -170,6 +182,6 @@ public class MinioPhotoStorage implements PhotoStorage {
 
     private boolean isMissingObject(ErrorResponseException exception) {
         String code = exception.errorResponse().code();
-        return "NoSuchKey".equals(code) || "NoSuchObject".equals(code) || "NoSuchBucket".equals(code);
+        return "NoSuchKey".equals(code) || "NoSuchObject".equals(code);
     }
 }

@@ -175,6 +175,7 @@ Base path: `/api/found-items`
 | `PUT` | `/api/found-items/{id}` | - | Resource venue check |
 | `PUT` | `/api/found-items/{id}/photo` | `multipart/form-data` `photo` file | Resource venue check; replaces `photoKey` from storage output only |
 | `GET` | `/api/found-items/{id}/photo` | - | Resource venue check; streams the stored photo |
+| `GET` | `/api/found-items/{id}/photo-url` | - | Resource venue check; returns a short-lived browser-reachable signed URL for the photo (MinIO/Azure). For the local-filesystem provider returns a `file://` URI |
 | `DELETE` | `/api/found-items/{id}` | - | Resource venue check |
 
 Counts and histogram day buckets are aggregated in the database. Week and month buckets are derived from the daily buckets.
@@ -222,6 +223,7 @@ Compatibility base path currently also supported: `/api/lost-reports`
 | `PUT` | `/api/lost-items/{id}` | - | Resource venue check |
 | `PUT` | `/api/lost-items/{id}/photo` | `multipart/form-data` `photo` file | Resource venue check; replaces `photoKey` from storage output only |
 | `GET` | `/api/lost-items/{id}/photo` | - | Resource venue check; streams the stored photo |
+| `GET` | `/api/lost-items/{id}/photo-url` | - | Resource venue check; returns a short-lived browser-reachable signed URL for the photo (MinIO/Azure). For the local-filesystem provider returns a `file://` URI |
 
 Count and histogram responses use the same shape as the Found Item Service.
 

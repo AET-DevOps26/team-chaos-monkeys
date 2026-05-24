@@ -37,7 +37,7 @@ final class PhotoKeyFactory {
         if (lowerCaseKey.endsWith(".webp")) {
             return "image/webp";
         }
-        return "application/octet-stream";
+        throw new PhotoStorageException("Unrecognised photo extension for key: " + photoKey);
     }
 
     private String extensionFor(String contentType) {

@@ -13,6 +13,7 @@ import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
 import com.foundflow.photo.storage.PhotoStorage;
@@ -43,13 +44,7 @@ import java.util.stream.Collectors;
 public class FoundItemService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FoundItemService.class);
-    private static final long MAX_PHOTO_SIZE_BYTES = 10L * 1024L * 1024L;
     private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
-    private static final List<String> ALLOWED_PHOTO_CONTENT_TYPES = List.of(
-            "image/jpeg",
-            "image/png",
-            "image/webp"
-    );
 
     private final FoundItemRepository foundItemRepository;
     private final VenueAccessService venueAccessService;
@@ -93,7 +88,7 @@ public class FoundItemService {
                 toItemAttributes(request.attributes())
         );
 
-        FoundItem savedFoundItem = foundItemRepository.save(foundItem);
+        FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
         return toResponse(savedFoundItem);
     }
 
@@ -162,8 +157,8 @@ public class FoundItemService {
                     String photoKey = storePhoto(photo);
                     foundItem.setPhotoKey(photoKey);
 
-                    FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
-                    deletePreviousPhoto(previousPhotoKey, id);
+                    FoundItem updatedFoundItem = saveOrCompensate(foundItem, photoKey, id);
+                    safeDeletePhoto(previousPhotoKey, id);
 
                     return toResponse(updatedFoundItem);
                 });
@@ -218,7 +213,9 @@ public class FoundItemService {
         return foundItemRepository.findById(id)
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
+                    String photoKey = foundItem.getPhotoKey();
                     foundItemRepository.delete(foundItem);
+                    safeDeletePhoto(photoKey, id);
                     return true;
                 })
                 .orElse(false);
@@ -319,14 +316,25 @@ public class FoundItemService {
         }
     }
 
-    private void deletePreviousPhoto(String previousPhotoKey, UUID itemId) {
-        if (previousPhotoKey == null || previousPhotoKey.isBlank()) {
+    private FoundItem saveOrCompensate(FoundItem foundItem, String newlyStoredPhotoKey, UUID itemId) {
+        try {
+            return foundItemRepository.save(foundItem);
+        } catch (RuntimeException exception) {
+            if (newlyStoredPhotoKey != null) {
+                safeDeletePhoto(newlyStoredPhotoKey, itemId);
+            }
+            throw exception;
+        }
+    }
+
+    private void safeDeletePhoto(String photoKey, UUID itemId) {
+        if (photoKey == null || photoKey.isBlank()) {
             return;
         }
         try {
-            photoStorage.delete(previousPhotoKey);
+            photoStorage.delete(photoKey);
         } catch (PhotoStorageException exception) {
-            LOGGER.warn("Could not delete previous photo {} for found item {}.", previousPhotoKey, itemId, exception);
+            LOGGER.warn("Could not delete photo {} for found item {}.", photoKey, itemId, exception);
         }
     }
 
@@ -334,12 +342,19 @@ public class FoundItemService {
         if (photo == null || photo.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo must not be empty.");
         }
-        if (photo.getSize() > MAX_PHOTO_SIZE_BYTES) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Photo must be at most 10 MB.");
+        PhotoConstraints.Violation violation = PhotoConstraints.check(photo.getContentType(), photo.getSize());
+        if (violation == null) {
+            return;
         }
-        if (!ALLOWED_PHOTO_CONTENT_TYPES.contains(photo.getContentType())) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported photo content type.");
-        }
+        throw new ResponseStatusException(statusFor(violation), violation.message());
+    }
+
+    private static HttpStatus statusFor(PhotoConstraints.Violation violation) {
+        return switch (violation) {
+            case TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case UNSUPPORTED_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+            case EMPTY -> HttpStatus.BAD_REQUEST;
+        };
     }
 
     private List<TimeBucketCount> toTimeBucketCounts(List<BucketCountView> buckets) {

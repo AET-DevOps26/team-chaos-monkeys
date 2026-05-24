@@ -13,6 +13,7 @@ import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
 import com.foundflow.photo.storage.PhotoStorage;
@@ -43,13 +44,7 @@ import java.util.stream.Collectors;
 public class LostReportService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LostReportService.class);
-    private static final long MAX_PHOTO_SIZE_BYTES = 10L * 1024L * 1024L;
     private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
-    private static final List<String> ALLOWED_PHOTO_CONTENT_TYPES = List.of(
-            "image/jpeg",
-            "image/png",
-            "image/webp"
-    );
 
     private final LostReportRepository lostReportRepository;
     private final VenueAccessService venueAccessService;
@@ -91,7 +86,7 @@ public class LostReportService {
                 toItemAttributes(request.attributes())
         );
 
-        LostReport savedLostReport = lostReportRepository.save(lostReport);
+        LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
         return toResponse(savedLostReport);
     }
 
@@ -175,8 +170,8 @@ public class LostReportService {
                     String photoKey = storePhoto(photo);
                     lostReport.setPhotoKey(photoKey);
 
-                    LostReport updatedReport = lostReportRepository.save(lostReport);
-                    deletePreviousPhoto(previousPhotoKey, id);
+                    LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
+                    safeDeletePhoto(previousPhotoKey, id);
 
                     return toResponse(updatedReport);
                 });
@@ -326,14 +321,25 @@ public class LostReportService {
         return photo != null && !photo.isEmpty();
     }
 
-    private void deletePreviousPhoto(String previousPhotoKey, UUID reportId) {
-        if (previousPhotoKey == null || previousPhotoKey.isBlank()) {
+    private LostReport saveOrCompensate(LostReport lostReport, String newlyStoredPhotoKey, UUID reportId) {
+        try {
+            return lostReportRepository.save(lostReport);
+        } catch (RuntimeException exception) {
+            if (newlyStoredPhotoKey != null) {
+                safeDeletePhoto(newlyStoredPhotoKey, reportId);
+            }
+            throw exception;
+        }
+    }
+
+    private void safeDeletePhoto(String photoKey, UUID reportId) {
+        if (photoKey == null || photoKey.isBlank()) {
             return;
         }
         try {
-            photoStorage.delete(previousPhotoKey);
+            photoStorage.delete(photoKey);
         } catch (PhotoStorageException exception) {
-            LOGGER.warn("Could not delete previous photo {} for lost report {}.", previousPhotoKey, reportId, exception);
+            LOGGER.warn("Could not delete photo {} for lost report {}.", photoKey, reportId, exception);
         }
     }
 
@@ -341,12 +347,19 @@ public class LostReportService {
         if (photo == null || photo.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo must not be empty.");
         }
-        if (photo.getSize() > MAX_PHOTO_SIZE_BYTES) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Photo must be at most 10 MB.");
+        PhotoConstraints.Violation violation = PhotoConstraints.check(photo.getContentType(), photo.getSize());
+        if (violation == null) {
+            return;
         }
-        if (!ALLOWED_PHOTO_CONTENT_TYPES.contains(photo.getContentType())) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported photo content type.");
-        }
+        throw new ResponseStatusException(statusFor(violation), violation.message());
+    }
+
+    private static HttpStatus statusFor(PhotoConstraints.Violation violation) {
+        return switch (violation) {
+            case TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case UNSUPPORTED_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+            case EMPTY -> HttpStatus.BAD_REQUEST;
+        };
     }
 
     private List<TimeBucketCount> toTimeBucketCounts(List<BucketCountView> buckets) {

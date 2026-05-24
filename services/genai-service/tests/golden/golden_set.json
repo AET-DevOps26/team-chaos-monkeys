@@ -370,10 +370,10 @@
     "imagePath": "backpack-blue.jpg",
     "profile": "image_only",
     "traits": [],
-    "notes": "ADR §11 case 2: image-only, diverse item type. White stripes are the determinable mark.",
+    "notes": "ADR §11 case 2: image-only, diverse item type. The Gemini fixture shows three white stripes that read unambiguously as Adidas branding to a vision model; brand is therefore expected, not null.",
     "expected": {
       "category": "backpack",
-      "brand": null,
+      "brand": "Adidas",
       "color": "blue",
       "distinguishingMarks": ["white horizontal stripes on the front"],
       "approximateTime": null,

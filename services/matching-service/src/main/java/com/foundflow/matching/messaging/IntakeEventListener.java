@@ -2,7 +2,9 @@ package com.foundflow.matching.messaging;
 
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.LostReportCreatedEvent;
+import com.foundflow.events.LostReportUpdatedEvent;
 import com.foundflow.matching.service.CandidateMatchingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,17 @@ public class IntakeEventListener {
         candidateMatchingService.findCandidatesForLostReport(event);
     }
 
+    @RabbitListener(queues = FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE)
+    public void onLostReportUpdated(LostReportUpdatedEvent event) {
+        log.info(
+                "Received LostReportUpdated event {} for lostReport={} venue={}",
+                event.eventId(),
+                event.lostReportId(),
+                event.venueId()
+        );
+        candidateMatchingService.findCandidatesForLostReportUpdate(event);
+    }
+
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE)
     public void onFoundItemLogged(FoundItemLoggedEvent event) {
         log.info(
@@ -40,5 +53,16 @@ public class IntakeEventListener {
                 event.venueId()
         );
         candidateMatchingService.findCandidatesForFoundItem(event);
+    }
+
+    @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE)
+    public void onFoundItemUpdated(FoundItemUpdatedEvent event) {
+        log.info(
+                "Received FoundItemUpdated event {} for foundItem={} venue={}",
+                event.eventId(),
+                event.foundItemId(),
+                event.venueId()
+        );
+        candidateMatchingService.findCandidatesForFoundItemUpdate(event);
     }
 }

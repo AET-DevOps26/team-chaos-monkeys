@@ -155,6 +155,7 @@ class FoundItemServiceTest {
         assertEquals(ItemStatus.RESERVED, response.get().status());
         assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).save(existingItem);
+        verify(eventPublisher).publishFoundItemUpdated(existingItem);
         verify(eventPublisher, never()).publishFoundItemLogged(any());
     }
 

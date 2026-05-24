@@ -119,6 +119,7 @@ public class FoundItemService {
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
+                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     return toResponse(updatedFoundItem);
                 });
     }

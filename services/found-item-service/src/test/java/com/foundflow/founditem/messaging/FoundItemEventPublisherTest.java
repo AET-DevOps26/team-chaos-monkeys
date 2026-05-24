@@ -3,6 +3,7 @@ package com.foundflow.founditem.messaging;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.founditem.domain.ItemStatus;
 import org.junit.jupiter.api.Test;
@@ -24,18 +25,7 @@ class FoundItemEventPublisherTest {
     void publishFoundItemLogged_shouldSendVersionedDomainEvent() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
-        UUID venueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
-        FoundItem foundItem = new FoundItem(
-                "found-items/2026/05/photo.jpg",
-                "Black backpack",
-                LocalDateTime.of(2026, 5, 24, 11, 30),
-                "Front desk",
-                ItemStatus.STORED,
-                venueId,
-                reporterId,
-                new ItemAttributes("Bag", "Nike", "Black", List.of("red tag"))
-        );
+        FoundItem foundItem = foundItem();
 
         publisher.publishFoundItemLogged(foundItem);
 
@@ -52,10 +42,47 @@ class FoundItemEventPublisherTest {
         assertNotNull(event.eventId());
         assertNotNull(event.occurredAt());
         assertEquals(foundItem.getId(), event.foundItemId());
-        assertEquals(venueId, event.venueId());
-        assertEquals(reporterId, event.reporterId());
+        assertEquals(foundItem.getVenueId(), event.venueId());
+        assertEquals(foundItem.getReporterId(), event.reporterId());
         assertEquals("found-items/2026/05/photo.jpg", event.photoKey());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
+    }
+
+    @Test
+    void publishFoundItemUpdated_shouldSendVersionedDomainEvent() {
+        RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+        FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
+        FoundItem foundItem = foundItem();
+
+        publisher.publishFoundItemUpdated(foundItem);
+
+        ArgumentCaptor<FoundItemUpdatedEvent> eventCaptor =
+                ArgumentCaptor.forClass(FoundItemUpdatedEvent.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq(FoundFlowEventRouting.EXCHANGE),
+                eq(FoundFlowEventRouting.FOUND_ITEM_UPDATED),
+                eventCaptor.capture()
+        );
+
+        FoundItemUpdatedEvent event = eventCaptor.getValue();
+        assertEquals(1, event.version());
+        assertEquals(foundItem.getId(), event.foundItemId());
+        assertEquals(foundItem.getVenueId(), event.venueId());
+        assertEquals("STORED", event.status());
+        assertEquals("Bag", event.attributes().category());
+    }
+
+    private FoundItem foundItem() {
+        return new FoundItem(
+                "found-items/2026/05/photo.jpg",
+                "Black backpack",
+                LocalDateTime.of(2026, 5, 24, 11, 30),
+                "Front desk",
+                ItemStatus.STORED,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                new ItemAttributes("Bag", "Nike", "Black", List.of("red tag"))
+        );
     }
 }

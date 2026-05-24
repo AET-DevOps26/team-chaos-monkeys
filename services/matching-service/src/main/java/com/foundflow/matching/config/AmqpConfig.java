@@ -24,8 +24,18 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue lostReportUpdatedQueue() {
+        return new Queue(FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE, true);
+    }
+
+    @Bean
     public Queue foundItemLoggedQueue() {
         return new Queue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE, true);
+    }
+
+    @Bean
+    public Queue foundItemUpdatedQueue() {
+        return new Queue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE, true);
     }
 
     @Bean
@@ -39,6 +49,16 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Binding lostReportUpdatedBinding(
+            Queue lostReportUpdatedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(lostReportUpdatedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.LOST_REPORT_UPDATED);
+    }
+
+    @Bean
     public Binding foundItemLoggedBinding(
             Queue foundItemLoggedQueue,
             TopicExchange domainEventsExchange
@@ -46,6 +66,16 @@ public class AmqpConfig {
         return BindingBuilder.bind(foundItemLoggedQueue)
                 .to(domainEventsExchange)
                 .with(FoundFlowEventRouting.FOUND_ITEM_LOGGED);
+    }
+
+    @Bean
+    public Binding foundItemUpdatedBinding(
+            Queue foundItemUpdatedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(foundItemUpdatedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.FOUND_ITEM_UPDATED);
     }
 
     @Bean

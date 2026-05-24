@@ -149,6 +149,7 @@ class LostReportServiceTest {
         assertTrue(response.isPresent());
         assertEquals(venueId, response.get().venueId());
         assertEquals(ReportStatus.MATCHED, response.get().status());
+        verify(eventPublisher).publishLostReportUpdated(existingReport);
         verify(eventPublisher, never()).publishLostReportCreated(any());
     }
 

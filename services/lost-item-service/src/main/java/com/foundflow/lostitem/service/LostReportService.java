@@ -132,6 +132,7 @@ public class LostReportService {
                     existingReport.setAttributes(toItemAttributes(request.attributes()));
 
                     LostReport updatedReport = lostReportRepository.save(existingReport);
+                    eventPublisher.publishLostReportUpdated(updatedReport);
                     return toResponse(updatedReport);
                 });
     }

@@ -35,6 +35,16 @@ Fields:
 
 The payload intentionally does not include guest contact data. Consumers that need private contact details must ask the owning service through an authorized API.
 
+### `lost-report.updated.v1`
+
+Publisher: `lost-item-service`
+
+First consumer: `matching-service`, queue `matching.lost-report-updated.v1`
+
+Payload type: `LostReportUpdatedEvent`
+
+Fields match `lost-report.created.v1`. The event is emitted after a normal lost-report update so candidate matching can be recalculated from the current persisted state.
+
 ### `found-item.logged.v1`
 
 Publisher: `found-item-service`
@@ -57,3 +67,13 @@ Fields:
 - `status`
 - `reporterId`
 - `attributes`
+
+### `found-item.updated.v1`
+
+Publisher: `found-item-service`
+
+First consumer: `matching-service`, queue `matching.found-item-updated.v1`
+
+Payload type: `FoundItemUpdatedEvent`
+
+Fields match `found-item.logged.v1`. The event is emitted after a normal found-item update so candidate matching can be recalculated from the current persisted state.

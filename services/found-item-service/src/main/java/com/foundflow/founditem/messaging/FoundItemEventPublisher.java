@@ -3,6 +3,7 @@ package com.foundflow.founditem.messaging;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.founditem.domain.FoundItem;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -28,8 +29,33 @@ public class FoundItemEventPublisher {
         );
     }
 
+    public void publishFoundItemUpdated(FoundItem foundItem) {
+        rabbitTemplate.convertAndSend(
+                FoundFlowEventRouting.EXCHANGE,
+                FoundFlowEventRouting.FOUND_ITEM_UPDATED,
+                toUpdatedEvent(foundItem)
+        );
+    }
+
     private FoundItemLoggedEvent toEvent(FoundItem foundItem) {
         return new FoundItemLoggedEvent(
+                UUID.randomUUID(),
+                1,
+                Instant.now(),
+                foundItem.getId(),
+                foundItem.getVenueId(),
+                foundItem.getPhotoKey(),
+                foundItem.getDescription(),
+                foundItem.getFoundAt(),
+                foundItem.getLocationHint(),
+                foundItem.getStatus().name(),
+                foundItem.getReporterId(),
+                toPayload(foundItem.getAttributes())
+        );
+    }
+
+    private FoundItemUpdatedEvent toUpdatedEvent(FoundItem foundItem) {
+        return new FoundItemUpdatedEvent(
                 UUID.randomUUID(),
                 1,
                 Instant.now(),

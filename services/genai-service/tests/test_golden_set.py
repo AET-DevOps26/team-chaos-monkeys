@@ -1,13 +1,15 @@
-"""Validates the golden attribute-extraction set (issue #55).
+"""Validates the golden attribute-extraction set (issues #55, #131).
 
 Deterministic, no LLM: proves the golden set is well-formed and conformant to
 the api/openapi.yaml contract. The regression test that runs real extraction
-against these cases lands with #49.
+against these cases lands with #49; image-bearing cases (#131) carry an
+optional `imagePath` instead of (or alongside) `description`.
 """
 
 from __future__ import annotations
 
 import collections
+from pathlib import Path
 
 import pytest
 
@@ -17,9 +19,27 @@ from tests.golden._contract import validator
 CASES = load_golden_set()
 CASE_IDS = [case["id"] for case in CASES]
 
-ALLOWED_PROFILES = {"complete", "partial", "ambiguous", "incomplete"}
-ALLOWED_TRAITS = {"greeting", "filler", "irrelevant_detail", "mixed_language"}
+ALLOWED_PROFILES = {
+    "complete",
+    "partial",
+    "ambiguous",
+    "incomplete",
+    "image_only",
+    "multimodal",
+}
+ALLOWED_TRAITS = {
+    "greeting",
+    "filler",
+    "irrelevant_detail",
+    "mixed_language",
+    "prompt_injection",
+    "image_pii",
+}
 NULLABLE_FIELDS = ("brand", "color", "approximateTime", "location")
+
+IMAGES_DIR = Path(__file__).parent / "golden" / "images"
+# Sentinel base64 — structural-only; the runner reads real bytes from imagePath.
+_SENTINEL_B64 = "c2VudGluZWw="
 
 
 def test_golden_set_loads():
@@ -33,9 +53,14 @@ def test_ids_are_unique():
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_request_side_conforms_to_contract(case):
-    request = {"description": case["description"]}
+    request: dict = {}
+    if "description" in case:
+        request["description"] = case["description"]
     if "language" in case:
         request["language"] = case["language"]
+    if "imagePath" in case:
+        request["image"] = {"contentType": "image/jpeg", "dataBase64": _SENTINEL_B64}
+    assert request, f"{case['id']}: case has no description or imagePath"
     errors = [e.message for e in validator("ExtractAttributesRequest").iter_errors(request)]
     assert not errors, f"{case['id']}: {errors}"
 
@@ -77,3 +102,37 @@ def test_set_covers_required_dimensions():
     assert len(noisy) >= 5, f"only {len(noisy)} noisy cases"
     assert traits.count("greeting") >= 2, "fewer than 2 greeting cases"
     assert "mixed_language" in traits, "no mixed-language case"
+
+
+def test_image_cases_cover_adr_section_11():
+    """ADR 0001 §11 requires at least 8 image cases + 2 security cases."""
+    image_cases = [c for c in CASES if "imagePath" in c]
+    image_only = [c for c in image_cases if c.get("profile") == "image_only"]
+    multimodal = [c for c in image_cases if c.get("profile") == "multimodal"]
+    traits = [t for c in image_cases for t in c.get("traits", [])]
+
+    assert len(image_cases) >= 10, f"only {len(image_cases)} image cases (need ≥10)"
+    assert len(image_only) >= 3, f"only {len(image_only)} image-only cases (need ≥3)"
+    assert len(multimodal) >= 5, f"only {len(multimodal)} multimodal cases (need ≥5)"
+    assert traits.count("prompt_injection") >= 1, "no prompt-injection security case"
+    assert traits.count("image_pii") >= 1, "no PII-in-image security case"
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in CASES if "imagePath" in c], ids=lambda c: c["id"]
+)
+def test_image_fixture_exists(case):
+    fixture = IMAGES_DIR / case["imagePath"]
+    assert fixture.is_file(), f"missing image fixture: {fixture}"
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in CASES if "imagePath" in c], ids=lambda c: c["id"]
+)
+def test_image_fixture_under_size_cap(case):
+    """Per ADR §11: ≤200 KB each post-downscale."""
+    fixture = IMAGES_DIR / case["imagePath"]
+    if not fixture.is_file():
+        pytest.skip("fixture missing — separately reported by test_image_fixture_exists")
+    size = fixture.stat().st_size
+    assert size <= 200 * 1024, f"{case['imagePath']}: {size} bytes exceeds 200 KB cap"

@@ -17,13 +17,15 @@ change that tanks extraction quality.
 
 from __future__ import annotations
 
+import base64
 import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 from statistics import mean
 
 import pytest
 
-from app.api.schemas import ItemAttributes
+from app.api.schemas import ImageContent, ItemAttributes
 from app.config import Settings
 from app.exceptions import (
     LLMError,
@@ -32,7 +34,8 @@ from app.exceptions import (
     ModelOutputError,
 )
 from app.extraction import extract_attributes
-from app.providers import LLMProvider, build_provider
+from app.image import prepare_image
+from app.providers import ImageContentPart, LLMProvider, build_provider
 from tests.golden import load_golden_set
 from tests.golden._compare import CaseComparison, compare_case, failed_case
 
@@ -54,6 +57,16 @@ _CASE_PASS_FIELDS = 5
 # Transient failures worth one retry before the case is counted as failed.
 _RETRYABLE = (ModelOutputError, LLMRateLimitError, LLMTimeoutError)
 
+# Image fixtures live next to the JSON set; the loader resolves `imagePath`
+# relative to this directory.
+_IMAGES_DIR = Path(__file__).parent.parent / "golden" / "images"
+_SUFFIX_TO_MIME = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
+
 
 @pytest.fixture
 async def provider() -> AsyncIterator[LLMProvider]:
@@ -64,14 +77,35 @@ async def provider() -> AsyncIterator[LLMProvider]:
         await llm.aclose()
 
 
+def _load_image_part(image_path: str) -> ImageContentPart:
+    """Read the fixture, base64-encode, run through the image pipeline."""
+    full = _IMAGES_DIR / image_path
+    raw = full.read_bytes()
+    suffix = full.suffix.lower()
+    if suffix not in _SUFFIX_TO_MIME:
+        raise ValueError(
+            f"unsupported fixture extension {suffix!r} for {image_path!r}; "
+            f"expected one of {sorted(_SUFFIX_TO_MIME)}"
+        )
+    content = ImageContent(
+        content_type=_SUFFIX_TO_MIME[suffix],
+        data_base64=base64.b64encode(raw).decode("ascii"),
+    )
+    return prepare_image(content)
+
+
 async def _extract_with_retry(
     case: dict, provider: LLMProvider, attempts: int = 2
 ) -> ItemAttributes:
     """Extract one case, retrying once on a transient failure."""
+    image_part = _load_image_part(case["imagePath"]) if "imagePath" in case else None
     for attempt in range(1, attempts + 1):
         try:
             return await extract_attributes(
-                case["description"], case.get("language"), provider
+                case.get("description"),
+                case.get("language"),
+                provider,
+                image=image_part,
             )
         except _RETRYABLE:
             if attempt == attempts:

@@ -77,3 +77,26 @@ First consumer: `matching-service`, queue `matching.found-item-updated.v1`
 Payload type: `FoundItemUpdatedEvent`
 
 Fields match `found-item.logged.v1`. The event is emitted after a normal found-item update so candidate matching can be recalculated from the current persisted state.
+
+### `match-candidate.created.v1`
+
+Publisher: `matching-service`
+
+First consumer: none yet (intended for `notification-service`).
+
+Payload type: `MatchCandidateCreatedEvent`
+
+Fields:
+
+- `eventId`
+- `version`
+- `occurredAt`
+- `matchId`
+- `lostReportId`
+- `foundItemId`
+- `venueId`
+- `attributeScore`
+- `semanticScore`
+- `combinedScore`
+
+Emitted whenever the matching pipeline persists a `Match` row whose `combinedScore >= foundflow.matching.threshold` (default `0.55`). The event is re-emitted on score updates for existing PENDING matches; consumers must be idempotent on `matchId`. Matches in `CONFIRMED` or `REJECTED` status are never re-emitted.

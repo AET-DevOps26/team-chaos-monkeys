@@ -1,0 +1,58 @@
+# Production override applied on the Azure VM.
+#
+# Usage on the VM:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#
+# Two things this file does differently from local dev:
+#   1. Each app service gets an `image:` from GHCR so the VM never builds.
+#      (The `build:` directive in docker-compose.yml stays inert: when an image
+#      is already present locally or pullable from the registry, Compose uses
+#      it and skips the build.)
+#   2. Ollama + ollama-init are excluded via an unused profile — the 4 GB VM
+#      cannot run the local LLM. genai-service is forced onto GENAI_PROVIDER=openai.
+
+services:
+  gateway-service:
+    image: ghcr.io/aet-devops26/foundflow-gateway-service:${IMAGE_TAG:-latest}
+
+  auth-service:
+    image: ghcr.io/aet-devops26/foundflow-auth-service:${IMAGE_TAG:-latest}
+
+  lost-item-service:
+    image: ghcr.io/aet-devops26/foundflow-lost-item-service:${IMAGE_TAG:-latest}
+
+  found-item-service:
+    image: ghcr.io/aet-devops26/foundflow-found-item-service:${IMAGE_TAG:-latest}
+
+  matching-service:
+    image: ghcr.io/aet-devops26/foundflow-matching-service:${IMAGE_TAG:-latest}
+
+  notification-service:
+    image: ghcr.io/aet-devops26/foundflow-notification-service:${IMAGE_TAG:-latest}
+
+  operations-service:
+    image: ghcr.io/aet-devops26/foundflow-operations-service:${IMAGE_TAG:-latest}
+
+  client:
+    image: ghcr.io/aet-devops26/foundflow-client:${IMAGE_TAG:-latest}
+    # Expose the frontend on host port 80 so the VM's public IP serves the app directly.
+    ports: !override
+      - "80:80"
+
+  genai-service:
+    image: ghcr.io/aet-devops26/foundflow-genai-service:${IMAGE_TAG:-latest}
+    # Ollama isn't running on the VM, so drop the wait-for-ollama-init dependency.
+    depends_on: !reset null
+    environment:
+      GENAI_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required on the VM}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+      GENAI_TIMEOUT_SECONDS: ${GENAI_TIMEOUT_SECONDS:-30}
+
+  # Park Ollama + its init sidecar behind a profile nothing activates → they never start.
+  ollama:
+    profiles: ["never"]
+  ollama-init:
+    profiles: ["never"]

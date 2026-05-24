@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars (gitignored) and edit.
+# Find your subscription ID with: az account show --query id -o tsv
+subscription_id     = "<your-azure-subscription-id>"
+resource_group_name = "foundflow-rg"
+
+# --- Region + SKU ------------------------------------------------------------
+# Azure for Students restricts deployment to a small set of regions
+# (spaincentral, austriaeast, francecentral, uaenorth, germanywestcentral) and
+# B-series capacity in EU regions is intermittent. The combo below was verified
+# working on 2026-05-24 with Luca's student sub; if you hit
+# "SkuNotAvailable: Capacity Restrictions", swap location or vm_size and retry.
+location            = "austriaeast"
+vm_size             = "Standard_B2s_v2" # x86 B-v2, 2 vCPU / 8 GB / ~$0.05/hr
+vm_image_sku        = "22_04-lts-gen2"  # use "22_04-lts-arm64" if vm_size is ARM (e.g. Standard_B2ps_v2)
+
+vm_name             = "foundflow-vm"
+ssh_public_key_path = "~/.ssh/tum_devops_azure.pub"
+
+# TODO: tighten to your home/office IP, e.g. "203.0.113.42/32".
+# Find your current public IP with: curl -s https://ifconfig.me
+ssh_allowed_cidr = "0.0.0.0/0"

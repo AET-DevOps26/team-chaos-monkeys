@@ -7,9 +7,13 @@ import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.service.LostReportService;
+import com.foundflow.photo.storage.PhotoData;
 import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 
@@ -26,7 +30,7 @@ public class LostReportController {
         this.lostReportService = lostReportService;
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<LostReportResponse> createLostReport(
             @Valid @RequestBody CreateLostReportRequest request,
             JwtAuthenticationToken authentication
@@ -38,6 +42,22 @@ public class LostReportController {
         return ResponseEntity
         .created(URI.create("/api/lost-items/" + response.id()))
         .body(response);
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LostReportResponse> createLostReportWithPhoto(
+            @Valid @RequestPart("request") CreateLostReportRequest request,
+            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            JwtAuthenticationToken authentication
+    ) {
+        LostReportResponse response = lostReportService.createLostReport(
+                request,
+                photo,
+                authentication == null ? null : authentication.getToken()
+        );
+        return ResponseEntity
+                .created(URI.create("/api/lost-items/" + response.id()))
+                .body(response);
     }
 
     @GetMapping
@@ -91,5 +111,33 @@ public class LostReportController {
         return lostReportService.updateLostReport(id, request, authentication.getToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PutMapping(path = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LostReportResponse> updateLostReportPhoto(
+            @PathVariable UUID id,
+            @RequestPart("photo") MultipartFile photo,
+            JwtAuthenticationToken authentication
+    ) {
+        return lostReportService.updateLostReportPhoto(id, photo, authentication.getToken())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<InputStreamResource> getLostReportPhoto(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return lostReportService.getLostReportPhoto(id, authentication.getToken())
+                .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private ResponseEntity<InputStreamResource> photoResponse(PhotoData photo) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .contentLength(photo.sizeBytes())
+                .body(new InputStreamResource(photo.content()));
     }
 }

@@ -13,6 +13,9 @@ The script covers:
 
 - gateway health and unauthenticated `401`
 - public lost-item reporting
+- multipart lost/found item photo upload through the services
+- photo retrieval and dedicated photo replacement endpoints
+- JSON lost/found item updates preserving the existing `photoKey`
 - JSON token login, refresh, and logout via `/api/auth`
 - admin user and KPI access
 - OPS_MANAGER own-venue user management

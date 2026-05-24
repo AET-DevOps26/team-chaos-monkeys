@@ -167,11 +167,14 @@ Base path: `/api/found-items`
 | Method | Endpoint | Query params | Access |
 | --- | --- | --- | --- |
 | `POST` | `/api/found-items` | - | `ADMIN`, `STAFF`, `OPS_MANAGER`; venue rules apply |
+| `POST` | `/api/found-items` | `multipart/form-data` with `request` JSON and optional `photo` file | Same as JSON create; service stores the photo and persists only the generated `photoKey` |
 | `GET` | `/api/found-items` | optional `status` | `ADMIN` sees all; staff/ops own venue only |
 | `GET` | `/api/found-items/count` | optional `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/found-items/histogram` | optional `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/found-items/{id}` | - | Resource venue check |
 | `PUT` | `/api/found-items/{id}` | - | Resource venue check |
+| `PUT` | `/api/found-items/{id}/photo` | `multipart/form-data` `photo` file | Resource venue check; replaces `photoKey` from storage output only |
+| `GET` | `/api/found-items/{id}/photo` | - | Resource venue check; streams the stored photo |
 | `DELETE` | `/api/found-items/{id}` | - | Resource venue check |
 
 Counts and histogram day buckets are aggregated in the database. Week and month buckets are derived from the daily buckets.
@@ -211,11 +214,14 @@ Compatibility base path currently also supported: `/api/lost-reports`
 | Method | Endpoint | Query params | Access |
 | --- | --- | --- | --- |
 | `POST` | `/api/lost-items` | - | Public; `venueId` is required in the request. Authenticated staff/ops still use JWT `venue_id` |
+| `POST` | `/api/lost-items` | `multipart/form-data` with `request` JSON and optional `photo` file | Same as JSON create; service stores the photo and persists only the generated `photoKey` |
 | `GET` | `/api/lost-items` | optional `status` | `ADMIN` sees all; staff/ops own venue only |
 | `GET` | `/api/lost-items/count` | optional `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/lost-items/histogram` | optional `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/lost-items/{id}` | - | Resource venue check |
 | `PUT` | `/api/lost-items/{id}` | - | Resource venue check |
+| `PUT` | `/api/lost-items/{id}/photo` | `multipart/form-data` `photo` file | Resource venue check; replaces `photoKey` from storage output only |
+| `GET` | `/api/lost-items/{id}/photo` | - | Resource venue check; streams the stored photo |
 
 Count and histogram responses use the same shape as the Found Item Service.
 

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -56,6 +57,47 @@ class FoundItemControllerTest {
                 .andExpect(header().string("Location", "/api/found-items/" + id))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))
                 .andExpect(jsonPath("$.status").value("STORED"));
+    }
+
+    @Test
+    void createFoundItemWithPhoto_shouldReturnCreatedItemWithGeneratedPhotoKey() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = createRequest(venueId, reporterId);
+        FoundItemResponse response = new FoundItemResponse(
+                id,
+                "found-items/2026/05/generated.jpg",
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ItemStatus.STORED,
+                venueId,
+                reporterId,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(foundItemService.createFoundItem(eq(request), any(), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/found-items")
+                        .file(requestPart)
+                        .file(photo)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/found-items/" + id))
+                .andExpect(jsonPath("$.photoKey").value("found-items/2026/05/generated.jpg"));
     }
 
     @Test
@@ -155,9 +197,45 @@ class FoundItemControllerTest {
                 .andExpect(jsonPath("$.status").value("RESERVED"));
     }
 
+    @Test
+    void updateFoundItemPhoto_shouldReturnItemWithGeneratedPhotoKey() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        FoundItemResponse response = new FoundItemResponse(
+                id,
+                "found-items/2026/05/generated.jpg",
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ItemStatus.STORED,
+                venueId,
+                reporterId,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+
+        when(foundItemService.updateFoundItemPhoto(eq(id), any(), any(Jwt.class)))
+                .thenReturn(Optional.of(response));
+
+        mockMvc.perform(multipart("/api/found-items/{id}/photo", id)
+                        .file(photo)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoKey").value("found-items/2026/05/generated.jpg"));
+    }
+
     private CreateFoundItemRequest createRequest(UUID venueId, UUID reporterId) {
         return new CreateFoundItemRequest(
-                "photo-123",
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 "Neben Buehne 2",
@@ -169,7 +247,6 @@ class FoundItemControllerTest {
 
     private UpdateFoundItemRequest updateRequest(UUID venueId, UUID reporterId) {
         return new UpdateFoundItemRequest(
-                "photo-456",
                 "Aktualisierte Beschreibung",
                 LocalDateTime.of(2026, 5, 13, 9, 15),
                 "Info-Point",

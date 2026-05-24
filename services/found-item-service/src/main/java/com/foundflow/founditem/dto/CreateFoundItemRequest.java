@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record CreateFoundItemRequest(
-        String photoKey,
         String description,
 
         @NotNull

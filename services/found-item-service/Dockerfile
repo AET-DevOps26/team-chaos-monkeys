@@ -3,6 +3,7 @@ FROM gradle:9-jdk21 AS build
 WORKDIR /workspace
 
 COPY shared/common-domain ./shared/common-domain
+COPY shared/photo-storage ./shared/photo-storage
 COPY services/found-item-service ./services/found-item-service
 
 WORKDIR /workspace/services/found-item-service

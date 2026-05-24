@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -73,6 +74,45 @@ class LostReportControllerTest {
                 .andExpect(header().string("Location", "/api/lost-items/" + id))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))
                 .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
+    void createLostReportWithPhoto_shouldAllowPublicRequestAndReturnGeneratedPhotoKey() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        CreateLostReportRequest request = createRequest(venueId);
+        LostReportResponse response = new LostReportResponse(
+                id,
+                "lost-reports/2026/05/generated.jpg",
+                "Schwarzer Rucksack verloren",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ReportStatus.OPEN,
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(lostReportService.createLostReport(eq(request), any(), isNull())).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/lost-items")
+                        .file(requestPart)
+                        .file(photo))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/lost-items/" + id))
+                .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
     }
 
     @Test
@@ -158,9 +198,44 @@ class LostReportControllerTest {
                 .andExpect(jsonPath("$.status").value("MATCHED"));
     }
 
+    @Test
+    void updateLostReportPhoto_shouldReturnReportWithGeneratedPhotoKey() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        LostReportResponse response = new LostReportResponse(
+                id,
+                "lost-reports/2026/05/generated.jpg",
+                "Schwarzer Rucksack verloren",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ReportStatus.OPEN,
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+
+        when(lostReportService.updateLostReportPhoto(eq(id), any(), any(Jwt.class)))
+                .thenReturn(Optional.of(response));
+
+        mockMvc.perform(multipart("/api/lost-items/{id}/photo", id)
+                        .file(photo)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        })
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
+    }
+
     private CreateLostReportRequest createRequest(UUID venueId) {
         return new CreateLostReportRequest(
-                "photo-123",
                 "Schwarzer Rucksack verloren",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 "Neben Buehne 2",
@@ -172,7 +247,6 @@ class LostReportControllerTest {
 
     private UpdateLostReportRequest updateRequest(UUID venueId) {
         return new UpdateLostReportRequest(
-                "photo-456",
                 "Neue Beschreibung",
                 LocalDateTime.of(2026, 5, 13, 9, 15),
                 "Neuer Ort",

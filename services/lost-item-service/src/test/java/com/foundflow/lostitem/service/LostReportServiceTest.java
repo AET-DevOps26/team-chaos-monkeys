@@ -10,11 +10,14 @@ import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDateTime;
@@ -31,11 +34,14 @@ class LostReportServiceTest {
     @Mock
     private LostReportRepository lostReportRepository;
 
+    @Mock
+    private PhotoStorage photoStorage;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
     void createLostReport_shouldUseVenueFromJwtForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(UUID.randomUUID());
@@ -55,7 +61,7 @@ class LostReportServiceTest {
 
     @Test
     void createLostReport_shouldUseRequestVenueForPublicReport() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(venueId);
@@ -74,8 +80,34 @@ class LostReportServiceTest {
     }
 
     @Test
+    void createLostReportWithPhoto_shouldPersistGeneratedPhotoKey() {
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+
+        UUID venueId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        CreateLostReportRequest request = createRequest(venueId);
+
+        when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        LostReportResponse response = service.createLostReport(request, photo, null);
+
+        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
+        verify(lostReportRepository).save(captor.capture());
+
+        assertEquals("lost-reports/2026/05/generated.jpg", captor.getValue().getPhotoKey());
+        assertEquals("lost-reports/2026/05/generated.jpg", response.photoKey());
+    }
+
+    @Test
     void getLostReportById_shouldReturnResponseForOwnVenue() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -91,7 +123,7 @@ class LostReportServiceTest {
 
     @Test
     void getAllLostReports_shouldUseVenueRepositoryForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findByVenueIdAndStatus(venueId, ReportStatus.OPEN))
@@ -107,7 +139,7 @@ class LostReportServiceTest {
 
     @Test
     void histogram_shouldBucketAccessibleLostReportsByDayWeekAndMonth() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
@@ -126,7 +158,7 @@ class LostReportServiceTest {
 
     @Test
     void updateLostReport_shouldKeepVenueForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService);
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -143,11 +175,39 @@ class LostReportServiceTest {
         assertTrue(response.isPresent());
         assertEquals(venueId, response.get().venueId());
         assertEquals(ReportStatus.MATCHED, response.get().status());
+        assertEquals("photo-123", response.get().photoKey());
+    }
+
+    @Test
+    void updateLostReportPhoto_shouldStorePhotoAndSaveGeneratedKey() {
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        LostReport existingReport = lostReport(venueId);
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
+        when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<LostReportResponse> response =
+                service.updateLostReportPhoto(id, photo, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
+        verify(photoStorage).delete("photo-123");
+        verify(lostReportRepository).save(existingReport);
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {
         return new CreateLostReportRequest(
-                "photo-123",
                 "Schwarzer Rucksack verloren",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 "Neben Buehne 2",
@@ -159,7 +219,6 @@ class LostReportServiceTest {
 
     private UpdateLostReportRequest updateRequest(UUID venueId) {
         return new UpdateLostReportRequest(
-                "photo-456",
                 "Neue Beschreibung",
                 LocalDateTime.of(2026, 5, 13, 9, 15),
                 "Neuer Ort",

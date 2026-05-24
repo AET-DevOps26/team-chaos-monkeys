@@ -12,12 +12,18 @@ import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoData;
+import com.foundflow.photo.storage.PhotoNotFoundException;
+import com.foundflow.photo.storage.PhotoStorage;
+import com.foundflow.photo.storage.PhotoStorageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
@@ -31,27 +37,46 @@ import java.util.stream.Collectors;
 @Service
 public class FoundItemService {
 
+    private static final long MAX_PHOTO_SIZE_BYTES = 10L * 1024L * 1024L;
+    private static final List<String> ALLOWED_PHOTO_CONTENT_TYPES = List.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+    );
+
     private final FoundItemRepository foundItemRepository;
     private final VenueAccessService venueAccessService;
+    private final PhotoStorage photoStorage;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
-            VenueAccessService venueAccessService
+            VenueAccessService venueAccessService,
+            PhotoStorage photoStorage
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
+        this.photoStorage = photoStorage;
     }
 
     public FoundItemResponse createFoundItem(
             CreateFoundItemRequest request,
             Jwt jwt
     ) {
+        return createFoundItem(request, null, jwt);
+    }
+
+    public FoundItemResponse createFoundItem(
+            CreateFoundItemRequest request,
+            MultipartFile photo,
+            Jwt jwt
+    ) {
         UUID venueId = venueAccessService.isAdmin(jwt)
                 ? request.venueId()
                 : venueAccessService.getVenueId(jwt);
+        String photoKey = hasPhoto(photo) ? storePhoto(photo) : null;
 
         FoundItem foundItem = new FoundItem(
-                request.photoKey(),
+                photoKey,
                 request.description(),
                 request.foundAt(),
                 request.locationHint(),
@@ -96,7 +121,6 @@ public class FoundItemService {
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
 
-                    foundItem.setPhotoKey(request.photoKey());
                     foundItem.setDescription(request.description());
                     foundItem.setFoundAt(request.foundAt());
                     foundItem.setLocationHint(request.locationHint());
@@ -115,6 +139,44 @@ public class FoundItemService {
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
                     return toResponse(updatedFoundItem);
+                });
+    }
+
+    public Optional<FoundItemResponse> updateFoundItemPhoto(
+            UUID id,
+            MultipartFile photo,
+            Jwt jwt
+    ) {
+        return foundItemRepository.findById(id)
+                .map(foundItem -> {
+                    verifyVenueAccess(jwt, foundItem.getVenueId());
+
+                    String previousPhotoKey = foundItem.getPhotoKey();
+                    String photoKey = storePhoto(photo);
+                    foundItem.setPhotoKey(photoKey);
+
+                    FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
+                    if (previousPhotoKey != null && !previousPhotoKey.isBlank()) {
+                        photoStorage.delete(previousPhotoKey);
+                    }
+
+                    return toResponse(updatedFoundItem);
+                });
+    }
+
+    public Optional<PhotoData> getFoundItemPhoto(UUID id, Jwt jwt) {
+        return foundItemRepository.findById(id)
+                .map(foundItem -> {
+                    verifyVenueAccess(jwt, foundItem.getVenueId());
+                    String photoKey = foundItem.getPhotoKey();
+                    if (photoKey == null || photoKey.isBlank()) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
+                    }
+                    try {
+                        return photoStorage.retrieve(photoKey);
+                    } catch (PhotoNotFoundException exception) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    }
                 });
     }
 
@@ -205,6 +267,37 @@ public class FoundItemService {
     private void verifyVenueAccess(Jwt jwt, UUID resourceVenueId) {
         if (!venueAccessService.canAccessVenue(jwt, resourceVenueId)) {
             throw new AccessDeniedException("No access to this venue.");
+        }
+    }
+
+    private String storePhoto(MultipartFile photo) {
+        validatePhoto(photo);
+        try {
+            return photoStorage.store(new PhotoData(
+                    photo.getInputStream(),
+                    photo.getContentType(),
+                    photo.getSize()
+            ));
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read uploaded photo.", exception);
+        } catch (PhotoStorageException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not store uploaded photo.", exception);
+        }
+    }
+
+    private boolean hasPhoto(MultipartFile photo) {
+        return photo != null && !photo.isEmpty();
+    }
+
+    private void validatePhoto(MultipartFile photo) {
+        if (photo == null || photo.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo must not be empty.");
+        }
+        if (photo.getSize() > MAX_PHOTO_SIZE_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Photo must be at most 10 MB.");
+        }
+        if (!ALLOWED_PHOTO_CONTENT_TYPES.contains(photo.getContentType())) {
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported photo content type.");
         }
     }
 

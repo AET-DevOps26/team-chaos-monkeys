@@ -178,6 +178,23 @@ function Assert-GeneratedPhotoKey {
     }
 }
 
+function Assert-SignedPhotoUrl {
+    param(
+        [object]$Body,
+        [string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Body.url)) {
+        throw "$Label should return a non-empty signed photo URL."
+    }
+    if (-not [System.Uri]::IsWellFormedUriString($Body.url, [System.UriKind]::Absolute)) {
+        throw "$Label should return an absolute signed photo URL. Actual: $($Body.url)"
+    }
+    if (-not $Body.url.Contains("X-Amz-Signature")) {
+        throw "$Label should return a MinIO presigned URL. Actual: $($Body.url)"
+    }
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
@@ -209,6 +226,11 @@ $publicLostReport = $publicClient.PostAsync(
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
 $publicLostReportBody = Read-Json $publicLostReport
 Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item multipart create"
+
+$publicLostPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo").Result
+Assert-Status $publicLostPhoto 401 "Public client cannot read lost-item photo"
+$publicLostPhotoUrl = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo-url").Result
+Assert-Status $publicLostPhotoUrl 401 "Public client cannot request lost-item signed photo URL"
 
 $adminTokens = Get-TokenPair $AdminEmail $AdminPassword
 $adminTokens = Refresh-TokenPair $adminTokens.refreshToken
@@ -302,6 +324,15 @@ if ($foundPhoto.Content.Headers.ContentType.MediaType -ne $E2E_PHOTO_MEDIA_TYPE)
     throw "Found-item photo should be returned as $E2E_PHOTO_MEDIA_TYPE but got $($foundPhoto.Content.Headers.ContentType)."
 }
 
+$foundPhotoUrl = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo-url").Result
+Assert-Status $foundPhotoUrl 200 "OPS_MANAGER can request found-item signed photo URL"
+Assert-SignedPhotoUrl (Read-Json $foundPhotoUrl) "Found-item signed photo URL"
+
+$publicFoundPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo").Result
+Assert-Status $publicFoundPhoto 401 "Public client cannot read found-item photo"
+$publicFoundPhotoUrl = $publicClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo-url").Result
+Assert-Status $publicFoundPhotoUrl 401 "Public client cannot request found-item signed photo URL"
+
 $foundJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)", (JsonContent @{
     photoKey = "attacker-controlled-found-photo-key"
     description = "E2E found item JSON update"
@@ -361,6 +392,10 @@ Assert-Status $lostPhoto 200 "OPS_MANAGER can read lost-item photo"
 if ($lostPhoto.Content.Headers.ContentType.MediaType -ne $E2E_PHOTO_MEDIA_TYPE) {
     throw "Lost-item photo should be returned as $E2E_PHOTO_MEDIA_TYPE but got $($lostPhoto.Content.Headers.ContentType)."
 }
+
+$lostPhotoUrl = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo-url").Result
+Assert-Status $lostPhotoUrl 200 "OPS_MANAGER can request lost-item signed photo URL"
+Assert-SignedPhotoUrl (Read-Json $lostPhotoUrl) "Lost-item signed photo URL"
 
 $lostJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)", (JsonContent @{
     photoKey = "attacker-controlled-lost-photo-key"

@@ -6,10 +6,12 @@ import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
+import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -204,6 +207,51 @@ class LostReportServiceTest {
         assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
         verify(photoStorage).delete("photo-123");
         verify(lostReportRepository).save(existingReport);
+    }
+
+    @Test
+    void updateLostReportPhoto_shouldStillReturnResponseWhenPreviousPhotoDeletionFails() {
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        LostReport existingReport = lostReport(venueId);
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
+        when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
+        doThrow(new PhotoStorageException("delete failed")).when(photoStorage).delete("photo-123");
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<LostReportResponse> response =
+                service.updateLostReportPhoto(id, photo, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
+        verify(lostReportRepository).save(existingReport);
+    }
+
+    @Test
+    void getLostReportPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
+        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-lost-photos/photo-123?signature=test");
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport(venueId)));
+        when(photoStorage.signedUrl(eq("photo-123"), any())).thenReturn(signedUrl);
+
+        Optional<PhotoUrlResponse> response = service.getLostReportPhotoUrl(id, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals(signedUrl, response.get().url());
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {

@@ -4,6 +4,7 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.CountResponse;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.HistogramResponse;
+import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.service.FoundItemService;
@@ -44,7 +45,7 @@ public class FoundItemController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FoundItemResponse> createFoundItemWithPhoto(
             @Valid @RequestPart("request") CreateFoundItemRequest request,
-            @RequestPart(value = "photo", required = false) MultipartFile photo,
+            @RequestPart("photo") MultipartFile photo,
             JwtAuthenticationToken authentication
     ) {
         FoundItemResponse response = foundItemService.createFoundItem(request, photo, authentication.getToken());
@@ -124,6 +125,16 @@ public class FoundItemController {
     ) {
         return foundItemService.getFoundItemPhoto(id, authentication.getToken())
                 .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/photo-url")
+    public ResponseEntity<PhotoUrlResponse> getFoundItemPhotoUrl(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return foundItemService.getFoundItemPhotoUrl(id, authentication.getToken())
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 

@@ -7,6 +7,7 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.HistogramResponse;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
+import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.TimeBucketCount;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
@@ -16,6 +17,8 @@ import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.HttpStatus;
@@ -24,7 +27,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +42,9 @@ import java.util.stream.Collectors;
 @Service
 public class LostReportService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(LostReportService.class);
     private static final long MAX_PHOTO_SIZE_BYTES = 10L * 1024L * 1024L;
+    private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
     private static final List<String> ALLOWED_PHOTO_CONTENT_TYPES = List.of(
             "image/jpeg",
             "image/png",
@@ -169,9 +176,7 @@ public class LostReportService {
                     lostReport.setPhotoKey(photoKey);
 
                     LostReport updatedReport = lostReportRepository.save(lostReport);
-                    if (previousPhotoKey != null && !previousPhotoKey.isBlank()) {
-                        photoStorage.delete(previousPhotoKey);
-                    }
+                    deletePreviousPhoto(previousPhotoKey, id);
 
                     return toResponse(updatedReport);
                 });
@@ -189,6 +194,35 @@ public class LostReportService {
                         return photoStorage.retrieve(photoKey);
                     } catch (PhotoNotFoundException exception) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (PhotoStorageException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY,
+                                "Photo storage backend failure.",
+                                exception
+                        );
+                    }
+                });
+    }
+
+    public Optional<PhotoUrlResponse> getLostReportPhotoUrl(UUID id, Jwt jwt) {
+        return lostReportRepository.findById(id)
+                .map(lostReport -> {
+                    verifyVenueAccess(jwt, lostReport.getVenueId());
+                    String photoKey = lostReport.getPhotoKey();
+                    if (photoKey == null || photoKey.isBlank()) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lost report has no photo.");
+                    }
+                    try {
+                        URI signedUrl = photoStorage.signedUrl(photoKey, PHOTO_URL_TTL);
+                        return new PhotoUrlResponse(signedUrl);
+                    } catch (PhotoNotFoundException exception) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (PhotoStorageException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY,
+                                "Photo storage backend failure.",
+                                exception
+                        );
                     }
                 });
     }
@@ -290,6 +324,17 @@ public class LostReportService {
 
     private boolean hasPhoto(MultipartFile photo) {
         return photo != null && !photo.isEmpty();
+    }
+
+    private void deletePreviousPhoto(String previousPhotoKey, UUID reportId) {
+        if (previousPhotoKey == null || previousPhotoKey.isBlank()) {
+            return;
+        }
+        try {
+            photoStorage.delete(previousPhotoKey);
+        } catch (PhotoStorageException exception) {
+            LOGGER.warn("Could not delete previous photo {} for lost report {}.", previousPhotoKey, reportId, exception);
+        }
     }
 
     private void validatePhoto(MultipartFile photo) {

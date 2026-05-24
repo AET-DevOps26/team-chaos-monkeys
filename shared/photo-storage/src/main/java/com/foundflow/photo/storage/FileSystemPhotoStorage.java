@@ -2,9 +2,11 @@ package com.foundflow.photo.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 
 public class FileSystemPhotoStorage implements PhotoStorage {
 
@@ -48,6 +50,15 @@ public class FileSystemPhotoStorage implements PhotoStorage {
         } catch (IOException exception) {
             throw new PhotoStorageException("Could not retrieve photo.", exception);
         }
+    }
+
+    @Override
+    public URI signedUrl(String photoKey, Duration ttl) {
+        Path path = pathFor(photoKey);
+        if (!Files.exists(path)) {
+            throw new PhotoNotFoundException(photoKey);
+        }
+        return path.toUri();
     }
 
     @Override

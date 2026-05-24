@@ -4,6 +4,7 @@ import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
+import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.service.LostReportService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -232,6 +234,21 @@ class LostReportControllerTest {
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
+    }
+
+    @Test
+    void getLostReportPhotoUrl_shouldReturnSignedUrl() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-lost-photos/photo-123?signature=test");
+
+        when(lostReportService.getLostReportPhotoUrl(eq(id), any(Jwt.class)))
+                .thenReturn(Optional.of(new PhotoUrlResponse(signedUrl)));
+
+        mockMvc.perform(get("/api/lost-items/{id}/photo-url", id)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(signedUrl.toString()));
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {

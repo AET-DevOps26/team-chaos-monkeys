@@ -20,12 +20,13 @@ public class PhotoStorageConfig {
             @Value("${photo-storage.provider:${PHOTO_STORAGE_PROVIDER:local}}") String provider,
             @Value("${photo-storage.local.root:${PHOTO_STORAGE_LOCAL_ROOT:build/photo-storage}}") String localRoot,
             @Value("${photo-storage.endpoint:${PHOTO_STORAGE_ENDPOINT:http://localhost:9000}}") String endpoint,
+            @Value("${photo-storage.public-endpoint:${PHOTO_STORAGE_PUBLIC_ENDPOINT:${photo-storage.endpoint:${PHOTO_STORAGE_ENDPOINT:http://localhost:9000}}}}") String publicEndpoint,
             @Value("${photo-storage.access-key:${PHOTO_STORAGE_ACCESS_KEY:}}") String accessKey,
             @Value("${photo-storage.secret-key:${PHOTO_STORAGE_SECRET_KEY:}}") String secretKey,
             @Value("${photo-storage.bucket:${PHOTO_STORAGE_BUCKET:foundflow-found-photos}}") String bucketName
     ) {
         return switch (provider.toLowerCase(Locale.ROOT)) {
-            case "minio" -> MinioPhotoStorage.create(endpoint, accessKey, secretKey, bucketName, DOMAIN);
+            case "minio" -> MinioPhotoStorage.create(endpoint, publicEndpoint, accessKey, secretKey, bucketName, DOMAIN);
             case "local" -> new FileSystemPhotoStorage(Path.of(localRoot), DOMAIN);
             default -> throw new IllegalArgumentException("Unsupported photo storage provider: " + provider);
         };

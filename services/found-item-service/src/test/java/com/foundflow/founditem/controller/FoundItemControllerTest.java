@@ -4,19 +4,23 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
+import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.service.FoundItemService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -40,23 +44,19 @@ class FoundItemControllerTest {
     private FoundItemService foundItemService;
 
     @Test
-    void createFoundItem_shouldReturnCreatedItem() throws Exception {
-        UUID id = UUID.randomUUID();
+    void createFoundItemJson_shouldRejectMissingPhoto() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = createRequest(venueId, reporterId);
-        FoundItemResponse response = response(id, venueId, reporterId, ItemStatus.STORED);
 
-        when(foundItemService.createFoundItem(eq(request), any(Jwt.class))).thenReturn(response);
+        when(foundItemService.createFoundItem(eq(request), any(Jwt.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Found item photo is required."));
 
         mockMvc.perform(post("/api/found-items")
                         .with(staffPrincipal(venueId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/found-items/" + id))
-                .andExpect(jsonPath("$.venueId").value(venueId.toString()))
-                .andExpect(jsonPath("$.status").value("STORED"));
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -98,6 +98,24 @@ class FoundItemControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/found-items/" + id))
                 .andExpect(jsonPath("$.photoKey").value("found-items/2026/05/generated.jpg"));
+    }
+
+    @Test
+    void createFoundItemWithPhoto_shouldRejectMissingPhotoPart() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = createRequest(venueId, reporterId);
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+
+        mockMvc.perform(multipart("/api/found-items")
+                        .file(requestPart)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -232,6 +250,21 @@ class FoundItemControllerTest {
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photoKey").value("found-items/2026/05/generated.jpg"));
+    }
+
+    @Test
+    void getFoundItemPhotoUrl_shouldReturnSignedUrl() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+
+        when(foundItemService.getFoundItemPhotoUrl(eq(id), any(Jwt.class)))
+                .thenReturn(Optional.of(new PhotoUrlResponse(signedUrl)));
+
+        mockMvc.perform(get("/api/found-items/{id}/photo-url", id)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(signedUrl.toString()));
     }
 
     private CreateFoundItemRequest createRequest(UUID venueId, UUID reporterId) {

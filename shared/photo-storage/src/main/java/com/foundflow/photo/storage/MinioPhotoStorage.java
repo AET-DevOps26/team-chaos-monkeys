@@ -2,6 +2,8 @@ package com.foundflow.photo.storage;
 
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.Http.Method;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -10,16 +12,23 @@ import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
 
+import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 public class MinioPhotoStorage implements PhotoStorage {
 
+    private static final String DEFAULT_REGION = "us-east-1";
+
     private final MinioClient minioClient;
+    private final MinioClient presignClient;
     private final String bucketName;
     private final PhotoKeyFactory keyFactory;
 
     public static MinioPhotoStorage create(
             String endpoint,
+            String publicEndpoint,
             String accessKey,
             String secretKey,
             String bucketName,
@@ -27,14 +36,21 @@ public class MinioPhotoStorage implements PhotoStorage {
     ) {
         MinioClient client = MinioClient.builder()
                 .endpoint(endpoint)
+                .region(DEFAULT_REGION)
+                .credentials(accessKey, secretKey)
+                .build();
+        MinioClient presignClient = MinioClient.builder()
+                .endpoint(publicEndpoint)
+                .region(DEFAULT_REGION)
                 .credentials(accessKey, secretKey)
                 .build();
 
-        return new MinioPhotoStorage(client, bucketName, domain);
+        return new MinioPhotoStorage(client, presignClient, bucketName, domain);
     }
 
-    MinioPhotoStorage(MinioClient minioClient, String bucketName, String domain) {
+    MinioPhotoStorage(MinioClient minioClient, MinioClient presignClient, String bucketName, String domain) {
         this.minioClient = minioClient;
+        this.presignClient = presignClient;
         this.bucketName = bucketName;
         this.keyFactory = new PhotoKeyFactory(domain, Clock.systemUTC());
         ensureBucketExists();
@@ -83,6 +99,24 @@ public class MinioPhotoStorage implements PhotoStorage {
     }
 
     @Override
+    public URI signedUrl(String photoKey, Duration ttl) {
+        validateTtl(ttl);
+        try {
+            ensureObjectExists(photoKey);
+            return URI.create(presignClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .method(Method.GET)
+                    .bucket(bucketName)
+                    .object(photoKey)
+                    .expiry(Math.toIntExact(ttl.toSeconds()), TimeUnit.SECONDS)
+                    .build()));
+        } catch (PhotoNotFoundException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new PhotoStorageException("Could not create signed photo URL.", exception);
+        }
+    }
+
+    @Override
     public void delete(String photoKey) {
         try {
             minioClient.removeObject(RemoveObjectArgs.builder()
@@ -91,6 +125,31 @@ public class MinioPhotoStorage implements PhotoStorage {
                     .build());
         } catch (Exception exception) {
             throw new PhotoStorageException("Could not delete photo.", exception);
+        }
+    }
+
+    private void ensureObjectExists(String photoKey) {
+        try {
+            minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(bucketName)
+                    .object(photoKey)
+                    .build());
+        } catch (ErrorResponseException exception) {
+            if (isMissingObject(exception)) {
+                throw new PhotoNotFoundException(photoKey, exception);
+            }
+            throw new PhotoStorageException("Could not stat photo.", exception);
+        } catch (Exception exception) {
+            throw new PhotoStorageException("Could not stat photo.", exception);
+        }
+    }
+
+    private void validateTtl(Duration ttl) {
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
+            throw new PhotoStorageException("Signed URL TTL must be positive.");
+        }
+        if (ttl.compareTo(Duration.ofDays(7)) > 0) {
+            throw new PhotoStorageException("Signed URL TTL must not exceed 7 days.");
         }
     }
 

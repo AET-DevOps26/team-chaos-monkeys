@@ -6,10 +6,12 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
+import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +21,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -40,13 +44,19 @@ class FoundItemServiceTest {
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
-    void createFoundItem_shouldUseVenueFromJwtForStaff() {
+    void createFoundItemWithPhoto_shouldUseVenueFromJwtForStaff() {
         FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
 
         UUID jwtVenueId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         LocalDateTime foundAt = LocalDateTime.of(2026, 5, 12, 14, 30);
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
 
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
@@ -57,10 +67,11 @@ class FoundItemServiceTest {
                 new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
@@ -68,6 +79,20 @@ class FoundItemServiceTest {
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
         assertEquals(jwtVenueId, response.venueId());
+    }
+
+    @Test
+    void createFoundItem_shouldRejectMissingPhoto() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.createFoundItem(createRequest(UUID.randomUUID(), UUID.randomUUID()), staffJwt(UUID.randomUUID()))
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        verifyNoInteractions(foundItemRepository);
+        verifyNoInteractions(photoStorage);
     }
 
     @Test
@@ -218,6 +243,62 @@ class FoundItemServiceTest {
         assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
         verify(photoStorage).delete("photo-123");
         verify(foundItemRepository).save(existingItem);
+    }
+
+    @Test
+    void updateFoundItemPhoto_shouldStillReturnResponseWhenPreviousPhotoDeletionFails() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem existingItem = foundItem(venueId);
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        doThrow(new PhotoStorageException("delete failed")).when(photoStorage).delete("photo-123");
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<FoundItemResponse> response =
+                service.updateFoundItemPhoto(id, photo, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
+        verify(foundItemRepository).save(existingItem);
+    }
+
+    @Test
+    void getFoundItemPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
+        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(venueId)));
+        when(photoStorage.signedUrl(eq("photo-123"), any())).thenReturn(signedUrl);
+
+        Optional<PhotoUrlResponse> response = service.getFoundItemPhotoUrl(id, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals(signedUrl, response.get().url());
+    }
+
+    private CreateFoundItemRequest createRequest(UUID venueId, UUID reporterId) {
+        return new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                venueId,
+                reporterId,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
     }
 
     private FoundItem foundItem(UUID venueId) {

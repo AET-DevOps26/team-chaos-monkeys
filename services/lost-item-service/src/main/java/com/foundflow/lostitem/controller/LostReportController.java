@@ -4,6 +4,7 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.CountResponse;
 import com.foundflow.lostitem.dto.HistogramResponse;
 import com.foundflow.lostitem.dto.LostReportResponse;
+import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.service.LostReportService;
@@ -131,6 +132,19 @@ public class LostReportController {
     ) {
         return lostReportService.getLostReportPhoto(id, authentication.getToken())
                 .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/photo-url")
+    public ResponseEntity<PhotoUrlResponse> getLostReportPhotoUrl(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return lostReportService.getLostReportPhotoUrl(
+                        id,
+                        authentication == null ? null : authentication.getToken()
+                )
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 

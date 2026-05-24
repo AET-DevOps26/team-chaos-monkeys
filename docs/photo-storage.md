@@ -7,7 +7,7 @@
 
 ## Purpose & Scope
 
-FoundFlow keeps item photos in object storage — **MinIO** locally, **Azure Blob** in the cloud. Two services attach photos to their records:
+FoundFlow keeps item photos in object storage — **MinIO** in local compose, with **Azure Blob** as the planned cloud target. Two services attach photos to their records:
 
 - `lost-item-service` — an **optional, single** guest photo per lost report.
 - `found-item-service` — a **mandatory** staff photo per found item.
@@ -16,7 +16,7 @@ FoundFlow keeps item photos in object storage — **MinIO** locally, **Azure Blo
 
 This document **is** that contract. It defines one interface, the object-key format, the backend-selection mechanism, and the validation rules — enough that `lost-item-service` and `found-item-service` can be built against an identical abstraction with no backend-specific code in either.
 
-**Scope of #67:** this document only. The shared module, the MinIO and Azure adapters, the `docker-compose` and Helm wiring, and the upload/download endpoints are built by the photo-handling tickets (#28 / #29) — see the checklist in §8. Code snippets below are the contract those tickets implement, not changes made by #67.
+The current implementation provides the shared module, a MinIO adapter, a filesystem adapter for lightweight tests/local fallback, compose wiring, upload/download endpoints, and signed-URL generation for MinIO. The Azure adapter remains a follow-up cloud-deployment task.
 
 **Foundational rule** (`architecture.md` §1.3): **services persist only the object key, never the photo bytes.** The `photoKey` column already exists on `lost_reports` and `found_items` (`VARCHAR(255)`, nullable — Flyway `V1__init.sql`). This abstraction produces that key on upload and resolves it on read.
 
@@ -62,7 +62,7 @@ graph LR
     Lost[lost-item-service] --> IF[PhotoStorage]
     Found[found-item-service] --> IF
     IF --> M[MinIO adapter]
-    IF --> A[Azure adapter]
+    IF -. planned .-> A[Azure adapter]
     M --> MS[(MinIO — local)]
     A --> AS[(Azure Blob — cloud)]
 ```
@@ -98,7 +98,7 @@ includeBuild('../../shared/photo-storage')
 implementation 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
 ```
 
-The MinIO and Azure **adapters** and the provider-selecting factory (§5) are recommended to live in this same module — they are all "photo storage", and co-locating them means the two services share one implementation rather than duplicating adapters. The module may therefore depend on the MinIO SDK, the Azure Blob SDK, and Spring Boot auto-configuration; all are appropriate to a storage module. The one inviolable rule: **service business logic depends only on the `PhotoStorage` type** — never on an adapter, an SDK, or a provider name.
+The MinIO **adapter** and the provider-selecting factory (§5) live in this same module — they are all "photo storage", and co-locating them means the two services share one implementation rather than duplicating adapters. The module may therefore depend on provider SDKs and Spring Boot auto-configuration; all are appropriate to a storage module. The one inviolable rule: **service business logic depends only on the `PhotoStorage` type** — never on an adapter, an SDK, or a provider name. Azure should be added as another adapter behind the same interface, not as service-specific logic.
 
 ## 3. Object key naming
 
@@ -141,24 +141,24 @@ The key does **not** embed the owning record's id. The link runs the other way: 
 The backend is selected at startup from one variable; no business-logic code branches on it.
 
 ```
-PHOTO_STORAGE_PROVIDER = minio | azure
+PHOTO_STORAGE_PROVIDER = minio | local
 ```
 
 This mirrors the `GENAI_PROVIDER` switch — `architecture.md` §1.4 calls that "the canonical example: same code path, swapped at deploy time."
 
 | Variable | Provider | Secret | Purpose |
 |---|---|---|---|
-| `PHOTO_STORAGE_PROVIDER` | both | no | `minio` or `azure` |
-| `PHOTO_STORAGE_ENDPOINT` | minio | no | S3 endpoint; a browser-reachable host (for presigned URLs) |
+| `PHOTO_STORAGE_PROVIDER` | both | no | `minio` or `local` |
+| `PHOTO_STORAGE_ENDPOINT` | minio | no | Internal S3 endpoint used by services for store/retrieve |
+| `PHOTO_STORAGE_PUBLIC_ENDPOINT` | minio | no | Browser-reachable S3 endpoint embedded into signed URLs |
 | `PHOTO_STORAGE_ACCESS_KEY` | minio | **yes** | MinIO access key |
 | `PHOTO_STORAGE_SECRET_KEY` | minio | **yes** | MinIO secret key |
 | `PHOTO_STORAGE_BUCKET` | minio | no | this service's bucket |
-| `PHOTO_STORAGE_CONNECTION_STRING` | azure | **yes** | Azure Blob account connection string |
-| `PHOTO_STORAGE_CONTAINER` | azure | no | this service's container |
+| `PHOTO_STORAGE_LOCAL_ROOT` | local | no | Filesystem root for lightweight local/test storage |
 
-A factory (a Spring auto-configuration in `shared/photo-storage`) reads `PHOTO_STORAGE_PROVIDER` and produces the matching adapter as the `PhotoStorage` bean. Business logic injects `PhotoStorage` and is identical for both backends.
+A factory reads `PHOTO_STORAGE_PROVIDER` and produces the matching adapter as the `PhotoStorage` bean. Business logic injects `PhotoStorage` and is identical for both backends.
 
-**One bucket / container per service.** `lost-item-service` and `found-item-service` each own a separate bucket (MinIO) / container (Azure) — e.g. `foundflow-lost-photos` and `foundflow-found-photos`. This mirrors the per-service data-ownership rule (`architecture.md` §1.3) and lets each service's credentials be scoped to only its own store.
+**One bucket / storage root per service.** `lost-item-service` and `found-item-service` each own a separate bucket (MinIO) or storage root (local) — e.g. `foundflow-lost-photos` and `foundflow-found-photos`. This mirrors the per-service data-ownership rule (`architecture.md` §1.3) and lets each service's credentials be scoped to only its own store.
 
 **Local — docker-compose.** A `minio` service is added to `docker-compose.yml` with a persistent volume; credentials come from the gitignored `.env`. Illustrative — added by #28 / #29, not #67:
 
@@ -186,17 +186,15 @@ volumes:
 
 ```
 # --- Photo storage (object store) -------------------------------------------
-# Provider switch: `minio` runs against the bundled MinIO container,
-# `azure` requires the Azure connection string below.
+# Provider switch: `minio` runs against the bundled MinIO container.
 PHOTO_STORAGE_PROVIDER=minio
 PHOTO_STORAGE_ENDPOINT=http://localhost:9000
+PHOTO_STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
 PHOTO_STORAGE_ACCESS_KEY=foundflow
 PHOTO_STORAGE_SECRET_KEY=foundflow_dev_secret
-# Required when PHOTO_STORAGE_PROVIDER=azure. Leave commented out for local dev.
-# PHOTO_STORAGE_CONNECTION_STRING=
 ```
 
-**Cloud — Kubernetes / Helm.** Non-secret values (`PHOTO_STORAGE_PROVIDER`, endpoint, bucket/container names) go in a `ConfigMap`; `PHOTO_STORAGE_SECRET_KEY` / `PHOTO_STORAGE_CONNECTION_STRING` go in a `Secret` populated from GitHub repository secrets through CI (`architecture.md` §1.4). Switching MinIO → Azure is a configuration change only — no image rebuild, no code change.
+**Cloud — Kubernetes / Helm.** Non-secret values (`PHOTO_STORAGE_PROVIDER`, endpoint, bucket/container names) go in a `ConfigMap`; provider credentials go in a `Secret` populated from GitHub repository secrets through CI (`architecture.md` §1.4). Switching MinIO → Azure should become a configuration change once the Azure adapter exists; today it requires adding that adapter behind `PhotoStorage`.
 
 ## 6. Content-type & size constraints
 
@@ -240,9 +238,9 @@ public class PhotoNotFoundException extends PhotoStorageException { /* unknown k
 What the photo-handling tickets do, given this contract:
 
 1. Create the `shared/photo-storage` module — `PhotoStorage`, `PhotoData`, the exceptions — and wire it into both services' `settings.gradle` / `build.gradle` (§2).
-2. Implement the MinIO and Azure adapters and the `PHOTO_STORAGE_PROVIDER` auto-configuration (§5).
+2. Implement the MinIO adapter, local fallback, and `PHOTO_STORAGE_PROVIDER` configuration (§5). Azure remains a follow-up adapter behind the same interface.
 3. Add the `minio` service and volume to `docker-compose.yml`; add the `PHOTO_STORAGE_*` block to `.env.example` (§5).
-4. Add upload and retrieval endpoints to each service — `multipart/form-data` upload, `signedUrl`-based retrieval — enforcing the §6 constraints at the boundary.
+4. Add upload and retrieval endpoints to each service — `multipart/form-data` upload, proxy download, and authorized `signedUrl` retrieval — enforcing the §6 constraints at the boundary.
 5. Provision the per-service buckets / containers; add the cloud `ConfigMap` / `Secret` wiring to the Helm charts (§5).
 6. Frontend: transcode HEIC → JPEG before upload (§6).
 7. No migration needed — the `photoKey` column already exists (`V1__init.sql`).

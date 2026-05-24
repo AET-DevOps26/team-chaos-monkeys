@@ -68,9 +68,25 @@ export GHCR_TOKEN=<PAT-with-write:packages-scope>
 ./scripts/build-and-push.sh
 ```
 
+**Note on org-namespace access:** by default the script pushes to
+`ghcr.io/aet-devops26/foundflow-*`. The AET-DevOps26 org restricts package
+creation to admins, so a contributor PAT will fail with
+`permission_denied: create_package`. If that happens, push to your personal
+namespace instead:
+
+```bash
+export IMAGE_REGISTRY=ghcr.io/<your-github-username>
+./scripts/build-and-push.sh
+```
+
+…and add the same `IMAGE_REGISTRY=ghcr.io/<your-github-username>` line to your
+`.env` so the VM pulls from the same place.
+
 **First push only:** mark the packages public so the VM can pull without a
-token. In GitHub → AET-DevOps26 org → Packages → each new `foundflow-*`
-package → Settings → Change visibility → **Public**. Nine packages total.
+token. Org packages: GitHub → AET-DevOps26 → Packages → each `foundflow-*`
+→ Package settings → Change visibility → **Public**. Personal packages:
+GitHub → your profile → Packages → each `foundflow-*` → Package settings →
+Change visibility → **Public**. Nine packages total either way.
 
 (If you'd rather keep them private, add `docker login ghcr.io` to
 `bootstrap.sh` and stash a read-only PAT in env on the VM.)
@@ -116,6 +132,9 @@ Everything from `.env.example` (Postgres credentials × 7, `DEV_ADMIN_*`,
 `GRAFANA_ADMIN_*`), plus on the VM:
 
 - `OPENAI_API_KEY` — required (Ollama is excluded on the VM)
+- `IMAGE_REGISTRY` — set to `ghcr.io/<your-github-username>` if you pushed
+  images to your personal namespace (i.e. the org rejected your push). Defaults
+  to `ghcr.io/aet-devops26` if unset.
 - `GENAI_PROVIDER=openai` is set in the prod override; you don't need to set
   it in `.env`.
 

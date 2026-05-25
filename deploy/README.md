@@ -62,16 +62,21 @@ from anywhere.
 
 ### 3. Build + push images (one-time per code change)
 
-```bash
-export GHCR_USERNAME=<your-github-username>
-export GHCR_TOKEN=<PAT-with-write:packages-scope>
-./scripts/build-and-push.sh
-```
+Trigger the **Build and push images** workflow from the Actions tab:
 
-Images push to `ghcr.io/aet-devops26/team-chaos-monkeys/*` — packages are
-scoped to *this* repo, so write/maintain on team-chaos-monkeys is enough; no
-org-admin approval needed. Override `IMAGE_REGISTRY` only if you're pushing
-to a different registry entirely.
+> https://github.com/AET-DevOps26/team-chaos-monkeys/actions/workflows/build-and-push.yml
+> → Run workflow → (defaults are fine) → Run
+
+The workflow runs in-org on `ubuntu-24.04`, authenticates with `GITHUB_TOKEN`,
+builds the 9 service images, and pushes them to
+`ghcr.io/aet-devops26/team-chaos-monkeys/*:latest`.
+
+**Why not from your laptop?** GHCR refuses `create_package` for our org from
+a personal PAT, even with the nested namespace. Only `GITHUB_TOKEN` (and org
+admins) can create new packages in the org — and only the former auto-links
+the package back to this repo so package settings/visibility live in the right
+place. `scripts/build-and-push.sh` is kept around for local image-build
+debugging, but you can't use it to publish.
 
 **First push only:** mark the nine packages public so the VM can pull without
 a token. GitHub → this repo → Packages → each package → Package settings →

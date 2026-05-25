@@ -2,6 +2,12 @@
 # Build all FoundFlow service images locally and push them to a container registry.
 # Run this on your laptop (more headroom than the 4 GB VM).
 #
+# NOTE: a personal PAT cannot create new packages under the org namespace
+# ghcr.io/aet-devops26/* — only the `GITHUB_TOKEN` inside a workflow can.
+# Use the `Build and push images` GitHub Actions workflow to publish to GHCR.
+# This script is kept for local image-build debugging and for pushing to a
+# different registry you do have create rights on (override IMAGE_REGISTRY).
+#
 # Required env:
 #   GHCR_USERNAME  — your GitHub username
 #   GHCR_TOKEN     — a Personal Access Token with `write:packages` scope

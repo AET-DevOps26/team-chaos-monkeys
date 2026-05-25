@@ -25,10 +25,14 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/docker-compose.yml"
 PROD_OVERRIDE="${REPO_ROOT}/deploy/docker-compose.prod.yml"
 ENV_FILE="${REPO_ROOT}/.env"
+# Prometheus/Grafana bind-mount config files from ./infra/. Without these on
+# the VM, those containers fail with "not a directory" on startup.
+INFRA_DIR="${REPO_ROOT}/infra"
 
 [[ -f "$COMPOSE_FILE" ]]  || { echo "Missing $COMPOSE_FILE" >&2; exit 1; }
 [[ -f "$PROD_OVERRIDE" ]] || { echo "Missing $PROD_OVERRIDE" >&2; exit 1; }
 [[ -f "$ENV_FILE" ]]      || { echo "Missing $ENV_FILE (copy .env.example and fill in values)" >&2; exit 1; }
+[[ -d "$INFRA_DIR" ]]     || { echo "Missing $INFRA_DIR (Prometheus + Grafana mount sources)" >&2; exit 1; }
 
 echo "==> Target: $REMOTE"
 
@@ -67,8 +71,8 @@ sudo systemctl enable --now docker
 echo "Installed: $(docker --version)"
 INSTALL
 
-# ---- 2. Ship compose files + .env -------------------------------------------
-echo "==> Copying compose files + .env to ~/foundflow/"
+# ---- 2. Ship compose files + .env + infra/ ----------------------------------
+echo "==> Copying compose files + .env + infra/ to ~/foundflow/"
 ssh "${SSH_OPTS[@]}" "$REMOTE" 'mkdir -p ~/foundflow/deploy'
 scp "${SSH_OPTS[@]}" \
   "$COMPOSE_FILE" \
@@ -77,6 +81,11 @@ scp "${SSH_OPTS[@]}" \
 scp "${SSH_OPTS[@]}" \
   "$PROD_OVERRIDE" \
   "${REMOTE}:~/foundflow/deploy/"
+# -r preserves the prometheus/ and grafana/ subdirs that docker-compose.yml
+# bind-mounts as `./infra/prometheus/prometheus.yml` etc.
+scp -r "${SSH_OPTS[@]}" \
+  "$INFRA_DIR" \
+  "${REMOTE}:~/foundflow/"
 
 # ---- 3. Pull images + start the stack ---------------------------------------
 echo "==> Pulling images + starting the stack"

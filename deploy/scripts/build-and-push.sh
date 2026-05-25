@@ -20,12 +20,20 @@ cd "$REPO_ROOT"
 : "${GHCR_TOKEN:?GHCR_TOKEN required (PAT with write:packages scope)}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-ghcr.io/aet-devops26}"
+
+# Pin builds to linux/amd64 regardless of the laptop's architecture.
+# Without this, an M-series Mac produces arm64 images and they fail on an
+# x86_64 VM with "exec format error". The Azure VM in this iteration is x86,
+# so single-arch amd64 is correct here. Switch to multi-arch (`linux/amd64,
+# linux/arm64`) once we also target ARM VMs or want laptop pulls to work.
+TARGET_PLATFORM="${TARGET_PLATFORM:-linux/amd64}"
+export DOCKER_DEFAULT_PLATFORM="$TARGET_PLATFORM"
 export IMAGE_TAG IMAGE_REGISTRY
 
 echo "==> Logging in to ghcr.io as $GHCR_USERNAME"
 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
-echo "==> Building images (registry: $IMAGE_REGISTRY, tag: $IMAGE_TAG)"
+echo "==> Building images (registry: $IMAGE_REGISTRY, tag: $IMAGE_TAG, platform: $TARGET_PLATFORM)"
 docker compose \
   -f docker-compose.yml \
   -f deploy/docker-compose.prod.yml \

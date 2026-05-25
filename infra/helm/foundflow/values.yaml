@@ -26,13 +26,13 @@ global:
 namespace:
   # Team Chaos Monkeys deploys exclusively into this namespace.
   # Locally we mirror the same name to minimise drift.
-  name: ge42qap-devops26
+  name: team-chaos-monkeys
   create: false
 
 ingress:
   enabled: true
   className: nginx
-  host: ge42qap-devops-ss26.stud.k8s.aet.cit.tum.de
+  host: team-chaos-monkeys.stud.k8s.aet.cit.tum.de
   tls:
     enabled: true
     clusterIssuer: letsencrypt-prod

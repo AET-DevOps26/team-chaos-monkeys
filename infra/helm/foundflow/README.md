@@ -5,7 +5,7 @@ microservices + Python GenAI service + React client), six per-service Bitnami
 PostgreSQL releases, and an in-namespace Grafana preloaded with the
 `Services — RED` dashboard.
 
-Deploys exclusively into the namespace `ge42qap-devops26` (Team Chaos Monkeys).
+Deploys exclusively into the namespace `team-chaos-monkeys`.
 
 ## Quick start (local Kubernetes)
 

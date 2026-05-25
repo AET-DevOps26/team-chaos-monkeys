@@ -12,7 +12,7 @@
 
 REPO_ROOT      := $(shell git rev-parse --show-toplevel)
 CHART_DIR      := $(REPO_ROOT)/infra/helm/foundflow
-NAMESPACE      := ge42qap-devops26
+NAMESPACE      := team-chaos-monkeys
 MONITORING_NS  := monitoring
 INGRESS_NS     := ingress-nginx
 RELEASE        := foundflow
@@ -129,6 +129,13 @@ helm-install: deps
 	  --wait --timeout 5m
 
 helm-uninstall:
+	# Deletes Deployments, Services, Secrets, etc. — but NOT the PVCs created
+	# by the Postgres StatefulSets (volumeClaimTemplates PVCs are intentionally
+	# retained by Kubernetes to protect data). If you reinstall without also
+	# deleting the PVCs, the auto-generated DB password drifts and Postgres
+	# auth fails — see templates/databases.yaml header for the full footgun.
+	# To fully reset state (drops all DB data):
+	#   kubectl -n $(NAMESPACE) delete pvc -l app.kubernetes.io/part-of=foundflow
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true
 
 template:

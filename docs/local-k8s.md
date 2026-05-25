@@ -39,7 +39,7 @@ make -C infra/helm cluster-bootstrap
 ```
 
 This installs **ingress-nginx** and **kube-prometheus-stack** (release name
-`kps`) into dedicated namespaces, then creates the `ge42qap-devops26`
+`kps`) into dedicated namespaces, then creates the `team-chaos-monkeys`
 namespace — the same name we use on AET, so values diffs stay minimal. It
 targets your current kubectl context, so make sure that's pointing at the
 local cluster.
@@ -64,7 +64,7 @@ First install takes ~3 minutes.
 > timeout), pre-pull via your host daemon and restart the stuck pods:
 > ```sh
 > docker pull postgres:17 && docker pull pgvector/pgvector:pg17
-> kubectl -n ge42qap-devops26 delete pod -l app.kubernetes.io/component=database
+> kubectl -n team-chaos-monkeys delete pod -l app.kubernetes.io/component=database
 > ```
 > The cluster shares the host's image store, so the next start uses the
 > local copy with no network round-trip.
@@ -100,7 +100,7 @@ local cluster without any `/etc/hosts` editing.
 docker build -t foundflow/auth-service:dev \
   -f services/auth-service/Dockerfile .
 # 3. trigger a rollout:
-kubectl -n ge42qap-devops26 rollout restart deployment/auth-service
+kubectl -n team-chaos-monkeys rollout restart deployment/auth-service
 ```
 
 ## Inspect metrics

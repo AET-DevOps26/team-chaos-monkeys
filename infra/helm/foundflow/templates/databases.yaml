@@ -13,6 +13,17 @@ Password lifecycle: on first render Helm generates a random password and stores
 it in the Secret. Subsequent renders read the EXISTING Secret via lookup() so
 the password stays stable across helm upgrades (without it, every upgrade would
 rotate the password and break running pods).
+
+Uninstall + reinstall requires also deleting the PVCs. PVCs created by a
+StatefulSet's `volumeClaimTemplates` are retained when the StatefulSet (or
+the whole release) is deleted; `helm uninstall` does delete the Secret.
+On the next install the PVC is reused (Postgres skips initdb and keeps the
+original password in its role catalog) while a new random Secret is
+generated, so app pods authenticate with a password the database does not
+recognise. To reset cleanly:
+  kubectl -n <ns> delete pvc -l app.kubernetes.io/part-of=foundflow
+For ordinary upgrades lookup() reads the existing Secret and the password
+stays stable.
 */}}
 {{- range $name, $db := .Values.databases }}
 {{- $defaults := $.Values.postgresDefaults }}

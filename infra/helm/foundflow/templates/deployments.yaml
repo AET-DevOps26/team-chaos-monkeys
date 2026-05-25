@@ -1,6 +1,19 @@
 {{/*
 One Deployment per entry in `services:` (values.yaml).
 Image, env, probes, and metrics are filled in by helpers in _helpers.tpl.
+
+DB readiness / startup ordering:
+Kubernetes has no `depends_on` equivalent — Helm releases are not pod-ordered,
+and Deployments don't wait on StatefulSets. Spring services that declare a
+`dbRef` will start before their Postgres pod is Ready, fail the JDBC
+connection, and CrashLoopBackOff until kubelet's exponential backoff hits a
+retry where Postgres is up (usually 30–90s on first install). This is
+self-healing and harmless, but it makes `helm install --wait` look noisy on
+cold starts.
+If we ever want clean startup, add an initContainer per service that loops on
+`pg_isready -h <dbRef> -p 5432` before the app container runs. Skipped for
+now: the crash-loop is cheap, and the alternative adds a container to every
+Deployment for a one-time cosmetic win.
 */}}
 {{- range $name, $svc := .Values.services }}
 ---

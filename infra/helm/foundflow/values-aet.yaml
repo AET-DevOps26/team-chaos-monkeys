@@ -4,7 +4,7 @@
 # Layered on top of values.yaml. Consumed by the CD pipeline (follow-up ticket);
 # NOT applied in this PR. Wire CI to:
 #   helm upgrade --install foundflow ./infra/helm/foundflow \
-#     -n ge42qap-devops26 -f infra/helm/foundflow/values-aet.yaml \
+#     -n team-chaos-monkeys -f infra/helm/foundflow/values-aet.yaml \
 #     --set secrets.openaiApiKey=$OPENAI_API_KEY ...
 #
 # Most defaults in values.yaml already target AET. This file pins the
@@ -17,7 +17,7 @@ global:
   imagePullPolicy: Always
 
 namespace:
-  name: ge42qap-devops26
+  name: team-chaos-monkeys
   create: false
 
 # AET runs Rancher Monitoring, not the kube-prometheus-stack we install

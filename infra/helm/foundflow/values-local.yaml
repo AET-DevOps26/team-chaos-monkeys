@@ -4,7 +4,7 @@
 # Layered on top of values.yaml. Targets the built-in Kubernetes of Docker
 # Desktop (default) or OrbStack — see storage-class note below.
 # Use: helm upgrade --install foundflow ./infra/helm/foundflow \
-#        -n ge42qap-devops26 -f infra/helm/foundflow/values-local.yaml
+#        -n team-chaos-monkeys -f infra/helm/foundflow/values-local.yaml
 # (or `make -C infra/helm helm-install`).
 #
 # Per-developer secrets (OPENAI_API_KEY etc.) go in the gitignored sibling

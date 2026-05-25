@@ -43,6 +43,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare env file
+        run: cp .env.example .env
+
       - name: Build images
         run: |
           docker compose \

@@ -332,12 +332,11 @@ export const createFoundItem = (
 ) => {
       
       const formData = new FormData();
-formData.append(`request`, JSON.stringify(createFoundItemBody.request));
+formData.append(`request`, new Blob([JSON.stringify(createFoundItemBody.request)], { type: 'application/json' }));
 formData.append(`photo`, createFoundItemBody.photo)
 
       return customInstance<FoundItemResponse>(
       {url: `/api/found-items`, method: 'POST',
-      headers: {'Content-Type': 'multipart/form-data', },
        data: formData, signal
     },
       );

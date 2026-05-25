@@ -186,7 +186,7 @@ grafana:
   enabled: true
   image: grafana/grafana:11.3.0
   adminUser: admin
-  adminPassword: ""   # if empty, a random password is generated into a Secret
+  adminPassword: ""   # if empty, admin is generated into a Secret as password
   # Prometheus the Grafana datasource talks to. In-cluster, this is the
   # operator-managed Prometheus shipped by kube-prometheus-stack.
   prometheusUrl: http://prometheus-operated.monitoring.svc.cluster.local:9090

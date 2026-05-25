@@ -4,11 +4,11 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.CountResponse;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.HistogramResponse;
-import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.service.FoundItemService;
 import com.foundflow.photo.storage.PhotoData;
+import com.foundflow.photo.storage.PhotoUrlResponse;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
@@ -29,17 +29,6 @@ public class FoundItemController {
 
     public FoundItemController(FoundItemService foundItemService) {
         this.foundItemService = foundItemService;
-    }
-
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<FoundItemResponse> createFoundItem(
-            @Valid @RequestBody CreateFoundItemRequest request,
-            JwtAuthenticationToken authentication
-    ) {
-        FoundItemResponse response = foundItemService.createFoundItem(request, authentication.getToken());
-        return ResponseEntity
-                .created(URI.create("/api/found-items/" + response.id()))
-                .body(response);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

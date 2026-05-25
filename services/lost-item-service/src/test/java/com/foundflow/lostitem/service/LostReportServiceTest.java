@@ -1,28 +1,35 @@
 package com.foundflow.lostitem.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.lostitem.domain.LostReport;
 import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
-import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
-import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoStorage;
+import com.foundflow.photo.storage.PhotoStorageException;
+import com.foundflow.photo.storage.PhotoUrlResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +51,7 @@ class LostReportServiceTest {
 
     @Test
     void createLostReport_shouldUseVenueFromJwtForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(UUID.randomUUID());
@@ -64,7 +71,7 @@ class LostReportServiceTest {
 
     @Test
     void createLostReport_shouldUseRequestVenueForPublicReport() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(venueId);
@@ -84,7 +91,7 @@ class LostReportServiceTest {
 
     @Test
     void createLostReportWithPhoto_shouldPersistGeneratedPhotoKey() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
         MockMultipartFile photo = new MockMultipartFile(
@@ -110,7 +117,7 @@ class LostReportServiceTest {
 
     @Test
     void getLostReportById_shouldReturnResponseForOwnVenue() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -126,7 +133,7 @@ class LostReportServiceTest {
 
     @Test
     void getAllLostReports_shouldUseVenueRepositoryForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findByVenueIdAndStatus(venueId, ReportStatus.OPEN))
@@ -142,7 +149,7 @@ class LostReportServiceTest {
 
     @Test
     void histogram_shouldBucketAccessibleLostReportsByDayWeekAndMonth() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
         when(lostReportRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
@@ -161,7 +168,7 @@ class LostReportServiceTest {
 
     @Test
     void updateLostReport_shouldKeepVenueForStaff() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -183,7 +190,7 @@ class LostReportServiceTest {
 
     @Test
     void updateLostReportPhoto_shouldStorePhotoAndSaveGeneratedKey() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -211,7 +218,11 @@ class LostReportServiceTest {
 
     @Test
     void updateLostReportPhoto_shouldStillReturnResponseWhenPreviousPhotoDeletionFails() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
+        Logger logger = (Logger) LoggerFactory.getLogger(LostReportService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -229,29 +240,65 @@ class LostReportServiceTest {
         when(lostReportRepository.save(any(LostReport.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<LostReportResponse> response =
-                service.updateLostReportPhoto(id, photo, staffJwt(venueId));
+        Optional<LostReportResponse> response;
+        try {
+            response = service.updateLostReportPhoto(id, photo, staffJwt(venueId));
+        } finally {
+            logger.detachAppender(appender);
+        }
 
         assertTrue(response.isPresent());
         assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
         verify(lostReportRepository).save(existingReport);
+        assertTrue(appender.list.stream().anyMatch(event ->
+                event.getLevel() == Level.WARN
+                        && event.getFormattedMessage().contains("Could not delete photo photo-123")
+        ));
     }
 
     @Test
     void getLostReportPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
-        LostReportService service = new LostReportService(lostReportRepository, venueAccessService, photoStorage);
+        LostReportService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         URI signedUrl = URI.create("http://localhost:9000/foundflow-lost-photos/photo-123?signature=test");
 
         when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport(venueId)));
-        when(photoStorage.signedUrl(eq("photo-123"), any())).thenReturn(signedUrl);
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10)))).thenReturn(signedUrl);
 
         Optional<PhotoUrlResponse> response = service.getLostReportPhotoUrl(id, staffJwt(venueId));
 
         assertTrue(response.isPresent());
         assertEquals(signedUrl, response.get().url());
+    }
+
+    @Test
+    void getLostReportPhotoUrl_shouldReturnNotImplementedWhenStorageDoesNotSupportSignedUrls() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport(venueId)));
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10))))
+                .thenThrow(new UnsupportedOperationException("not supported"));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.getLostReportPhotoUrl(id, staffJwt(venueId))
+        );
+
+        assertEquals(501, exception.getStatusCode().value());
+    }
+
+    private LostReportService service() {
+        return new LostReportService(
+                lostReportRepository,
+                venueAccessService,
+                photoStorage,
+                Duration.ofMinutes(10)
+        );
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {

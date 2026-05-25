@@ -142,6 +142,7 @@ The backend is selected at startup from one variable; no business-logic code bra
 
 ```
 PHOTO_STORAGE_PROVIDER = minio | azure | local
+PHOTO_STORAGE_SIGNED_URL_TTL = PT10M
 ```
 
 This mirrors the `GENAI_PROVIDER` switch — `architecture.md` §1.4 calls that "the canonical example: same code path, swapped at deploy time."
@@ -149,6 +150,7 @@ This mirrors the `GENAI_PROVIDER` switch — `architecture.md` §1.4 calls that 
 | Variable | Provider | Secret | Purpose |
 |---|---|---|---|
 | `PHOTO_STORAGE_PROVIDER` | all | no | `minio`, `azure`, or `local` |
+| `PHOTO_STORAGE_SIGNED_URL_TTL` | minio/azure | no | ISO-8601 duration for signed URL validity, defaults to `PT10M` |
 | `PHOTO_STORAGE_ENDPOINT` | minio | no | Internal S3 endpoint used by services for store/retrieve |
 | `PHOTO_STORAGE_PUBLIC_ENDPOINT` | minio | no | Browser-reachable S3 endpoint embedded into signed URLs |
 | `PHOTO_STORAGE_ACCESS_KEY` | minio | **yes** | MinIO access key |
@@ -229,6 +231,7 @@ public class PhotoNotFoundException extends PhotoStorageException { /* unknown k
 | Situation | Interface behaviour | Service maps to |
 |---|---|---|
 | `retrieve` / `signedUrl`, unknown key | throws `PhotoNotFoundException` | `404 Not Found` |
+| `signedUrl`, local filesystem backend | throws `UnsupportedOperationException` | `501 Not Implemented` |
 | `delete`, unknown key | no-op | `204 No Content` |
 | Backend unreachable / store failure | throws `PhotoStorageException` | `502` / `503` |
 | Upload fails §6 validation | never reaches storage | `413` / `415` |

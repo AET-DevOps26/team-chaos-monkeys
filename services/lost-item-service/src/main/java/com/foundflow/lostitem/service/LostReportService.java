@@ -7,7 +7,6 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.HistogramResponse;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
-import com.foundflow.lostitem.dto.PhotoUrlResponse;
 import com.foundflow.lostitem.dto.TimeBucketCount;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.repository.BucketCountView;
@@ -18,6 +17,8 @@ import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
+import com.foundflow.photo.storage.PhotoUrlResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -44,20 +45,21 @@ import java.util.stream.Collectors;
 public class LostReportService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LostReportService.class);
-    private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
-
     private final LostReportRepository lostReportRepository;
     private final VenueAccessService venueAccessService;
     private final PhotoStorage photoStorage;
+    private final Duration photoUrlTtl;
 
     public LostReportService(
             LostReportRepository lostReportRepository,
             VenueAccessService venueAccessService,
-            PhotoStorage photoStorage
+            PhotoStorage photoStorage,
+            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl
     ) {
         this.lostReportRepository = lostReportRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
+        this.photoUrlTtl = photoUrlTtl;
     }
 
     public LostReportResponse createLostReport(
@@ -208,10 +210,16 @@ public class LostReportService {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Lost report has no photo.");
                     }
                     try {
-                        URI signedUrl = photoStorage.signedUrl(photoKey, PHOTO_URL_TTL);
+                        URI signedUrl = photoStorage.signedUrl(photoKey, photoUrlTtl);
                         return new PhotoUrlResponse(signedUrl);
                     } catch (PhotoNotFoundException exception) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (UnsupportedOperationException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.NOT_IMPLEMENTED,
+                                "Signed photo URLs are not supported by this storage backend.",
+                                exception
+                        );
                     } catch (PhotoStorageException exception) {
                         throw new ResponseStatusException(
                                 HttpStatus.BAD_GATEWAY,

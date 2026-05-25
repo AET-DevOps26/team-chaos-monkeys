@@ -65,7 +65,7 @@ class FileSystemPhotoStorageTest {
     }
 
     @Test
-    void signedUrlReturnsFileUriForStoredPhoto(@TempDir Path tempDir) {
+    void signedUrlThrowsUnsupportedForStoredPhoto(@TempDir Path tempDir) {
         FileSystemPhotoStorage storage = new FileSystemPhotoStorage(tempDir, "found-items");
 
         byte[] payload = "bytes".getBytes();
@@ -75,9 +75,9 @@ class FileSystemPhotoStorageTest {
                 payload.length
         ));
 
-        URI uri = storage.signedUrl(key, Duration.ofMinutes(5));
-        assertThat(uri.getScheme()).isEqualTo("file");
-        assertThat(uri.getPath()).endsWith(key);
+        assertThatThrownBy(() -> storage.signedUrl(key, Duration.ofMinutes(5)))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("filesystem storage");
     }
 
     @Test

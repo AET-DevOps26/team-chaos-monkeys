@@ -58,7 +58,7 @@ public class FileSystemPhotoStorage implements PhotoStorage {
         if (!Files.exists(path)) {
             throw new PhotoNotFoundException(photoKey);
         }
-        return path.toUri();
+        throw new UnsupportedOperationException("Signed photo URLs are not supported by filesystem storage.");
     }
 
     @Override

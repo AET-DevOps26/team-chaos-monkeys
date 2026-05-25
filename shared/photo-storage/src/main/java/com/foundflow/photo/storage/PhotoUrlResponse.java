@@ -1,4 +1,4 @@
-package com.foundflow.founditem.dto;
+package com.foundflow.photo.storage;
 
 import java.net.URI;
 

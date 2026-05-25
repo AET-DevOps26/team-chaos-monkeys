@@ -4,20 +4,18 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
-import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.service.FoundItemService;
+import com.foundflow.photo.storage.PhotoUrlResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
@@ -44,19 +42,16 @@ class FoundItemControllerTest {
     private FoundItemService foundItemService;
 
     @Test
-    void createFoundItemJson_shouldRejectMissingPhoto() throws Exception {
+    void createFoundItemJson_shouldReturnUnsupportedMediaType() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = createRequest(venueId, reporterId);
-
-        when(foundItemService.createFoundItem(eq(request), any(Jwt.class)))
-                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Found item photo is required."));
 
         mockMvc.perform(post("/api/found-items")
                         .with(staffPrincipal(venueId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnsupportedMediaType());
     }
 
     @Test

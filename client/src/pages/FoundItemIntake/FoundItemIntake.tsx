@@ -107,7 +107,6 @@ export default function FoundItemIntake() {
     }
     const hasAttributes = Object.values(attributes).some((v) => v !== undefined)
 
-    // TODO: upload data.photo to object storage and pass the returned key as photoKey
     const payload: CreateFoundItemRequest = {
       description: data.description || undefined,
       // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
@@ -120,8 +119,12 @@ export default function FoundItemIntake() {
     }
 
     setSubmitError(null)
+    if (!data.photo) {
+      setSubmitError('Photo is required.')
+      return
+    }
     try {
-      await createFoundItem.mutateAsync({ data: payload })
+      await createFoundItem.mutateAsync({ data: { request: payload, photo: data.photo } })
       reset({
         description: '',
         foundAt: nowForDatetimeLocal(),

@@ -1,18 +1,22 @@
 package com.foundflow.founditem.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
-import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
-import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoStorage;
+import com.foundflow.photo.storage.PhotoStorageException;
+import com.foundflow.photo.storage.PhotoUrlResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -22,8 +26,10 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +51,7 @@ class FoundItemServiceTest {
 
     @Test
     void createFoundItemWithPhoto_shouldUseVenueFromJwtForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
@@ -82,22 +88,8 @@ class FoundItemServiceTest {
     }
 
     @Test
-    void createFoundItem_shouldRejectMissingPhoto() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
-
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.createFoundItem(createRequest(UUID.randomUUID(), UUID.randomUUID()), staffJwt(UUID.randomUUID()))
-        );
-
-        assertEquals(400, exception.getStatusCode().value());
-        verifyNoInteractions(foundItemRepository);
-        verifyNoInteractions(photoStorage);
-    }
-
-    @Test
     void createFoundItemWithPhoto_shouldPersistGeneratedPhotoKey() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
@@ -132,7 +124,7 @@ class FoundItemServiceTest {
 
     @Test
     void getFoundItemById_shouldReturnResponseForOwnVenue() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -150,7 +142,7 @@ class FoundItemServiceTest {
 
     @Test
     void getAllFoundItems_shouldUseVenueRepositoryForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID venueId = UUID.randomUUID();
         when(foundItemRepository.findByVenueIdAndStatus(venueId, ItemStatus.STORED))
@@ -167,7 +159,7 @@ class FoundItemServiceTest {
 
     @Test
     void histogram_shouldBucketAccessibleFoundItemsByDayWeekAndMonth() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID venueId = UUID.randomUUID();
         when(foundItemRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
@@ -187,7 +179,7 @@ class FoundItemServiceTest {
 
     @Test
     void updateFoundItem_shouldKeepVenueForStaff() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -219,7 +211,7 @@ class FoundItemServiceTest {
 
     @Test
     void updateFoundItemPhoto_shouldStorePhotoAndSaveGeneratedKey() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -247,7 +239,11 @@ class FoundItemServiceTest {
 
     @Test
     void updateFoundItemPhoto_shouldStillReturnResponseWhenPreviousPhotoDeletionFails() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
+        Logger logger = (Logger) LoggerFactory.getLogger(FoundItemService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -265,29 +261,65 @@ class FoundItemServiceTest {
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<FoundItemResponse> response =
-                service.updateFoundItemPhoto(id, photo, staffJwt(venueId));
+        Optional<FoundItemResponse> response;
+        try {
+            response = service.updateFoundItemPhoto(id, photo, staffJwt(venueId));
+        } finally {
+            logger.detachAppender(appender);
+        }
 
         assertTrue(response.isPresent());
         assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
         verify(foundItemRepository).save(existingItem);
+        assertTrue(appender.list.stream().anyMatch(event ->
+                event.getLevel() == Level.WARN
+                        && event.getFormattedMessage().contains("Could not delete photo photo-123")
+        ));
     }
 
     @Test
     void getFoundItemPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
-        FoundItemService service = new FoundItemService(foundItemRepository, venueAccessService, photoStorage);
+        FoundItemService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(venueId)));
-        when(photoStorage.signedUrl(eq("photo-123"), any())).thenReturn(signedUrl);
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10)))).thenReturn(signedUrl);
 
         Optional<PhotoUrlResponse> response = service.getFoundItemPhotoUrl(id, staffJwt(venueId));
 
         assertTrue(response.isPresent());
         assertEquals(signedUrl, response.get().url());
+    }
+
+    @Test
+    void getFoundItemPhotoUrl_shouldReturnNotImplementedWhenStorageDoesNotSupportSignedUrls() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(venueId)));
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10))))
+                .thenThrow(new UnsupportedOperationException("not supported"));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.getFoundItemPhotoUrl(id, staffJwt(venueId))
+        );
+
+        assertEquals(501, exception.getStatusCode().value());
+    }
+
+    private FoundItemService service() {
+        return new FoundItemService(
+                foundItemRepository,
+                venueAccessService,
+                photoStorage,
+                Duration.ofMinutes(10)
+        );
     }
 
     private CreateFoundItemRequest createRequest(UUID venueId, UUID reporterId) {

@@ -37,6 +37,11 @@ import type {
 import { customInstance } from '../../mutator/custom-instance';
 import type { ErrorType } from '../../mutator/custom-instance';
 
+export type CreateFoundItemMultipartBody = {
+  request: CreateFoundItemRequest;
+  photo: Blob;
+};
+
 
 
 
@@ -327,15 +332,19 @@ export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoun
 
 
 export const createFoundItem = (
-    createFoundItemRequest: CreateFoundItemRequest,
+    createFoundItemMultipartBody: CreateFoundItemMultipartBody,
  signal?: AbortSignal
 ) => {
-      
+      const formData = new FormData();
+      formData.append(
+        'request',
+        new Blob([JSON.stringify(createFoundItemMultipartBody.request)], { type: 'application/json' })
+      );
+      formData.append('photo', createFoundItemMultipartBody.photo);
       
       return customInstance<FoundItemResponse>(
       {url: `/api/found-items`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: createFoundItemRequest, signal
+      data: formData, signal
     },
       );
     }
@@ -343,8 +352,8 @@ export const createFoundItem = (
 
 
 export const getCreateFoundItemMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemRequest}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemMultipartBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemMultipartBody}, TContext> => {
 
 const mutationKey = ['createFoundItem'];
 const {mutation: mutationOptions} = options ?
@@ -356,7 +365,7 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFoundItem>>, {data: CreateFoundItemRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFoundItem>>, {data: CreateFoundItemMultipartBody}> = (props) => {
           const {data} = props ?? {};
 
           return  createFoundItem(data,)
@@ -368,15 +377,15 @@ const {mutation: mutationOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateFoundItemMutationResult = NonNullable<Awaited<ReturnType<typeof createFoundItem>>>
-    export type CreateFoundItemMutationBody = CreateFoundItemRequest
+    export type CreateFoundItemMutationBody = CreateFoundItemMultipartBody
     export type CreateFoundItemMutationError = ErrorType<unknown>
 
     export const useCreateFoundItem = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemRequest}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemMultipartBody}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createFoundItem>>,
         TError,
-        {data: CreateFoundItemRequest},
+        {data: CreateFoundItemMultipartBody},
         TContext
       > => {
 

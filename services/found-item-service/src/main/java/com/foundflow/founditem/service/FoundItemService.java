@@ -7,7 +7,6 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
-import com.foundflow.founditem.dto.PhotoUrlResponse;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.repository.BucketCountView;
@@ -18,6 +17,8 @@ import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
+import com.foundflow.photo.storage.PhotoUrlResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -44,27 +45,21 @@ import java.util.stream.Collectors;
 public class FoundItemService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FoundItemService.class);
-    private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(10);
-
     private final FoundItemRepository foundItemRepository;
     private final VenueAccessService venueAccessService;
     private final PhotoStorage photoStorage;
+    private final Duration photoUrlTtl;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
             VenueAccessService venueAccessService,
-            PhotoStorage photoStorage
+            PhotoStorage photoStorage,
+            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
-    }
-
-    public FoundItemResponse createFoundItem(
-            CreateFoundItemRequest request,
-            Jwt jwt
-    ) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Found item photo is required.");
+        this.photoUrlTtl = photoUrlTtl;
     }
 
     public FoundItemResponse createFoundItem(
@@ -195,10 +190,16 @@ public class FoundItemService {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
                     }
                     try {
-                        URI signedUrl = photoStorage.signedUrl(photoKey, PHOTO_URL_TTL);
+                        URI signedUrl = photoStorage.signedUrl(photoKey, photoUrlTtl);
                         return new PhotoUrlResponse(signedUrl);
                     } catch (PhotoNotFoundException exception) {
                         throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (UnsupportedOperationException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.NOT_IMPLEMENTED,
+                                "Signed photo URLs are not supported by this storage backend.",
+                                exception
+                        );
                     } catch (PhotoStorageException exception) {
                         throw new ResponseStatusException(
                                 HttpStatus.BAD_GATEWAY,

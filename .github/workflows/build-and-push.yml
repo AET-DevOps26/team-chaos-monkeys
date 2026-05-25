@@ -1,17 +1,10 @@
 name: Build and push images
 
-# Manual trigger for now — once the Azure deploy stabilises, this can also
-# fire on push to `main` so merging a release auto-publishes images.
-#
-# Why this workflow exists: GHCR refuses `create_package` for our org from a
-# personal PAT, even when the image name is nested under team-chaos-monkeys/.
-# A workflow's GITHUB_TOKEN does have that right and creates the auto-link
-# back to this repo, which is what every sibling team relies on.
 on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag to push (default: latest)
+        description: Image tag to push (defaults to latest)
         required: false
         default: latest
 

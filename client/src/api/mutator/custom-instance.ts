@@ -13,6 +13,10 @@ axiosInstance.interceptors.request.use((config) => {
     config.headers.set('Authorization', `Bearer ${token}`)
   }
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const requestPart = config.data.get('request')
+    if (typeof Blob !== 'undefined' && typeof requestPart === 'string') {
+      config.data.set('request', new Blob([requestPart], { type: 'application/json' }))
+    }
     config.headers.delete('Content-Type')
   }
   return config

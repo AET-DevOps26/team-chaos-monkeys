@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useCreateFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
-import type { CreateFoundItemRequest } from '@/api/found-items/model'
+import type { CreateFoundItemRequest, CreateFoundItemBody } from '@/api/found-items/model'
 import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
@@ -124,7 +124,8 @@ export default function FoundItemIntake() {
       return
     }
     try {
-      await createFoundItem.mutateAsync({ data: { request: payload, photo: data.photo } })
+      const multipartPayload: CreateFoundItemBody = { request: payload, photo: data.photo }
+      await createFoundItem.mutateAsync({ data: multipartPayload })
       reset({
         description: '',
         foundAt: nowForDatetimeLocal(),

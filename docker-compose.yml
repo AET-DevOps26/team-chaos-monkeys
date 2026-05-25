@@ -282,7 +282,7 @@ services:
       retries: 20
 
   matching-db:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     container_name: foundflow-matching-db
     environment:
       POSTGRES_DB: ${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}

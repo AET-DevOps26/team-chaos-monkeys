@@ -6,11 +6,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     List<Match> findByVenueId(UUID venueId);
+
+    Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
 
     @Query(
             value = """

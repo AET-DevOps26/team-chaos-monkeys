@@ -138,13 +138,12 @@ class CandidateMatchingServiceTest {
 
         LostReportUpdatedEvent event = new LostReportUpdatedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 lostReportId,
                 venueId,
                 "lost/photo.jpg",
                 "Black leather backpack",
-                LocalDateTime.now(),
+                Instant.now(),
                 "Front desk",
                 "OPEN",
                 new ItemAttributesPayload("Bag", null, null, List.of())
@@ -228,10 +227,10 @@ class CandidateMatchingServiceTest {
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.findCandidatesForFoundItem(new FoundItemLoggedEvent(
-                UUID.randomUUID(), 1, Instant.now(),
+                UUID.randomUUID(), Instant.now(),
                 foundItemId, venueId,
                 "found/photo.jpg", "Black backpack",
-                LocalDateTime.now(), "Front desk", "STORED",
+                Instant.now(), "Front desk", "STORED",
                 UUID.randomUUID(),
                 new ItemAttributesPayload("Bag", null, null, List.of())
         ));
@@ -248,8 +247,8 @@ class CandidateMatchingServiceTest {
         UUID venueId = UUID.randomUUID();
         // No description, no attributes — embedding text is blank
         LostReportCreatedEvent event = new LostReportCreatedEvent(
-                UUID.randomUUID(), 1, Instant.now(),
-                lostReportId, venueId, null, null, LocalDateTime.now(), null, "OPEN",
+                UUID.randomUUID(), Instant.now(),
+                lostReportId, venueId, null, null, Instant.now(), null, "OPEN",
                 null
         );
 
@@ -285,13 +284,12 @@ class CandidateMatchingServiceTest {
     private LostReportCreatedEvent lostReportEvent(UUID lostReportId, UUID venueId, String category, String description) {
         return new LostReportCreatedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 lostReportId,
                 venueId,
                 "lost/photo.jpg",
                 description,
-                LocalDateTime.now(),
+                Instant.now(),
                 "Front desk",
                 "OPEN",
                 new ItemAttributesPayload(category, null, null, List.of())

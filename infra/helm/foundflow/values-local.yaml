@@ -1,0 +1,64 @@
+# =============================================================================
+# values-local.yaml — local Kubernetes overrides (Docker Desktop / OrbStack)
+# =============================================================================
+# Layered on top of values.yaml. Targets the built-in Kubernetes of Docker
+# Desktop (default) or OrbStack — see storage-class note below.
+# Use: helm upgrade --install foundflow ./infra/helm/foundflow \
+#        -n ge42qap-devops26 -f infra/helm/foundflow/values-local.yaml
+# (or `make -C infra/helm helm-install`).
+#
+# Per-developer secrets (OPENAI_API_KEY etc.) go in the gitignored sibling
+# file values-local.yaml.local; the Makefile auto-includes it when present.
+#
+# Differences vs the AET defaults:
+#   - TLS disabled (no cert-manager locally)
+#   - *.localtest.me host so DNS resolves to 127.0.0.1
+#   - storageClass hostpath (Docker Desktop default; OrbStack users override
+#     with --set global.storageClassName=local-path)
+#   - imagePullPolicy IfNotPresent so kubelet uses local images from the
+#     shared Docker daemon — no registry push or `image import` step needed
+
+global:
+  imageRegistry: foundflow
+  imageTag: dev
+  imagePullPolicy: IfNotPresent
+  storageClassName: hostpath
+
+ingress:
+  enabled: true
+  className: nginx
+  host: foundflow.localtest.me
+  tls:
+    enabled: false
+
+grafana:
+  enabled: true
+  # Local kube-prometheus-stack is installed by `make cluster-bootstrap` with
+  # release name "kps" into the "monitoring" namespace.
+  prometheusUrl: http://kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+  adminPassword: admin
+
+monitoring:
+  enabled: true
+  prometheusReleaseLabel: kps
+
+# Smaller PVCs locally — the hostpath/local-path provisioner is fine for these.
+databases:
+  auth-db:        { username: auth,         database: authdb,         storageSize: 512Mi }
+  lost-item-db:   { username: lostitem,     database: lostitemdb,     storageSize: 512Mi }
+  found-item-db:  { username: founditem,    database: founditemdb,    storageSize: 512Mi }
+  matching-db:
+    username: matching
+    database: matchingdb
+    storageSize: 1Gi
+    image: pgvector/pgvector:pg17
+    initScript: |
+      CREATE EXTENSION IF NOT EXISTS vector;
+  notification-db: { username: notification, database: notificationdb, storageSize: 512Mi }
+  operations-db:  { username: operations,   database: operationsdb,   storageSize: 512Mi }
+
+postgresDefaults:
+  image: postgres:17
+  resources:
+    requests: { cpu: 25m,  memory: 96Mi }
+    limits:   { cpu: 500m, memory: 384Mi }

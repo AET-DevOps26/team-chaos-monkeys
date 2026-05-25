@@ -1,0 +1,33 @@
+{{/*
+One ServiceMonitor per service with `metrics: true`.
+Labelled with monitoring.prometheusReleaseLabel so the right Prometheus picks
+it up (`kps` locally, `rancher-monitoring` on AET).
+Scrape path: spring → /actuator/prometheus, python → /metrics.
+*/}}
+{{- if .Values.monitoring.enabled -}}
+{{- range $name, $svc := .Values.services }}
+{{- if $svc.metrics }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.svcLabels" (dict "ctx" $ "name" $name) | nindent 4 }}
+    release: {{ $.Values.monitoring.prometheusReleaseLabel | quote }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "foundflow.selectorLabels" (dict "ctx" $ "name" $name) | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Values.namespace.name }}
+  endpoints:
+    - port: http
+      path: {{ include "foundflow.metricsPath" (dict "svc" $svc) | quote }}
+      interval: 15s
+      scrapeTimeout: 10s
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,160 @@
+{{/*
+One in-namespace Postgres instance per .Values.databases entry. Each renders:
+  - Secret  <name>           (key: password, generated on first install, stable thereafter)
+  - Service <name>            (ClusterIP, port 5432, headless via clusterIP=None)
+  - StatefulSet <name>        (single replica, PVC mounted at /var/lib/postgresql/data)
+  - ConfigMap <name>-initdb  (when .initScript is set; mounted at /docker-entrypoint-initdb.d)
+
+The service NAME equals the map key. Spring services consume:
+  jdbc:postgresql://<name>:5432/<database>
+matching docker-compose exactly so app config does not need to differ.
+
+Password lifecycle: on first render Helm generates a random password and stores
+it in the Secret. Subsequent renders read the EXISTING Secret via lookup() so
+the password stays stable across helm upgrades (without it, every upgrade would
+rotate the password and break running pods).
+*/}}
+{{- range $name, $db := .Values.databases }}
+{{- $defaults := $.Values.postgresDefaults }}
+{{- $image := default $defaults.image $db.image }}
+{{- $resources := default $defaults.resources $db.resources }}
+{{- $storageClass := $.Values.global.storageClassName }}
+{{- $existing := lookup "v1" "Secret" $.Values.namespace.name $name }}
+{{- $password := "" }}
+{{- if and $existing $existing.data $existing.data.password }}
+{{- $password = index $existing.data "password" | b64dec }}
+{{- else }}
+{{- $password = randAlphaNum 24 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: database
+type: Opaque
+stringData:
+  password: {{ $password | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+{{- if $db.initScript }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-initdb
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: database
+data:
+  init.sql: |
+{{ $db.initScript | indent 4 }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: database
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "foundflow.labels" $ | nindent 8 }}
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: {{ $image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ $db.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ $db.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $name }}
+                  key: password
+            - name: PGDATA
+              # PG can't initialize when the data dir is a mount root; use a subdir.
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $db.username }}", "-d", "{{ $db.database }}"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $db.username }}", "-d", "{{ $db.database }}"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            {{- if $db.initScript }}
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+            {{- end }}
+          resources:
+            {{- toYaml $resources | nindent 12 }}
+      {{- if $db.initScript }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: {{ $name }}-initdb
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if $storageClass }}
+        storageClassName: {{ $storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ default "1Gi" $db.storageSize | quote }}
+{{- end }}

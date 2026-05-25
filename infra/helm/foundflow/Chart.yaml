@@ -1,0 +1,11 @@
+apiVersion: v2
+name: foundflow
+description: FoundFlow lost-and-found platform — gateway, 6 Spring services, Python GenAI service, React client, dedicated Postgres per service, in-namespace Grafana, and Prometheus Operator hooks.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+# No external dependencies. Each Postgres instance is templated by
+# templates/databases.yaml and uses the official `postgres` image — same image
+# docker-compose uses. See infra/helm/foundflow/README.md for the rationale
+# (Helm cannot resolve multiple aliased identical subchart dependencies, and a
+# course-project Postgres-per-service does not need Bitnami's operator surface).

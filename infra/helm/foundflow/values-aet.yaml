@@ -1,0 +1,30 @@
+# =============================================================================
+# values-aet.yaml — AET (Rancher RKE2) production overrides
+# =============================================================================
+# Layered on top of values.yaml. Consumed by the CD pipeline (follow-up ticket);
+# NOT applied in this PR. Wire CI to:
+#   helm upgrade --install foundflow ./infra/helm/foundflow \
+#     -n ge42qap-devops26 -f infra/helm/foundflow/values-aet.yaml \
+#     --set secrets.openaiApiKey=$OPENAI_API_KEY ...
+#
+# Most defaults in values.yaml already target AET. This file pins the
+# deploy-target specifics (real hostname, cert-manager issuer, AET storage
+# class, monitoring release label) so the diff between "what the chart assumes"
+# and "what AET actually provides" is obvious in review.
+
+global:
+  # CI should --set imageTag to the merged commit SHA.
+  imagePullPolicy: Always
+
+namespace:
+  name: ge42qap-devops26
+  create: false
+
+# AET runs Rancher Monitoring, not the kube-prometheus-stack we install
+# locally — different Prometheus install, different release label, different
+# in-cluster URL.
+grafana:
+  prometheusUrl: http://prometheus-operated.cattle-monitoring-system.svc.cluster.local:9090
+
+monitoring:
+  prometheusReleaseLabel: rancher-monitoring

@@ -4,6 +4,7 @@ WORKDIR /workspace
 
 COPY shared/common-domain ./shared/common-domain
 COPY shared/photo-storage ./shared/photo-storage
+COPY shared/domain-events ./shared/domain-events
 COPY services/found-item-service ./services/found-item-service
 
 WORKDIR /workspace/services/found-item-service

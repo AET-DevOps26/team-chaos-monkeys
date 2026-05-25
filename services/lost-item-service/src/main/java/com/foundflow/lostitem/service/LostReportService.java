@@ -9,6 +9,7 @@ import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.TimeBucketCount;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
@@ -49,17 +50,20 @@ public class LostReportService {
     private final VenueAccessService venueAccessService;
     private final PhotoStorage photoStorage;
     private final Duration photoUrlTtl;
+    private final LostReportEventPublisher eventPublisher;
 
     public LostReportService(
             LostReportRepository lostReportRepository,
             VenueAccessService venueAccessService,
             PhotoStorage photoStorage,
-            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl
+            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
+            LostReportEventPublisher eventPublisher
     ) {
         this.lostReportRepository = lostReportRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
         this.photoUrlTtl = photoUrlTtl;
+        this.eventPublisher = eventPublisher;
     }
 
     public LostReportResponse createLostReport(
@@ -89,6 +93,7 @@ public class LostReportService {
         );
 
         LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
+        eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
     }
 
@@ -155,6 +160,7 @@ public class LostReportService {
                     existingReport.setAttributes(toItemAttributes(request.attributes()));
 
                     LostReport updatedReport = lostReportRepository.save(existingReport);
+                    eventPublisher.publishLostReportUpdated(updatedReport);
                     return toResponse(updatedReport);
                 });
     }
@@ -173,6 +179,7 @@ public class LostReportService {
                     lostReport.setPhotoKey(photoKey);
 
                     LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
+                    eventPublisher.publishLostReportUpdated(updatedReport);
                     safeDeletePhoto(previousPhotoKey, id);
 
                     return toResponse(updatedReport);

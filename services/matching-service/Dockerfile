@@ -2,6 +2,7 @@ FROM gradle:9-jdk21 AS build
 
 WORKDIR /workspace
 
+COPY shared/domain-events ./shared/domain-events
 COPY services/matching-service ./services/matching-service
 
 WORKDIR /workspace/services/matching-service

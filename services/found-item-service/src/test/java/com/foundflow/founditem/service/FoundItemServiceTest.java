@@ -11,6 +11,7 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
@@ -46,6 +47,9 @@ class FoundItemServiceTest {
 
     @Mock
     private PhotoStorage photoStorage;
+
+    @Mock
+    private FoundItemEventPublisher eventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -85,6 +89,7 @@ class FoundItemServiceTest {
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
         assertEquals(jwtVenueId, response.venueId());
+        verify(eventPublisher).publishFoundItemLogged(captor.getValue());
     }
 
     @Test
@@ -207,6 +212,12 @@ class FoundItemServiceTest {
         assertEquals(venueId, response.get().venueId());
         assertEquals("photo-123", response.get().photoKey());
         verify(foundItemRepository).save(existingItem);
+        ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
+        verify(eventPublisher).publishFoundItemUpdated(publishedItem.capture());
+        assertSame(existingItem, publishedItem.getValue());
+        assertEquals("Neue Beschreibung", publishedItem.getValue().getDescription());
+        assertEquals(ItemStatus.RESERVED, publishedItem.getValue().getStatus());
+        verify(eventPublisher, never()).publishFoundItemLogged(any());
     }
 
     @Test
@@ -235,6 +246,7 @@ class FoundItemServiceTest {
         assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
         verify(photoStorage).delete("photo-123");
         verify(foundItemRepository).save(existingItem);
+        verify(eventPublisher).publishFoundItemUpdated(existingItem);
     }
 
     @Test
@@ -318,7 +330,8 @@ class FoundItemServiceTest {
                 foundItemRepository,
                 venueAccessService,
                 photoStorage,
-                Duration.ofMinutes(10)
+                Duration.ofMinutes(10),
+                eventPublisher
         );
     }
 

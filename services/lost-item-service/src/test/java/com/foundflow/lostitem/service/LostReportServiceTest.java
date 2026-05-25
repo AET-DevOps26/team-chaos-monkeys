@@ -11,6 +11,7 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
@@ -47,6 +48,9 @@ class LostReportServiceTest {
     @Mock
     private PhotoStorage photoStorage;
 
+    @Mock
+    private LostReportEventPublisher eventPublisher;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
@@ -67,6 +71,7 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
     @Test
@@ -87,6 +92,7 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
     @Test
@@ -186,6 +192,12 @@ class LostReportServiceTest {
         assertEquals(venueId, response.get().venueId());
         assertEquals(ReportStatus.MATCHED, response.get().status());
         assertEquals("photo-123", response.get().photoKey());
+        ArgumentCaptor<LostReport> publishedReport = ArgumentCaptor.forClass(LostReport.class);
+        verify(eventPublisher).publishLostReportUpdated(publishedReport.capture());
+        assertSame(existingReport, publishedReport.getValue());
+        assertEquals("Neue Beschreibung", publishedReport.getValue().getDescription());
+        assertEquals(ReportStatus.MATCHED, publishedReport.getValue().getStatus());
+        verify(eventPublisher, never()).publishLostReportCreated(any());
     }
 
     @Test
@@ -214,6 +226,7 @@ class LostReportServiceTest {
         assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
         verify(photoStorage).delete("photo-123");
         verify(lostReportRepository).save(existingReport);
+        verify(eventPublisher).publishLostReportUpdated(existingReport);
     }
 
     @Test
@@ -297,7 +310,8 @@ class LostReportServiceTest {
                 lostReportRepository,
                 venueAccessService,
                 photoStorage,
-                Duration.ofMinutes(10)
+                Duration.ofMinutes(10),
+                eventPublisher
         );
     }
 

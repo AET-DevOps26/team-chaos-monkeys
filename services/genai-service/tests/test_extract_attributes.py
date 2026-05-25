@@ -188,8 +188,16 @@ def test_error_envelope_is_flat(post_extract):
 
 # --- golden-set wiring regression ---------------------------------------
 
+# Image-bearing golden cases (#131) are exercised by the gated runner
+# `tests/integration/test_golden_extraction.py`; this wiring test stays on
+# the text path because it uses a FakeProvider and only validates request/
+# response plumbing.
+_GOLDEN_TEXT_CASES = [c for c in _GOLDEN if "description" in c]
 
-@pytest.mark.parametrize("case", _GOLDEN, ids=[c["id"] for c in _GOLDEN])
+
+@pytest.mark.parametrize(
+    "case", _GOLDEN_TEXT_CASES, ids=[c["id"] for c in _GOLDEN_TEXT_CASES]
+)
 def test_golden_description_is_accepted(post_extract, case):
     body = {"description": case["description"]}
     if "language" in case:

@@ -9,6 +9,7 @@ import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
@@ -49,17 +50,20 @@ public class FoundItemService {
     private final VenueAccessService venueAccessService;
     private final PhotoStorage photoStorage;
     private final Duration photoUrlTtl;
+    private final FoundItemEventPublisher eventPublisher;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
             VenueAccessService venueAccessService,
             PhotoStorage photoStorage,
-            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl
+            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
+            FoundItemEventPublisher eventPublisher
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
         this.photoUrlTtl = photoUrlTtl;
+        this.eventPublisher = eventPublisher;
     }
 
     public FoundItemResponse createFoundItem(
@@ -84,6 +88,7 @@ public class FoundItemService {
         );
 
         FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
+        eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);
     }
 
@@ -135,6 +140,7 @@ public class FoundItemService {
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
+                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     return toResponse(updatedFoundItem);
                 });
     }
@@ -153,6 +159,7 @@ public class FoundItemService {
                     foundItem.setPhotoKey(photoKey);
 
                     FoundItem updatedFoundItem = saveOrCompensate(foundItem, photoKey, id);
+                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     safeDeletePhoto(previousPhotoKey, id);
 
                     return toResponse(updatedFoundItem);

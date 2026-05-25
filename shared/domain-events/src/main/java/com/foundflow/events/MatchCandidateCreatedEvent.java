@@ -5,7 +5,6 @@ import java.util.UUID;
 
 public record MatchCandidateCreatedEvent(
         UUID eventId,
-        int version,
         Instant occurredAt,
         UUID matchId,
         UUID lostReportId,

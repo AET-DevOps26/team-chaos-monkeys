@@ -24,7 +24,6 @@ public class MatchCandidateEventPublisher {
                 FoundFlowEventRouting.MATCH_CANDIDATE_CREATED,
                 new MatchCandidateCreatedEvent(
                         UUID.randomUUID(),
-                        1,
                         Instant.now(),
                         match.getId(),
                         match.getLostReportId(),

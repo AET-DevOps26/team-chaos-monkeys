@@ -3,11 +3,13 @@ package com.foundflow.matching.client;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.util.List;
 
 @Component
@@ -17,10 +19,18 @@ public class GenAiClient {
 
     public GenAiClient(
             @Value("${foundflow.services.genai.base-url:http://genai-service:8000}")
-            String baseUrl
+            String baseUrl,
+            @Value("${foundflow.services.genai.connect-timeout-ms:2000}")
+            int connectTimeoutMs,
+            @Value("${foundflow.services.genai.read-timeout-ms:10000}")
+            int readTimeoutMs
     ) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
                 .build();
     }
 

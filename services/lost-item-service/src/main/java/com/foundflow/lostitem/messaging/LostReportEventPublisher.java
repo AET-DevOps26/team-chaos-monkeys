@@ -10,6 +10,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Component
@@ -40,13 +42,12 @@ public class LostReportEventPublisher {
     private LostReportCreatedEvent toEvent(LostReport lostReport) {
         return new LostReportCreatedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 lostReport.getId(),
                 lostReport.getVenueId(),
                 lostReport.getPhotoKey(),
                 lostReport.getDescription(),
-                lostReport.getLostAt(),
+                toInstant(lostReport.getLostAt()),
                 lostReport.getLocation(),
                 lostReport.getStatus().name(),
                 toPayload(lostReport.getAttributes())
@@ -56,13 +57,12 @@ public class LostReportEventPublisher {
     private LostReportUpdatedEvent toUpdatedEvent(LostReport lostReport) {
         return new LostReportUpdatedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 lostReport.getId(),
                 lostReport.getVenueId(),
                 lostReport.getPhotoKey(),
                 lostReport.getDescription(),
-                lostReport.getLostAt(),
+                toInstant(lostReport.getLostAt()),
                 lostReport.getLocation(),
                 lostReport.getStatus().name(),
                 toPayload(lostReport.getAttributes())
@@ -80,5 +80,9 @@ public class LostReportEventPublisher {
                 attributes.getColor(),
                 attributes.getMarks()
         );
+    }
+
+    private Instant toInstant(LocalDateTime timestamp) {
+        return timestamp == null ? null : timestamp.toInstant(ZoneOffset.UTC);
     }
 }

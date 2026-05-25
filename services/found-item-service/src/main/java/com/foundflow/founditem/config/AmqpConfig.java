@@ -1,11 +1,12 @@
 package com.foundflow.founditem.config;
 
+import com.foundflow.events.DomainEventMessageConverterFactory;
 import com.foundflow.events.FoundFlowEventRouting;
 import org.springframework.amqp.core.TopicExchange;
-import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration
 public class AmqpConfig {
@@ -16,7 +17,7 @@ public class AmqpConfig {
     }
 
     @Bean
-    public MessageConverter jsonMessageConverter() {
-        return new JacksonJsonMessageConverter();
+    public MessageConverter jsonMessageConverter(JsonMapper jsonMapper) {
+        return DomainEventMessageConverterFactory.create(jsonMapper);
     }
 }

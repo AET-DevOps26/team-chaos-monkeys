@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +23,7 @@ import static org.mockito.Mockito.verify;
 class LostReportEventPublisherTest {
 
     @Test
-    void publishLostReportCreated_shouldSendVersionedDomainEventWithoutContactEmail() {
+    void publishLostReportCreated_shouldSendDomainEventWithoutContactEmail() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         LostReportEventPublisher publisher = new LostReportEventPublisher(rabbitTemplate);
         LostReport lostReport = lostReport();
@@ -38,18 +39,23 @@ class LostReportEventPublisherTest {
         );
 
         LostReportCreatedEvent event = eventCaptor.getValue();
-        assertEquals(1, event.version());
         assertNotNull(event.eventId());
         assertNotNull(event.occurredAt());
         assertEquals(lostReport.getId(), event.lostReportId());
         assertEquals(lostReport.getVenueId(), event.venueId());
         assertEquals("lost-reports/2026/05/photo.jpg", event.photoKey());
+        assertEquals("Black backpack", event.description());
+        assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.lostAt());
+        assertEquals("Front desk", event.location());
         assertEquals("OPEN", event.status());
         assertEquals("Bag", event.attributes().category());
+        assertEquals("Nike", event.attributes().brand());
+        assertEquals("Black", event.attributes().color());
+        assertEquals(List.of("red tag"), event.attributes().marks());
     }
 
     @Test
-    void publishLostReportUpdated_shouldSendVersionedDomainEventWithoutContactEmail() {
+    void publishLostReportUpdated_shouldSendDomainEventWithoutContactEmail() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         LostReportEventPublisher publisher = new LostReportEventPublisher(rabbitTemplate);
         LostReport lostReport = lostReport();
@@ -65,9 +71,12 @@ class LostReportEventPublisherTest {
         );
 
         LostReportUpdatedEvent event = eventCaptor.getValue();
-        assertEquals(1, event.version());
         assertEquals(lostReport.getId(), event.lostReportId());
         assertEquals(lostReport.getVenueId(), event.venueId());
+        assertEquals("lost-reports/2026/05/photo.jpg", event.photoKey());
+        assertEquals("Black backpack", event.description());
+        assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.lostAt());
+        assertEquals("Front desk", event.location());
         assertEquals("OPEN", event.status());
         assertEquals("Bag", event.attributes().category());
     }

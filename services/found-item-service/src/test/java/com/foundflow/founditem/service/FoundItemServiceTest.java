@@ -155,7 +155,11 @@ class FoundItemServiceTest {
         assertEquals(ItemStatus.RESERVED, response.get().status());
         assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).save(existingItem);
-        verify(eventPublisher).publishFoundItemUpdated(existingItem);
+        ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
+        verify(eventPublisher).publishFoundItemUpdated(publishedItem.capture());
+        assertSame(existingItem, publishedItem.getValue());
+        assertEquals("Neue Beschreibung", publishedItem.getValue().getDescription());
+        assertEquals(ItemStatus.RESERVED, publishedItem.getValue().getStatus());
         verify(eventPublisher, never()).publishFoundItemLogged(any());
     }
 

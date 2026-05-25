@@ -149,7 +149,11 @@ class LostReportServiceTest {
         assertTrue(response.isPresent());
         assertEquals(venueId, response.get().venueId());
         assertEquals(ReportStatus.MATCHED, response.get().status());
-        verify(eventPublisher).publishLostReportUpdated(existingReport);
+        ArgumentCaptor<LostReport> publishedReport = ArgumentCaptor.forClass(LostReport.class);
+        verify(eventPublisher).publishLostReportUpdated(publishedReport.capture());
+        assertSame(existingReport, publishedReport.getValue());
+        assertEquals("Neue Beschreibung", publishedReport.getValue().getDescription());
+        assertEquals(ReportStatus.MATCHED, publishedReport.getValue().getStatus());
         verify(eventPublisher, never()).publishLostReportCreated(any());
     }
 

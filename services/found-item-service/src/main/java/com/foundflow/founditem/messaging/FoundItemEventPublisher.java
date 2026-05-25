@@ -10,6 +10,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Component
@@ -40,13 +42,12 @@ public class FoundItemEventPublisher {
     private FoundItemLoggedEvent toEvent(FoundItem foundItem) {
         return new FoundItemLoggedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
                 foundItem.getDescription(),
-                foundItem.getFoundAt(),
+                toInstant(foundItem.getFoundAt()),
                 foundItem.getLocationHint(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
@@ -57,13 +58,12 @@ public class FoundItemEventPublisher {
     private FoundItemUpdatedEvent toUpdatedEvent(FoundItem foundItem) {
         return new FoundItemUpdatedEvent(
                 UUID.randomUUID(),
-                1,
                 Instant.now(),
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
                 foundItem.getDescription(),
-                foundItem.getFoundAt(),
+                toInstant(foundItem.getFoundAt()),
                 foundItem.getLocationHint(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
@@ -82,5 +82,9 @@ public class FoundItemEventPublisher {
                 attributes.getColor(),
                 attributes.getMarks()
         );
+    }
+
+    private Instant toInstant(LocalDateTime timestamp) {
+        return timestamp == null ? null : timestamp.toInstant(ZoneOffset.UTC);
     }
 }

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +23,7 @@ import static org.mockito.Mockito.verify;
 class FoundItemEventPublisherTest {
 
     @Test
-    void publishFoundItemLogged_shouldSendVersionedDomainEvent() {
+    void publishFoundItemLogged_shouldSendDomainEvent() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
         FoundItem foundItem = foundItem();
@@ -38,19 +39,24 @@ class FoundItemEventPublisherTest {
         );
 
         FoundItemLoggedEvent event = eventCaptor.getValue();
-        assertEquals(1, event.version());
         assertNotNull(event.eventId());
         assertNotNull(event.occurredAt());
         assertEquals(foundItem.getId(), event.foundItemId());
         assertEquals(foundItem.getVenueId(), event.venueId());
         assertEquals(foundItem.getReporterId(), event.reporterId());
         assertEquals("found-items/2026/05/photo.jpg", event.photoKey());
+        assertEquals("Black backpack", event.description());
+        assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.foundAt());
+        assertEquals("Front desk", event.locationHint());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
+        assertEquals("Nike", event.attributes().brand());
+        assertEquals("Black", event.attributes().color());
+        assertEquals(List.of("red tag"), event.attributes().marks());
     }
 
     @Test
-    void publishFoundItemUpdated_shouldSendVersionedDomainEvent() {
+    void publishFoundItemUpdated_shouldSendDomainEvent() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
         FoundItem foundItem = foundItem();
@@ -66,9 +72,13 @@ class FoundItemEventPublisherTest {
         );
 
         FoundItemUpdatedEvent event = eventCaptor.getValue();
-        assertEquals(1, event.version());
         assertEquals(foundItem.getId(), event.foundItemId());
         assertEquals(foundItem.getVenueId(), event.venueId());
+        assertEquals(foundItem.getReporterId(), event.reporterId());
+        assertEquals("found-items/2026/05/photo.jpg", event.photoKey());
+        assertEquals("Black backpack", event.description());
+        assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.foundAt());
+        assertEquals("Front desk", event.locationHint());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
     }

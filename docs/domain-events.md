@@ -8,6 +8,7 @@ RabbitMQ carries asynchronous workflow events between services. PostgreSQL remai
 - Exchange type: topic
 - Payload format: JSON
 - Event contracts live in `shared/domain-events`
+- Time fields are serialized as UTC instants. Routing-key suffixes such as `.v1` are the event schema version.
 
 ## Published Events
 
@@ -22,7 +23,6 @@ Payload type: `LostReportCreatedEvent`
 Fields:
 
 - `eventId`
-- `version`
 - `occurredAt`
 - `lostReportId`
 - `venueId`
@@ -56,7 +56,6 @@ Payload type: `FoundItemLoggedEvent`
 Fields:
 
 - `eventId`
-- `version`
 - `occurredAt`
 - `foundItemId`
 - `venueId`

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag to push (default: latest)
+        description: Image tag to push (defaults to latest)
         required: false
         default: latest
 

@@ -7,9 +7,11 @@
 # Two things this file does differently from local dev:
 #   1. Each app service gets an `image:` from a container registry so the VM
 #      never builds. The registry prefix is parameterised via IMAGE_REGISTRY,
-#      defaulting to the org namespace ghcr.io/aet-devops26. Override to
-#      ghcr.io/<your-user> if you only have personal-namespace push access,
-#      or to a different registry entirely (ACR, ECR, etc.).
+#      defaulting to ghcr.io/aet-devops26/team-chaos-monkeys — i.e. packages
+#      attached to *this* repo. GHCR maps push permission by repo: anyone with
+#      write/maintain on team-chaos-monkeys can push under that namespace
+#      without an admin granting org-level package rights. Override to point
+#      at a different registry (ACR, ECR, …) when needed.
 #      (The `build:` directive in docker-compose.yml stays inert: when an image
 #      is already present locally or pullable from the registry, Compose uses
 #      it and skips the build.)
@@ -18,34 +20,34 @@
 
 services:
   gateway-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-gateway-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/gateway-service:${IMAGE_TAG:-latest}
 
   auth-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-auth-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/auth-service:${IMAGE_TAG:-latest}
 
   lost-item-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-lost-item-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/lost-item-service:${IMAGE_TAG:-latest}
 
   found-item-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-found-item-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/found-item-service:${IMAGE_TAG:-latest}
 
   matching-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-matching-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/matching-service:${IMAGE_TAG:-latest}
 
   notification-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-notification-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/notification-service:${IMAGE_TAG:-latest}
 
   operations-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-operations-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/operations-service:${IMAGE_TAG:-latest}
 
   client:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-client:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/client:${IMAGE_TAG:-latest}
     # Expose the frontend on host port 80 so the VM's public IP serves the app directly.
     ports: !override
       - "80:80"
 
   genai-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26}/foundflow-genai-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/genai-service:${IMAGE_TAG:-latest}
     # Ollama isn't running on the VM, so drop the wait-for-ollama-init dependency.
     depends_on: !reset null
     environment:

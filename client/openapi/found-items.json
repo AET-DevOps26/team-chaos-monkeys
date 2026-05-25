@@ -164,6 +164,11 @@
                   "request",
                   "photo"
                 ]
+              },
+              "encoding": {
+                "request": {
+                  "contentType": "application/json"
+                }
               }
             }
           },

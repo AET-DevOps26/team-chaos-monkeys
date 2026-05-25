@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig, type AxiosError } from 'axios'
-import { dispatchUnauthorized, getCurrentToken } from '@/auth/token-store'
+import { dispatchUnauthorized, getCurrentToken } from '../../auth/token-store'
 
 export const axiosInstance = axios.create({
   // No baseURL: generated client paths already include the `/api` prefix
@@ -11,13 +11,6 @@ axiosInstance.interceptors.request.use((config) => {
   const token = getCurrentToken()
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`)
-  }
-  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-    const requestPart = config.data.get('request')
-    if (typeof Blob !== 'undefined' && typeof requestPart === 'string') {
-      config.data.set('request', new Blob([requestPart], { type: 'application/json' }))
-    }
-    config.headers.delete('Content-Type')
   }
   return config
 })

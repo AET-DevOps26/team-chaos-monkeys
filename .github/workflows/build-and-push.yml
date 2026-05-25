@@ -1,13 +1,5 @@
 name: Build and push images
 
-# Manual trigger for now — once the Azure deploy stabilises, this can also
-# fire on push to `main` so merging a release auto-publishes images.
-#
-# Why this workflow exists: image publishing belongs in the deployment
-# pipeline, not on a laptop. Running it in CI gives us a clear audit trail
-# (every image version pegged to a workflow run + commit SHA) and a
-# repeatable build environment that doesn't depend on whose machine pressed
-# enter.
 on:
   workflow_dispatch:
     inputs:

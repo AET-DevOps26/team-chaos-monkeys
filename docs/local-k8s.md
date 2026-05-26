@@ -108,7 +108,7 @@ local cluster without any `/etc/hosts` editing.
 
 The chart also brings up **RabbitMQ** (`rabbitmq` Service, ports 5672/15672)
 and **MinIO** (`minio` Service, ports 9000/9001) in-namespace. Both are
-cluster-internal — not on the ingress. To poke at the MinIO console or the
+cluster-internal, not on the ingress. To poke at the MinIO console or the
 RabbitMQ management UI:
 
 ```sh
@@ -143,8 +143,7 @@ kubectl -n monitoring port-forward svc/kps-kube-prometheus-stack-prometheus 9090
 You should see all 8 ServiceMonitors as healthy targets and `foundflow-alerts`
 listed under Alerts.
 
-> RabbitMQ and MinIO are not currently scraped (no `ServiceMonitor` entries
-> for them). Add them if/when broker- or storage-level alerts become useful.
+> RabbitMQ and MinIO are not currently scraped
 
 
 The `helm-install` target picks it up automatically when present. The file is

@@ -4,16 +4,10 @@ import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '@/test/render'
 import { server } from '@/test/server'
 import { loginInvalidCredentials, loginSuccess } from '@/test/handlers'
+import { makeFakeJwt } from '@/test/jwt'
 import Login from './Login'
 
-// Mints a JWT-shaped string so AuthContext.decodeJwt produces a non-null user.
-const FAKE_JWT =
-  'eyJhbGciOiJub25lIn0.' +
-  btoa(JSON.stringify({ sub: 'user-1', roles: ['staff'] }))
-    .replace(/=+$/, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_') +
-  '.'
+const FAKE_JWT = makeFakeJwt()
 
 function renderLogin() {
   return renderWithProviders(

@@ -17,7 +17,7 @@ describe('foundItemIntakeSchema', () => {
     expect(() => foundItemIntakeSchema.parse(validInput)).not.toThrow()
   })
 
-  it('accepts a minimal payload with only required fields', () => {
+  it('accepts a payload with only non-optional fields populated', () => {
     expect(() =>
       foundItemIntakeSchema.parse({
         foundAt: '2026-05-26T10:00:00Z',
@@ -31,8 +31,9 @@ describe('foundItemIntakeSchema', () => {
     const result = foundItemIntakeSchema.safeParse({ ...validInput, foundAt: '' })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0].path).toEqual(['foundAt'])
-      expect(result.error.issues[0].message).toBe('Required')
+      const foundAtIssue = result.error.issues.find((i) => i.path[0] === 'foundAt')
+      expect(foundAtIssue).toBeDefined()
+      expect(foundAtIssue?.message).toBe('Required')
     }
   })
 

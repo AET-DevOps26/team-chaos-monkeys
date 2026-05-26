@@ -19,9 +19,11 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        'src/api/auth/**',
-        'src/api/lost-items/**',
-        'src/api/found-items/**',
+        // Orval-generated per-service clients under src/api/<svc>/.
+        // Hand-written code (src/api/mutator/) stays covered.
+        'src/api/**/model/**',
+        'src/api/**/zod.ts',
+        'src/api/**/*-controller/**',
         'src/main.tsx',
         'src/**/*.d.ts',
         'src/test/**',

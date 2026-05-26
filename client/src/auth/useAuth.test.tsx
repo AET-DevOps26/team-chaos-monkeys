@@ -4,16 +4,9 @@ import type { ReactNode } from 'react'
 import { AuthProvider } from './AuthContext'
 import { useAuth } from './useAuth'
 import { dispatchUnauthorized, getCurrentToken } from './token-store'
+import { makeFakeJwt } from '@/test/jwt'
 
-// Real JWT for sub="user-1", roles=["staff"], venue_id="venue-1". No signature
-// validation happens client-side — AuthContext only decodes claims.
-const TOKEN =
-  'eyJhbGciOiJub25lIn0.' +
-  btoa(JSON.stringify({ sub: 'user-1', roles: ['staff'], venue_id: 'venue-1' }))
-    .replace(/=+$/, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_') +
-  '.'
+const TOKEN = makeFakeJwt({ sub: 'user-1', roles: ['staff'], venue_id: 'venue-1' })
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>
 

@@ -2,15 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '@/test/render'
+import { makeFakeJwt } from '@/test/jwt'
 import RequireAuth from './RequireAuth'
 
-const FAKE_JWT =
-  'eyJhbGciOiJub25lIn0.' +
-  btoa(JSON.stringify({ sub: 'user-1', roles: ['staff'] }))
-    .replace(/=+$/, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_') +
-  '.'
+const FAKE_JWT = makeFakeJwt()
 
 function routes() {
   return (

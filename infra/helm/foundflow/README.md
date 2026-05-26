@@ -2,7 +2,7 @@
 
 Single umbrella chart that deploys all FoundFlow services (gateway + 6 Spring
 microservices + Python GenAI service + React client), six per-service Bitnami
-PostgreSQL releases, and an in-namespace Grafana preloaded with the
+PostgreSQL releasess and an in-namespace Grafana preloaded with the
 `Services — RED` dashboard.
 
 Deploys exclusively into the namespace `team-chaos-monkeys`.

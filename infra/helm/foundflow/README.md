@@ -10,7 +10,16 @@ Deploys exclusively into the namespace `team-chaos-monkeys`.
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/local-k8s.md` for runtime-specific setup; from there:
+OrbStack. See `docs/local-k8s.md` for runtime-specific setup. One-command path:
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Step-by-step (manual) path:
 
 ```sh
 make -C infra/helm cluster-bootstrap   # one-time: ingress-nginx + kube-prom-stack + namespace

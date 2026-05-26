@@ -50,20 +50,39 @@ For local-only secrets (OPENAI_API_KEY, etc.), create a gitignored values file
 next to `values-local.yaml`:
 
 ```sh
-cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
-secrets:
-  openaiApiKey: sk-...
-  devAdminEmail: admin@local.test
-  devAdminPassword: changeme
-EOF
+  cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
+  secrets:
+    openaiApiKey: sk-...
+    devAdminEmail: admin@local.test
+    devAdminPassword: changeme
+  EOF
 ```
 
-## Build and deploy
+## Quickstart (one command)
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Writes `values-local.yaml.local` with the three required secrets, bootstraps
+the cluster (ingress-nginx + kube-prom-stack + namespace), builds every
+service image, and runs `helm upgrade --install`. Prints the entry-point URLs
+on success. Re-running is safe — all underlying steps are idempotent. The
+manual flow below is for step-by-step control.
+
+## Build and deploy (manual)
 
 ```sh
 make -C infra/helm build          # docker build every service image
 make -C infra/helm helm-install   # helm dep update + helm upgrade --install
 ```
+
+Requires `values-local.yaml.local` (see [Secrets locally](#secrets-locally));
+auth-service and genai-service won't start without `devAdminEmail`,
+`devAdminPassword`, and `openaiApiKey`.
 
 No image-import step: the local Kubernetes uses the same containerd that the
 Docker daemon writes into, so `docker build` is enough. The chart sets

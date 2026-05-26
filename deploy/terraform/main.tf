@@ -7,6 +7,14 @@ terraform {
       version = "~> 4.10"
     }
   }
+
+  backend "azurerm" {
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "foundflowtfstate720ff3"
+    container_name       = "tfstate"
+    key                  = "azure-vm.tfstate"
+    use_azuread_auth     = true
+  }
 }
 
 provider "azurerm" {
@@ -26,9 +34,9 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Azure region for all resources."
+  description = "Azure region for all resources. Constrained to the 5 Azure-for-Students-allowed regions; austriaeast has had the best capacity for B-v2 SKUs in recent tests."
   type        = string
-  default     = "germanywestcentral"
+  default     = "austriaeast"
 }
 
 variable "vm_name" {
@@ -38,9 +46,9 @@ variable "vm_name" {
 }
 
 variable "vm_size" {
-  description = "Azure VM size. Standard_B2s = 2 vCPU / 4 GB (cheap, marginal for this stack). Bump to Standard_B4ms (4 vCPU / 16 GB) if you hit OOM."
+  description = "Azure VM size. Standard_B2s_v2 = 2 vCPU / 8 GB / ~$0.05/hr — proven to deploy under the Azure-for-Students subscription. Bump to Standard_B4ms (4 vCPU / 16 GB) if you hit OOM."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2s_v2"
 }
 
 variable "admin_username" {

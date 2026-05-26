@@ -126,7 +126,7 @@ helm-install: deps
 	helm upgrade --install $(RELEASE) $(CHART_DIR) \
 	  -n $(NAMESPACE) \
 	  $(HELM_VALUES_ARGS) \
-	  --wait --timeout 5m
+	  --wait --timeout 10m
 
 helm-uninstall:
 	# Deletes Deployments, Services, Secrets, etc. — but NOT the PVCs created

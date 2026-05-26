@@ -10,9 +10,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record CreateLostReportRequest(
-        @Size(max = 255)
-        String photoKey,
-
         @NotBlank
         @Size(max = 2000)
         String description,

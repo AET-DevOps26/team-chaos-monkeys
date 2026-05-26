@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig, type AxiosError } from 'axios'
-import { dispatchUnauthorized, getCurrentToken } from '@/auth/token-store'
+import { dispatchUnauthorized, getCurrentToken } from '../../auth/token-store'
 
 export const axiosInstance = axios.create({
   // No baseURL: generated client paths already include the `/api` prefix

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
@@ -10,12 +11,12 @@ import { useCreateLostReport } from '@/api/lost-items/lost-report-controller/los
 const PLACEHOLDER_VENUE_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
 export default function ReportLostItem() {
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    reset,
     formState: { errors, isValid },
   } = useForm<ReportLostItemInput>({
     resolver: zodResolver(reportLostItemSchema),
@@ -23,7 +24,7 @@ export default function ReportLostItem() {
     defaultValues: { description: '', contactEmail: '', lostAt: '', photo: null },
   })
 
-  const { mutate, isPending, isSuccess, isError, error } = useCreateLostReport()
+  const { mutate, isPending, isError, error } = useCreateLostReport()
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -54,8 +55,10 @@ export default function ReportLostItem() {
         },
       },
       {
-        onSuccess: () => {
-          reset()
+        onSuccess: (response) => {
+          navigate(`/report/confirmation/${response.id}`, {
+            state: { report: response },
+          })
         },
       },
     )
@@ -147,9 +150,6 @@ export default function ReportLostItem() {
           {isPending ? 'Submitting…' : 'Submit report'}
         </button>
 
-        {isSuccess && (
-          <p className="text-sm text-green-600">Report submitted. Thanks!</p>
-        )}
         {isError && (
           <p className="text-sm text-red-500">
             {error?.message ?? 'Something went wrong. Please try again.'}

@@ -106,6 +106,22 @@ Browser:
 `127.0.0.1`, so it works with the ingress-nginx LoadBalancer service on the
 local cluster without any `/etc/hosts` editing.
 
+The chart also brings up **RabbitMQ** (`rabbitmq` Service, ports 5672/15672)
+and **MinIO** (`minio` Service, ports 9000/9001) in-namespace. Both are
+cluster-internal — not on the ingress. To poke at the MinIO console or the
+RabbitMQ management UI:
+
+```sh
+kubectl -n team-chaos-monkeys port-forward svc/minio    9001:9001
+kubectl -n team-chaos-monkeys port-forward svc/rabbitmq 15672:15672
+```
+
+Credentials live in the `foundflow-minio` and `foundflow-rabbitmq` Secrets:
+```sh
+kubectl -n team-chaos-monkeys get secret foundflow-minio    -o jsonpath='{.data.accessKey}' | base64 -d
+kubectl -n team-chaos-monkeys get secret foundflow-rabbitmq -o jsonpath='{.data.username}'  | base64 -d
+```
+
 ## Iterate on a single service
 
 ```sh
@@ -126,6 +142,9 @@ kubectl -n monitoring port-forward svc/kps-kube-prometheus-stack-prometheus 9090
 
 You should see all 8 ServiceMonitors as healthy targets and `foundflow-alerts`
 listed under Alerts.
+
+> RabbitMQ and MinIO are not currently scraped (no `ServiceMonitor` entries
+> for them). Add them if/when broker- or storage-level alerts become useful.
 
 
 The `helm-install` target picks it up automatically when present. The file is

@@ -42,8 +42,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://lost-item-db:5432/${LOST_ITEM_DB_NAME:?LOST_ITEM_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${LOST_ITEM_DB_USER:?LOST_ITEM_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${LOST_ITEM_DB_PASSWORD:?LOST_ITEM_DB_PASSWORD is required}
+      PHOTO_STORAGE_PROVIDER: ${PHOTO_STORAGE_PROVIDER:-minio}
+      PHOTO_STORAGE_ENDPOINT: http://minio:9000
+      PHOTO_STORAGE_PUBLIC_ENDPOINT: ${PHOTO_STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
+      PHOTO_STORAGE_ACCESS_KEY: ${PHOTO_STORAGE_ACCESS_KEY:?PHOTO_STORAGE_ACCESS_KEY is required}
+      PHOTO_STORAGE_SECRET_KEY: ${PHOTO_STORAGE_SECRET_KEY:?PHOTO_STORAGE_SECRET_KEY is required}
+      PHOTO_STORAGE_BUCKET: foundflow-lost-photos
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       lost-item-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   found-item-service:
@@ -56,8 +70,22 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://found-item-db:5432/${FOUND_ITEM_DB_NAME:?FOUND_ITEM_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${FOUND_ITEM_DB_USER:?FOUND_ITEM_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${FOUND_ITEM_DB_PASSWORD:?FOUND_ITEM_DB_PASSWORD is required}
+      PHOTO_STORAGE_PROVIDER: ${PHOTO_STORAGE_PROVIDER:-minio}
+      PHOTO_STORAGE_ENDPOINT: http://minio:9000
+      PHOTO_STORAGE_PUBLIC_ENDPOINT: ${PHOTO_STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
+      PHOTO_STORAGE_ACCESS_KEY: ${PHOTO_STORAGE_ACCESS_KEY:?PHOTO_STORAGE_ACCESS_KEY is required}
+      PHOTO_STORAGE_SECRET_KEY: ${PHOTO_STORAGE_SECRET_KEY:?PHOTO_STORAGE_SECRET_KEY is required}
+      PHOTO_STORAGE_BUCKET: foundflow-found-photos
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       found-item-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   matching-service:
@@ -70,8 +98,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://matching-db:5432/${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${MATCHING_DB_USER:?MATCHING_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCHING_DB_PASSWORD:?MATCHING_DB_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       matching-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   notification-service:
@@ -113,6 +147,43 @@ services:
       timeout: 5s
       retries: 30
       start_period: 5s
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: foundflow-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${PHOTO_STORAGE_ACCESS_KEY:?PHOTO_STORAGE_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${PHOTO_STORAGE_SECRET_KEY:?PHOTO_STORAGE_SECRET_KEY is required}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: foundflow-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
   # One-shot sidecar: pulls the configured chat + embed models on startup,
@@ -246,7 +317,7 @@ services:
       retries: 20
 
   matching-db:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     container_name: foundflow-matching-db
     environment:
       POSTGRES_DB: ${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}
@@ -292,6 +363,8 @@ services:
 
 volumes:
   ollama-models:
+  minio-data:
+  rabbitmq-data:
   auth-db-data:
   found-item-db-data:
   lost-item-db-data:

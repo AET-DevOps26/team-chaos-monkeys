@@ -148,9 +148,27 @@
         "operationId": "createFoundItem",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/CreateFoundItemRequest"
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateFoundItemRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "request",
+                  "photo"
+                ]
+              },
+              "encoding": {
+                "request": {
+                  "contentType": "application/json"
+                }
               }
             }
           },

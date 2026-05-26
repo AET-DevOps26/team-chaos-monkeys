@@ -1,2 +1,4 @@
 rootProject.name = 'lost-item-service'
 includeBuild('../../shared/common-domain')
+includeBuild('../../shared/photo-storage')
+includeBuild('../../shared/domain-events')

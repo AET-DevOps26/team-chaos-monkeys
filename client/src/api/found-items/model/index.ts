@@ -8,6 +8,7 @@
 export * from './countFoundItemsParams';
 export * from './countFoundItemsStatus';
 export * from './countResponse';
+export * from './createFoundItemBody';
 export * from './createFoundItemRequest';
 export * from './foundItemResponse';
 export * from './foundItemResponseStatus';

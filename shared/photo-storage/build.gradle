@@ -1,0 +1,33 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.foundflow'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api 'io.minio:minio:9.0.1'
+    api 'com.azure:azure-storage-blob:12.30.0'
+
+    compileOnly 'org.springframework.boot:spring-boot-autoconfigure:4.0.6'
+
+    testImplementation 'org.springframework.boot:spring-boot-autoconfigure:4.0.6'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
+}
+
+test {
+    useJUnitPlatform()
+}

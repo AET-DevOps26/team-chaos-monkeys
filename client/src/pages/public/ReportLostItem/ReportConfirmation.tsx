@@ -43,7 +43,7 @@ export default function ReportConfirmation() {
             Description
           </dt>
           <dd className="whitespace-pre-wrap text-sm text-text-h">
-            {report.description ?? '—'}
+            {report.description}
           </dd>
         </div>
         <div className="flex flex-col gap-1 py-4">
@@ -56,15 +56,13 @@ export default function ReportConfirmation() {
           <dt className="text-xs font-medium uppercase tracking-wider text-text">
             Contact email
           </dt>
-          <dd className="text-sm text-text-h">{report.contactEmail ?? '—'}</dd>
+          <dd className="text-sm text-text-h">{report.contactEmail}</dd>
         </div>
       </dl>
 
       <p className="mt-8! text-sm text-text">
         We&apos;ll search for matching found items and email you at{' '}
-        <span className="font-medium text-text-h">
-          {report.contactEmail ?? 'the address you provided'}
-        </span>{' '}
+        <span className="font-medium text-text-h">{report.contactEmail}</span>{' '}
         if we find one.
       </p>
     </main>

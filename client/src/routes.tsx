@@ -10,7 +10,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/report" element={<ReportLostItem />} />
-      <Route path="/report/confirmation/:id" element={<ReportConfirmation />} />
+      <Route path="/report/confirmation" element={<ReportConfirmation />} />
       <Route
         path="/"
         element={

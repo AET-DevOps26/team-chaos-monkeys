@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AuthContext, type AuthContextValue, type AuthUser } from './auth-context'
-import { getCurrentToken, onUnauthorized, setCurrentToken } from './token-store'
+import { onUnauthorized, setCurrentToken } from './token-store'
 
 function decodeJwt(token: string): AuthUser | null {
   try {
@@ -19,7 +19,7 @@ function decodeJwt(token: string): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [accessToken, setAccessToken] = useState<string | null>(() => getCurrentToken())
+  const [accessToken, setAccessToken] = useState<string | null>(null)
 
   const login = useCallback((token: string) => {
     setCurrentToken(token)

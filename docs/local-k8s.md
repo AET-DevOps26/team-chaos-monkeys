@@ -32,7 +32,36 @@ Confirm `kubectl get nodes` shows one Ready node before continuing.
 - `kubectl` >= 1.30
 - `helm` >= 3.13
 
-## One-time setup
+## Quickstart (one command)
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Writes `values-local.yaml.local` with the three required secrets, bootstraps
+the cluster (ingress-nginx + kube-prom-stack + namespace), builds every
+service image, and runs `helm upgrade --install`. Prints the entry-point URLs
+on success. Re-running is safe — all underlying steps are idempotent. The
+manual flow below is for step-by-step control.
+
+The `helm upgrade --install` step uses `--wait --timeout 10m`, so the
+quickstart command blocks until every pod is Ready (or it gives up). To watch
+progress live in another terminal:
+
+```sh
+kubectl -n team-chaos-monkeys get pods -w
+```
+
+A healthy install ends with all 18 pods at `1/1 Running` — six `*-db-0`, one
+each of `minio-0` and `rabbitmq-*`, nine app deployments, and `grafana-*`.
+Spring services may briefly show `0/1 CrashLoopBackOff` while their database
+comes up; that's the documented startup race and self-heals within ~60s.
+
+
+## step by step (setup once)
 
 ```sh
 make -C infra/helm cluster-bootstrap
@@ -57,21 +86,6 @@ next to `values-local.yaml`:
     devAdminPassword: changeme
   EOF
 ```
-
-## Quickstart (one command)
-
-```sh
-make -C infra/helm kube-quickstart \
-  ADMIN_EMAIL=admin@foundflow.local \
-  ADMIN_PASSWORD=admin12345 \
-  OPENAI_API_KEY=sk-...
-```
-
-Writes `values-local.yaml.local` with the three required secrets, bootstraps
-the cluster (ingress-nginx + kube-prom-stack + namespace), builds every
-service image, and runs `helm upgrade --install`. Prints the entry-point URLs
-on success. Re-running is safe — all underlying steps are idempotent. The
-manual flow below is for step-by-step control.
 
 ## Build and deploy (manual)
 

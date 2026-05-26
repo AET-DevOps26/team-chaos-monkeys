@@ -121,9 +121,19 @@ cluster-bootstrap:
 	# admissionWebhooks disabled locally: only useful in shared clusters and
 	# causes "no endpoints" install failures whenever the controller pod is
 	# briefly unready (cold start, disk pressure, etc.).
+	#
+	# Service kept ClusterIP + hostPort 80/443 on the controller pod, so the
+	# ingress is reachable on http://localhost/ without depending on Docker
+	# Desktop's LoadBalancer integration (which is flaky on Mac and times out
+	# in <pending> on some setups). On Docker Desktop / OrbStack the k8s
+	# node has host networking, so hostPort maps straight to the Mac's port.
+	# AET never runs this target — it has its own ingress controller.
 	helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
 	  -n $(INGRESS_NS) --create-namespace \
-	  --set controller.service.type=LoadBalancer \
+	  --set controller.service.type=ClusterIP \
+	  --set controller.hostPort.enabled=true \
+	  --set controller.hostPort.ports.http=80 \
+	  --set controller.hostPort.ports.https=443 \
 	  --set controller.admissionWebhooks.enabled=false \
 	  --set controller.resources.requests.cpu=50m \
 	  --set controller.resources.requests.memory=64Mi \

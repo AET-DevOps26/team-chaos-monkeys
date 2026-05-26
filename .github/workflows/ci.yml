@@ -189,6 +189,7 @@ jobs:
     needs:
       - backend-tests
       - client-build
+      - client-tests
 
     steps:
       - name: Checkout repository

@@ -7,3 +7,6 @@ docker-compose.override.yml
 **/build/
 **/.gradle/
 .env
+
+# Local-only helm secrets (see docs/local-k8s.md)
+infra/helm/foundflow/values-local.yaml.local

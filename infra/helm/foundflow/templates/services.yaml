@@ -1,0 +1,24 @@
+{{/*
+One ClusterIP Service per entry in `services:` (values.yaml).
+Service name = values key = docker-compose service name, so in-cluster URLs
+like http://auth-service:8081 match what the gateway uses in compose.
+*/}}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.svcLabels" (dict "ctx" $ "name" $name) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "foundflow.selectorLabels" (dict "ctx" $ "name" $name) | nindent 4 }}
+{{- end }}

@@ -44,6 +44,20 @@ namespace — the same name we use on AET, so values diffs stay minimal. It
 targets your current kubectl context, so make sure that's pointing at the
 local cluster.
 
+## Secrets locally
+
+For local-only secrets (OPENAI_API_KEY, etc.), create a gitignored values file
+next to `values-local.yaml`:
+
+```sh
+cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
+secrets:
+  openaiApiKey: sk-...
+  devAdminEmail: admin@local.test
+  devAdminPassword: changeme
+EOF
+```
+
 ## Build and deploy
 
 ```sh
@@ -113,19 +127,6 @@ kubectl -n monitoring port-forward svc/kps-kube-prometheus-stack-prometheus 9090
 You should see all 8 ServiceMonitors as healthy targets and `foundflow-alerts`
 listed under Alerts.
 
-## Secrets locally
-
-For local-only secrets (OPENAI_API_KEY, etc.), create a gitignored values file
-next to `values-local.yaml`:
-
-```sh
-cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
-secrets:
-  openaiApiKey: sk-...
-  devAdminEmail: admin@local.test
-  devAdminPassword: changeme
-EOF
-```
 
 The `helm-install` target picks it up automatically when present. The file is
 covered by both `.helmignore` and the project `.gitignore`.

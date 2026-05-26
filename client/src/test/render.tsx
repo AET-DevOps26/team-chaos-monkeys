@@ -1,10 +1,10 @@
-import { type ReactElement, type ReactNode } from 'react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/auth/AuthContext'
-import { setCurrentToken } from '@/auth/token-store'
+import { useAuth } from '@/auth/useAuth'
 
 type ProviderOptions = {
   route?: string
@@ -26,16 +26,28 @@ function makeQueryClient() {
   })
 }
 
+function SeedAuth({ token, children }: { token: string | null; children: ReactNode }) {
+  const { login, accessToken } = useAuth()
+  const [seeded, setSeeded] = useState(token === null)
+  useEffect(() => {
+    if (token && accessToken !== token) {
+      login(token)
+    }
+    if (token) setSeeded(true)
+  }, [token, accessToken, login])
+  return seeded ? <>{children}</> : null
+}
+
 export function renderWithProviders(
   ui: ReactElement,
   { route = '/', authToken = null, queryClient = makeQueryClient(), ...rtl }: ProviderOptions & Omit<RenderOptions, 'wrapper'> = {},
 ): RenderWithProvidersResult {
-  if (authToken) setCurrentToken(authToken)
-
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <SeedAuth token={authToken}>{children}</SeedAuth>
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>
   )

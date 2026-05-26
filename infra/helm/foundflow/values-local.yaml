@@ -62,3 +62,16 @@ postgresDefaults:
   resources:
     requests: { cpu: 25m,  memory: 96Mi }
     limits:   { cpu: 500m, memory: 384Mi }
+
+# Local overrides for the new broker + storage: smaller footprint, smaller PVC.
+rabbitmq:
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 500m, memory: 384Mi }
+
+minio:
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  persistence:
+    storageSize: 1Gi

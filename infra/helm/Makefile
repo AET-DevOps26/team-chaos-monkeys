@@ -25,7 +25,11 @@ SPRING_SERVICES := auth-service lost-item-service found-item-service \
 
 LOCAL_VALUES        := $(CHART_DIR)/values-local.yaml
 LOCAL_SECRET_VALUES := $(CHART_DIR)/values-local.yaml.local
-HELM_VALUES_ARGS    := -f $(LOCAL_VALUES) $(if $(wildcard $(LOCAL_SECRET_VALUES)),-f $(LOCAL_SECRET_VALUES))
+# Recursive (=, not :=) so the wildcard is re-evaluated each time the variable
+# is used, not at parse time. kube-quickstart writes values-local.yaml.local
+# mid-run, so a simple-expansion := would freeze the path-empty result and
+# helm-install would never see the secrets file.
+HELM_VALUES_ARGS     = -f $(LOCAL_VALUES) $(if $(wildcard $(LOCAL_SECRET_VALUES)),-f $(LOCAL_SECRET_VALUES))
 
 .PHONY: help kube-quickstart _quickstart-check-vars _quickstart-write-secrets \
         cluster-bootstrap build build-spring build-gateway build-genai build-client \

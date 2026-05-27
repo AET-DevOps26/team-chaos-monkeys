@@ -31,8 +31,8 @@ info:
     receive provider-specific fields or error shapes.
 
 servers:
-  - url: /api/v1
-    description: API root. Versioning is path-based; breaking changes bump to /v2.
+  - url: /
+    description: API root. (Versioning will be introduced once a breaking change ships.)
 
 # Default security applies to all operations. Operations that are reachable
 # without auth (e.g. K8s probes) override with `security: []`.

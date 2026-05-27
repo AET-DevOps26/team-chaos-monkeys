@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -135,9 +136,12 @@ public class AttributeExtractionService {
     private static ItemAttributes toDomain(
             com.foundflow.founditem.genai.client.model.ItemAttributes attrs
     ) {
+        // Mutable list — Hibernate's @ElementCollection mutates this in place
+        // (clear() + addAll()) when persisting, so an immutable List.copyOf
+        // throws UnsupportedOperationException on the second save.
         List<String> marks = attrs.getDistinguishingMarks() == null
-                ? List.of()
-                : List.copyOf(attrs.getDistinguishingMarks());
+                ? new ArrayList<>()
+                : new ArrayList<>(attrs.getDistinguishingMarks());
         return new ItemAttributes(
                 attrs.getCategory(),
                 attrs.getBrand(),

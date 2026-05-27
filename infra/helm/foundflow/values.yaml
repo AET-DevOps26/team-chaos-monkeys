@@ -82,7 +82,7 @@ services:
       - { name: SERVER_PORT, value: "8082" }
       # GenAI extraction wiring (issue #128). Failures are best-effort and
       # never block intake; see AttributeExtractionService.
-      - { name: GENAI_BASE_URL, value: "http://genai-service:8000/api/v1" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
@@ -95,7 +95,7 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8083" }
-      - { name: GENAI_BASE_URL, value: "http://genai-service:8000/api/v1" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }

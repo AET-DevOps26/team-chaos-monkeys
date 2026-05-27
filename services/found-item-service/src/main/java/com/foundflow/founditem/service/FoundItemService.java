@@ -13,6 +13,7 @@ import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.founditem.service.genai.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
@@ -51,19 +52,22 @@ public class FoundItemService {
     private final PhotoStorage photoStorage;
     private final Duration photoUrlTtl;
     private final FoundItemEventPublisher eventPublisher;
+    private final AttributeExtractionService attributeExtractionService;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
             VenueAccessService venueAccessService,
             PhotoStorage photoStorage,
             @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
-            FoundItemEventPublisher eventPublisher
+            FoundItemEventPublisher eventPublisher,
+            AttributeExtractionService attributeExtractionService
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
         this.photoUrlTtl = photoUrlTtl;
         this.eventPublisher = eventPublisher;
+        this.attributeExtractionService = attributeExtractionService;
     }
 
     public FoundItemResponse createFoundItem(
@@ -76,6 +80,8 @@ public class FoundItemService {
                 : venueAccessService.getVenueId(jwt);
         String photoKey = storePhoto(photo);
 
+        ItemAttributes attributes = toItemAttributes(request.attributes());
+
         FoundItem foundItem = new FoundItem(
                 photoKey,
                 request.description(),
@@ -84,10 +90,23 @@ public class FoundItemService {
                 ItemStatus.STORED,
                 venueId,
                 request.reporterId(),
-                toItemAttributes(request.attributes())
+                attributes
         );
 
         FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
+
+        // Best-effort GenAI extraction (issue #128). Only runs when the
+        // staff member did not supply attributes — staff input wins because
+        // a human on-site has more context than the model.
+        // Failures are swallowed inside AttributeExtractionService.
+        if (attributes == null) {
+            attributeExtractionService.extract(request.description(), photoKey)
+                    .ifPresent(extracted -> {
+                        savedFoundItem.setAttributes(extracted);
+                        foundItemRepository.save(savedFoundItem);
+                    });
+        }
+
         eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);
     }

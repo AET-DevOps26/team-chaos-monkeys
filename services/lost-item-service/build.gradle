@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openapi.generator' version '7.10.0'
 }
 
 group = 'com.foundflow'
@@ -45,4 +46,59 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// --- GenAI client models: generated from /api/openapi.yaml (issue #128) ---
+//
+// Only the model classes (DTOs) are generated. The HTTP plumbing is
+// hand-rolled in `service.genai.GenaiClient` using Spring's RestClient
+// because openapi-generator 7.10's `ApiClient` invoker references Spring
+// Framework 6 APIs that were removed in Spring Framework 7 (Spring Boot 4).
+// The point is "no hand-rolled DTOs", and that is preserved.
+//
+// Generated sources live under build/generated/genai-client and are
+// regenerated on every compile. Not committed.
+def genaiClientDir = layout.buildDirectory.dir('generated/genai-client').get().asFile
+
+openApiGenerate {
+	generatorName = 'java'
+	// `webclient` is chosen for its template family (Jackson-based models).
+	// We then skip apis + supportingFiles so the broken ApiClient invoker is
+	// not emitted — only the model classes survive.
+	library = 'webclient'
+	inputSpec = "${rootDir}/../../api/openapi.yaml"
+	outputDir = genaiClientDir.absolutePath
+	modelPackage = 'com.foundflow.lostitem.genai.client.model'
+	generateApiTests = false
+	generateApiDocumentation = false
+	generateModelTests = false
+	generateModelDocumentation = false
+	// The repo's openapi.yaml uses 3.1 features that trip the generator's
+	// (3.0-leaning) validator on benign metadata. The generator itself
+	// handles the spec correctly.
+	validateSpec = false
+	globalProperties = [
+		// Suppress API and supporting-file generation: we only want models.
+		models   : '',
+		apis     : 'false',
+		supportingFiles: 'false',
+	]
+	configOptions = [
+		useJakartaEe : 'true',
+		useSpringBoot3: 'true',
+		dateLibrary  : 'java8',
+		openApiNullable: 'false',
+		serializationLibrary: 'jackson',
+		hideGenerationTimestamp: 'true',
+	]
+}
+
+sourceSets.main.java.srcDirs += "${genaiClientDir}/src/main/java"
+compileJava.dependsOn tasks.named('openApiGenerate')
+
+// Extra deps required by the generated model classes.
+dependencies {
+	implementation 'io.swagger.core.v3:swagger-annotations:2.2.25'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+	implementation 'jakarta.annotation:jakarta.annotation-api'
 }

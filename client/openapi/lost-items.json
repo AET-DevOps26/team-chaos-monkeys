@@ -11,6 +11,164 @@
     }
   ],
   "paths": {
+    "/api/lost-items/{id}/photo": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReportPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/{id}/photo": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhoto_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReportPhoto_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lost-reports/{id}": {
       "get": {
         "tags": [
@@ -193,9 +351,26 @@
         "tags": [
           "lost-report-controller"
         ],
-        "operationId": "createLostReport",
+        "operationId": "createLostReportWithPhoto",
         "requestBody": {
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateLostReportRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "request"
+                ]
+              }
+            },
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateLostReportRequest"
@@ -260,9 +435,26 @@
         "tags": [
           "lost-report-controller"
         ],
-        "operationId": "createLostReport_1",
+        "operationId": "createLostReportWithPhoto_1",
         "requestBody": {
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateLostReportRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "request"
+                ]
+              }
+            },
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateLostReportRequest"
@@ -278,6 +470,68 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items/{id}/photo-url": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhotoUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/{id}/photo-url": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhotoUrl_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoUrlResponse"
                 }
               }
             }
@@ -488,52 +742,6 @@
           }
         }
       },
-      "UpdateLostReportRequest": {
-        "type": "object",
-        "properties": {
-          "photoKey": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1
-          },
-          "lostAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "location": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "MATCHED",
-              "CLOSED",
-              "COLLECTED"
-            ]
-          },
-          "venueId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "contactEmail": {
-            "type": "string",
-            "format": "email",
-            "minLength": 1
-          },
-          "attributes": {
-            "$ref": "#/components/schemas/ItemAttributesDto"
-          }
-        },
-        "required": [
-          "contactEmail",
-          "description",
-          "lostAt",
-          "status"
-        ]
-      },
       "LostReportResponse": {
         "type": "object",
         "properties": {
@@ -575,14 +783,52 @@
           }
         }
       },
+      "UpdateLostReportRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "MATCHED",
+              "CLOSED",
+              "COLLECTED"
+            ]
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "contactEmail",
+          "description",
+          "lostAt",
+          "status"
+        ]
+      },
       "CreateLostReportRequest": {
         "type": "object",
         "properties": {
-          "photoKey": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 0
-          },
           "description": {
             "type": "string",
             "maxLength": 2000,
@@ -616,6 +862,15 @@
           "description",
           "lostAt"
         ]
+      },
+      "PhotoUrlResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
       },
       "HistogramResponse": {
         "type": "object",

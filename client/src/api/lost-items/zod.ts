@@ -6,6 +6,34 @@
  */
 import * as zod from 'zod';
 
+export const getLostReportPhotoParams = zod.object({
+  "id": zod.uuid()
+})
+
+
+export const updateLostReportPhotoParams = zod.object({
+  "id": zod.uuid()
+})
+
+export const updateLostReportPhotoBody = zod.object({
+  "photo": zod.instanceof(File)
+})
+
+
+export const getLostReportPhoto1Params = zod.object({
+  "id": zod.uuid()
+})
+
+
+export const updateLostReportPhoto1Params = zod.object({
+  "id": zod.uuid()
+})
+
+export const updateLostReportPhoto1Body = zod.object({
+  "photo": zod.instanceof(File)
+})
+
+
 export const getLostReportByIdParams = zod.object({
   "id": zod.uuid()
 })
@@ -20,7 +48,6 @@ export const updateLostReportParams = zod.object({
 
 
 export const updateLostReportBody = zod.object({
-  "photoKey": zod.string().optional(),
   "description": zod.string().min(1),
   "lostAt": zod.iso.datetime({}),
   "location": zod.string().optional(),
@@ -50,7 +77,6 @@ export const updateLostReport1Params = zod.object({
 
 
 export const updateLostReport1Body = zod.object({
-  "photoKey": zod.string().optional(),
   "description": zod.string().min(1),
   "lostAt": zod.iso.datetime({}),
   "location": zod.string().optional(),
@@ -71,27 +97,23 @@ export const getAllLostReportsQueryParams = zod.object({
 })
 
 
-export const createLostReportBodyPhotoKeyMin = 0;
-export const createLostReportBodyPhotoKeyMax = 255;
+export const createLostReportWithPhotoBodyDescriptionMin = 0;
+export const createLostReportWithPhotoBodyDescriptionMax = 2000;
 
-export const createLostReportBodyDescriptionMin = 0;
-export const createLostReportBodyDescriptionMax = 2000;
+export const createLostReportWithPhotoBodyLocationMin = 0;
+export const createLostReportWithPhotoBodyLocationMax = 255;
 
-export const createLostReportBodyLocationMin = 0;
-export const createLostReportBodyLocationMax = 255;
-
-export const createLostReportBodyContactEmailMin = 0;
-export const createLostReportBodyContactEmailMax = 255;
+export const createLostReportWithPhotoBodyContactEmailMin = 0;
+export const createLostReportWithPhotoBodyContactEmailMax = 255;
 
 
 
-export const createLostReportBody = zod.object({
-  "photoKey": zod.string().min(createLostReportBodyPhotoKeyMin).max(createLostReportBodyPhotoKeyMax).optional(),
-  "description": zod.string().min(createLostReportBodyDescriptionMin).max(createLostReportBodyDescriptionMax),
+export const createLostReportWithPhotoBody = zod.object({
+  "description": zod.string().min(createLostReportWithPhotoBodyDescriptionMin).max(createLostReportWithPhotoBodyDescriptionMax),
   "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReportBodyLocationMin).max(createLostReportBodyLocationMax).optional(),
+  "location": zod.string().min(createLostReportWithPhotoBodyLocationMin).max(createLostReportWithPhotoBodyLocationMax).optional(),
   "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReportBodyContactEmailMin).max(createLostReportBodyContactEmailMax),
+  "contactEmail": zod.email().min(createLostReportWithPhotoBodyContactEmailMin).max(createLostReportWithPhotoBodyContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
   "brand": zod.string().optional(),
@@ -106,33 +128,39 @@ export const getAllLostReports1QueryParams = zod.object({
 })
 
 
-export const createLostReport1BodyPhotoKeyMin = 0;
-export const createLostReport1BodyPhotoKeyMax = 255;
+export const createLostReportWithPhoto1BodyDescriptionMin = 0;
+export const createLostReportWithPhoto1BodyDescriptionMax = 2000;
 
-export const createLostReport1BodyDescriptionMin = 0;
-export const createLostReport1BodyDescriptionMax = 2000;
+export const createLostReportWithPhoto1BodyLocationMin = 0;
+export const createLostReportWithPhoto1BodyLocationMax = 255;
 
-export const createLostReport1BodyLocationMin = 0;
-export const createLostReport1BodyLocationMax = 255;
-
-export const createLostReport1BodyContactEmailMin = 0;
-export const createLostReport1BodyContactEmailMax = 255;
+export const createLostReportWithPhoto1BodyContactEmailMin = 0;
+export const createLostReportWithPhoto1BodyContactEmailMax = 255;
 
 
 
-export const createLostReport1Body = zod.object({
-  "photoKey": zod.string().min(createLostReport1BodyPhotoKeyMin).max(createLostReport1BodyPhotoKeyMax).optional(),
-  "description": zod.string().min(createLostReport1BodyDescriptionMin).max(createLostReport1BodyDescriptionMax),
+export const createLostReportWithPhoto1Body = zod.object({
+  "description": zod.string().min(createLostReportWithPhoto1BodyDescriptionMin).max(createLostReportWithPhoto1BodyDescriptionMax),
   "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReport1BodyLocationMin).max(createLostReport1BodyLocationMax).optional(),
+  "location": zod.string().min(createLostReportWithPhoto1BodyLocationMin).max(createLostReportWithPhoto1BodyLocationMax).optional(),
   "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReport1BodyContactEmailMin).max(createLostReport1BodyContactEmailMax),
+  "contactEmail": zod.email().min(createLostReportWithPhoto1BodyContactEmailMin).max(createLostReportWithPhoto1BodyContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
+})
+
+
+export const getLostReportPhotoUrlParams = zod.object({
+  "id": zod.uuid()
+})
+
+
+export const getLostReportPhotoUrl1Params = zod.object({
+  "id": zod.uuid()
 })
 
 

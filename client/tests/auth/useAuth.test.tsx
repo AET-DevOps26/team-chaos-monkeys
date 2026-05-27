@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { AuthProvider } from './AuthContext'
-import { useAuth } from './useAuth'
-import { dispatchUnauthorized, getCurrentToken } from './token-store'
-import { makeFakeJwt } from '@/test/jwt'
+import { AuthProvider } from '@/auth/AuthContext'
+import { useAuth } from '@/auth/useAuth'
+import { dispatchUnauthorized, getCurrentToken } from '@/auth/token-store'
+import { makeFakeJwt } from '@tests/jwt'
 
 const TOKEN = makeFakeJwt({ sub: 'user-1', roles: ['staff'], venue_id: 'venue-1' })
 

@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@tests': path.resolve(__dirname, './tests/helpers'),
       '@': path.resolve(__dirname, './src'),
     },
   },
@@ -13,7 +14,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     css: true,
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./tests/helpers/setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
@@ -26,8 +27,6 @@ export default defineConfig({
         'src/api/**/*-controller/**',
         'src/main.tsx',
         'src/**/*.d.ts',
-        'src/test/**',
-        '**/*.test.{ts,tsx}',
       ],
     },
   },

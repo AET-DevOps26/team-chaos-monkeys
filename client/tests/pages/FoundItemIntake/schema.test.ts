@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foundItemIntakeSchema } from './schema'
+import { foundItemIntakeSchema } from '@/pages/FoundItemIntake/schema'
 
 describe('foundItemIntakeSchema', () => {
   const validInput = {

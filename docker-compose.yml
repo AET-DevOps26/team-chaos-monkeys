@@ -190,6 +190,8 @@ services:
   # then exits 0. genai-service waits for it via service_completed_successfully
   # so a fresh `docker compose up` is guaranteed to find the models present.
   # Pulled models are cached in the ollama-models volume across runs.
+  # Set OLLAMA_SKIP_PULL=1 (default) to bail immediately — the registry
+  # manifest checks bottleneck local dev when you don't need the local LLM.
   ollama-init:
     image: ollama/ollama:0.4.2
     container_name: foundflow-ollama-init
@@ -201,10 +203,14 @@ services:
       OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:3b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llava:7b}
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      OLLAMA_SKIP_PULL: ${OLLAMA_SKIP_PULL:-1}
     entrypoint:
       - sh
       - -c
       - >-
+        if [ "$$OLLAMA_SKIP_PULL" = "1" ]; then
+          echo "OLLAMA_SKIP_PULL=1, skipping model pulls"; exit 0;
+        fi &&
         ollama pull "$$OLLAMA_CHAT_MODEL" &&
         ollama pull "$$OLLAMA_VISION_MODEL" &&
         ollama pull "$$OLLAMA_EMBED_MODEL"

@@ -139,6 +139,7 @@ services:
   ollama:
     image: ollama/ollama:0.4.2
     container_name: foundflow-ollama
+    profiles: ["ollama"]
     volumes:
       - ollama-models:/root/.ollama
     healthcheck:
@@ -193,6 +194,7 @@ services:
   ollama-init:
     image: ollama/ollama:0.4.2
     container_name: foundflow-ollama-init
+    profiles: ["ollama"]
     depends_on:
       ollama:
         condition: service_healthy

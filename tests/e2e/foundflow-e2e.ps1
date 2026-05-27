@@ -8,11 +8,17 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Net.Http
 
-$E2E_PHOTO_BYTES = [Convert]::FromBase64String(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l2x2iQAAAABJRU5ErkJggg=="
+# The genai-service rejects sub-pixel placeholders (1x1 PNG) at the Pillow
+# decode step before the provider is ever invoked, so for the extraction
+# assertions (issue #128) we need bytes that pass validation. The golden
+# umbrella image is already shipped with the repo and serves both the
+# normal photo-flow assertions and the new GenAI ones.
+$repoRoot = (Get-Item $PSScriptRoot).Parent.Parent.FullName
+$E2E_PHOTO_BYTES = [System.IO.File]::ReadAllBytes(
+    (Join-Path $repoRoot "services/genai-service/tests/golden/images/umbrella-red.jpg")
 )
-$E2E_PHOTO_MEDIA_TYPE = "image/png"
-$E2E_PHOTO_FILE_NAME = "e2e-photo.png"
+$E2E_PHOTO_MEDIA_TYPE = "image/jpeg"
+$E2E_PHOTO_FILE_NAME = "e2e-photo.jpg"
 
 function Assert-Status {
     param(

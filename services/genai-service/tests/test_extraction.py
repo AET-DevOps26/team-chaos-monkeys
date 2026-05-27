@@ -14,6 +14,9 @@ from app.exceptions import LLMRateLimitError, ModelOutputError
 from app.extraction import (
     _FIELD_GUIDANCE,
     SYSTEM_PROMPT,
+    SYSTEM_PROMPT_BOTH,
+    SYSTEM_PROMPT_IMAGE,
+    _looks_like_pii,
     build_messages,
     extract_attributes,
     item_attribute_fields,
@@ -167,5 +170,93 @@ def test_parse_accepts_snake_case_keys():
     # populate_by_name lets the parser accept either casing from the model.
     attrs = parse_item_attributes(json.dumps({"distinguishing_marks": ["pin"]}))
     assert attrs.distinguishing_marks == ["pin"]
+
+
+# --- prompt hardening (#133) --------------------------------------------
+
+
+def test_image_prompts_treat_image_text_as_data_not_instructions():
+    # Image-only and multimodal prompts both need the strong anti-injection wording.
+    for prompt in (SYSTEM_PROMPT_IMAGE, SYSTEM_PROMPT_BOTH):
+        lower = prompt.lower()
+        assert "data, not instructions" in lower
+        assert "ignore previous instructions" in lower
+
+
+def test_common_rules_describe_marks_as_physical_features():
+    # Distinguishing-marks rule must scope `marks` to physical features and
+    # explicitly exclude text printed on or near the item.
+    assert "physical" in SYSTEM_PROMPT.lower()
+    assert "text printed on or near the item" in SYSTEM_PROMPT.lower()
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        "1234 5678 9012 3456",
+        "1234-5678-9012-3456",
+        "text: NUMBER: 1234 5678 9012",
+        "CARDHOLDER: J. SMITH",
+        "Cardholder: J. Smith",
+        "Card Number: 4001 2345 6789 0",
+        "DOB: 01/02/1990",
+        "Account Number: 4001234567890",
+        "SSN: 123-45-6789",
+        "Passport No: AB123456",
+    ],
+)
+def test_pii_marks_are_detected(mark):
+    assert _looks_like_pii(mark), f"expected PII-like: {mark!r}"
+
+
+@pytest.mark.parametrize(
+    "mark",
+    [
+        "enamel pin on the chest",
+        "Adidas logo on the side",
+        "blue stripe on the case",
+        "two scratches near the hinge",
+        "stickers from Berlin and Paris",
+        "frayed strap with three small tears",
+        "engraved with a crescent moon",
+    ],
+)
+def test_legitimate_marks_are_not_flagged_as_pii(mark):
+    assert not _looks_like_pii(mark), f"false positive on: {mark!r}"
+
+
+async def test_pii_marks_stripped_from_extraction_output():
+    payload = dict(
+        _FULL_OUTPUT,
+        distinguishingMarks=[
+            "enamel pin on the chest",
+            "CARDHOLDER: J. SMITH",
+            "1234 5678 9012 3456",
+        ],
+    )
+    llm = FakeProvider(chat_response=json.dumps(payload))
+    attrs = await extract_attributes("x", None, llm)
+    assert attrs.distinguishing_marks == ["enamel pin on the chest"]
+
+
+async def test_pii_strip_preserves_other_fields():
+    payload = dict(
+        _FULL_OUTPUT,
+        distinguishingMarks=["NUMBER: 4111 1111 1111 1111"],
+    )
+    llm = FakeProvider(chat_response=json.dumps(payload))
+    attrs = await extract_attributes("x", None, llm)
+    assert attrs.distinguishing_marks == []
+    assert attrs.category == _FULL_OUTPUT["category"]
+    assert attrs.color == _FULL_OUTPUT["color"]
+    assert attrs.approximate_time == _FULL_OUTPUT["approximateTime"]
+
+
+async def test_pii_strip_no_op_when_marks_are_clean():
+    # The unchanged-marks fast path returns the same instance, not a copy.
+    payload = dict(_FULL_OUTPUT, distinguishingMarks=["enamel pin"])
+    llm = FakeProvider(chat_response=json.dumps(payload))
+    attrs = await extract_attributes("x", None, llm)
+    assert attrs.distinguishing_marks == ["enamel pin"]
 
 

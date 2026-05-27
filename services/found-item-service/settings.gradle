@@ -2,3 +2,7 @@ rootProject.name = 'found-item-service'
 includeBuild('../../shared/common-domain')
 includeBuild('../../shared/photo-storage')
 includeBuild('../../shared/domain-events')
+def sharedTestArchitectureSettings = new File(settingsDir, '../../shared/test-architecture/service-settings.gradle').canonicalFile
+if (sharedTestArchitectureSettings.isFile()) {
+    apply from: sharedTestArchitectureSettings
+}

@@ -50,8 +50,11 @@ npm run lint           # eslint .
 npm run preview        # serve built bundle
 npm run codegen        # regenerate Orval client from cached snapshots in client/openapi/
 npm run codegen:fetch  # pull fresh specs from running gateway, then regenerate
+npm test               # vitest run (one-shot)
+npm run test:watch     # vitest in watch mode
+npm run test:coverage  # vitest run --coverage (v8)
 ```
-Stack: React 19, Vite 8, TypeScript 6, Node 22 (pinned in CI), ESLint 10. No test runner is wired up yet — when adding one, prefer Vitest (it composes with Vite). CI runs `npm run build` and a `codegen-check` job that fails on drift between `client/openapi/` snapshots and the committed generated client under `client/src/api/`.
+Stack: React 19, Vite 8, TypeScript 6, Node 22 (pinned in CI), ESLint 10. Tests: Vitest 4 + React Testing Library + jsdom + MSW (handlers under `client/src/test/`); use the `renderWithProviders` helper from `client/src/test/render.tsx` which wires `MemoryRouter`, `QueryClientProvider`, and `AuthProvider`. Existing reference tests: `client/src/pages/Login/Login.test.tsx`, `client/src/auth/{useAuth,RequireAuth}.test.tsx`. CI runs `npm run build` and a `codegen-check` job that fails on drift between `client/openapi/` snapshots and the committed generated client under `client/src/api/`.
 
 **Always use the orval-generated models, requests, and zod schemas** under `client/src/api/**` — never hand-write a type, request DTO, or validation schema that the generated client already provides. For form validation, resolve against the generated `*Body` zod schema (e.g. `loginBody` from `@/api/auth/zod`) and type the form with the generated request interface (e.g. `LoginRequest` from `@/api/auth/model`). If custom UI error copy is needed, extend the generated schema rather than redefining the field contract. Hand-written types are only acceptable for shapes with no OpenAPI representation (e.g. decoded-JWT claims).
 

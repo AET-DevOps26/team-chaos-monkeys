@@ -1,2 +1,3 @@
 rootProject.name = 'matching-service'
 includeBuild('../../shared/domain-events')
+includeBuild('../../shared/test-architecture')

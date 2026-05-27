@@ -31,6 +31,7 @@ jobs:
           - auth-service
           - lost-item-service
           - found-item-service
+          - gateway-service
           - matching-service
           - notification-service
           - operations-service

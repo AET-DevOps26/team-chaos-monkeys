@@ -2,4 +2,10 @@ rootProject.name = 'found-item-service'
 includeBuild('../../shared/common-domain')
 includeBuild('../../shared/photo-storage')
 includeBuild('../../shared/domain-events')
-includeBuild('../../shared/test-architecture')
+def requestedTasks = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+def productionOnlyBuild = !requestedTasks.isEmpty() && requestedTasks.every {
+    it == 'clean' || it == 'bootjar' || it.endsWith(':clean') || it.endsWith(':bootjar')
+}
+if (!productionOnlyBuild && file('../../shared/test-architecture').exists()) {
+    includeBuild('../../shared/test-architecture')
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCreateFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useCreateFoundItemWithPhoto } from '@/api/found-items/found-item-controller/found-item-controller'
 import type { CreateFoundItemRequest, CreateFoundItemBody } from '@/api/found-items/model'
 import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
@@ -85,7 +85,7 @@ export default function FoundItemIntake() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const { user } = useAuth()
-  const createFoundItem = useCreateFoundItem()
+  const createFoundItem = useCreateFoundItemWithPhoto()
 
   useEffect(() => {
     if (!photo) {

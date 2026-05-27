@@ -8,7 +8,6 @@ import type { UpdateFoundItemRequestStatus } from './updateFoundItemRequestStatu
 import type { ItemAttributesDto } from './itemAttributesDto';
 
 export interface UpdateFoundItemRequest {
-  photoKey?: string;
   description?: string;
   foundAt: string;
   locationHint?: string;

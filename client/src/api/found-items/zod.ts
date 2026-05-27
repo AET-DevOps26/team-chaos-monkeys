@@ -16,7 +16,6 @@ export const updateFoundItemParams = zod.object({
 })
 
 export const updateFoundItemBody = zod.object({
-  "photoKey": zod.string().optional(),
   "description": zod.string().optional(),
   "foundAt": zod.iso.datetime({}),
   "locationHint": zod.string().optional(),
@@ -37,14 +36,27 @@ export const deleteFoundItemParams = zod.object({
 })
 
 
+export const getFoundItemPhotoParams = zod.object({
+  "id": zod.uuid()
+})
+
+
+export const updateFoundItemPhotoParams = zod.object({
+  "id": zod.uuid()
+})
+
+export const updateFoundItemPhotoBody = zod.object({
+  "photo": zod.instanceof(File)
+})
+
+
 export const getAllFoundItemsQueryParams = zod.object({
   "status": zod.enum(['STORED', 'RESERVED', 'RETURNED', 'DISPOSED']).optional()
 })
 
 
-export const createFoundItemBody = zod.object({
+export const createFoundItemWithPhotoBody = zod.object({
   "request": zod.object({
-  "photoKey": zod.string().optional(),
   "description": zod.string().optional(),
   "foundAt": zod.iso.datetime({}),
   "locationHint": zod.string().optional(),
@@ -58,6 +70,11 @@ export const createFoundItemBody = zod.object({
 }).optional()
 }),
   "photo": zod.instanceof(File)
+})
+
+
+export const getFoundItemPhotoUrlParams = zod.object({
+  "id": zod.uuid()
 })
 
 

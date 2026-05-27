@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
-import { useCreateLostReport } from '@/api/lost-items/lost-report-controller/lost-report-controller'
+import { useCreateLostReportWithPhoto } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 
 // TODO(FRND-122): temporary — the public form has no way to derive a venue yet.
 // Replace with a real source (route param from a per-venue QR link, query
@@ -24,7 +24,7 @@ export default function ReportLostItem() {
     defaultValues: { description: '', contactEmail: '', lostAt: '', photo: null },
   })
 
-  const { mutate, isPending, isError, error } = useCreateLostReport()
+  const { mutate, isPending, isError, error } = useCreateLostReportWithPhoto()
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)

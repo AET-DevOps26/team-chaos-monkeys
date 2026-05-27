@@ -36,13 +36,15 @@ describe('<Navbar />', () => {
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument()
   })
 
-  it('renders only New Intake as a link; other entries are non-navigating placeholders', () => {
+  it('renders New Intake and Found Items as links; remaining entries are non-navigating placeholders', () => {
     renderWithProviders(harness(), { route: '/', authToken: FAKE_JWT })
 
-    const intake = screen.getByRole('link', { name: /new intake/i })
-    expect(intake).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /new intake/i })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /found items/i })).toHaveAttribute(
+      'href',
+      '/found-items',
+    )
 
-    expect(screen.queryByRole('link', { name: /found items/i })).toBeNull()
     expect(screen.queryByRole('link', { name: /lost items/i })).toBeNull()
     expect(screen.queryByRole('link', { name: /dashboard/i })).toBeNull()
   })
@@ -57,7 +59,7 @@ describe('<Navbar />', () => {
 
   it('exposes placeholders as aria-disabled', () => {
     renderWithProviders(harness(), { route: '/', authToken: FAKE_JWT })
-    for (const label of [/found items/i, /lost items/i, /dashboard/i]) {
+    for (const label of [/lost items/i, /dashboard/i]) {
       expect(screen.getByText(label)).toHaveAttribute('aria-disabled', 'true')
     }
   })

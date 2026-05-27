@@ -1,4 +1,4 @@
-package com.foundflow.lostitem.service.genai;
+package com.foundflow.genai.client;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

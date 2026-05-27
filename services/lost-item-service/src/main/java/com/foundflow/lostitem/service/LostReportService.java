@@ -13,7 +13,7 @@ import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
-import com.foundflow.lostitem.service.genai.AttributeExtractionService;
+import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;

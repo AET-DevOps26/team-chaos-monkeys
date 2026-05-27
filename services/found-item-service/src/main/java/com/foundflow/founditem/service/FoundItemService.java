@@ -13,7 +13,7 @@ import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
-import com.foundflow.founditem.service.genai.AttributeExtractionService;
+import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;

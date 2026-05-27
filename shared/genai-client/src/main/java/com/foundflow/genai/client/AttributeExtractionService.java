@@ -1,14 +1,13 @@
-package com.foundflow.lostitem.service.genai;
+package com.foundflow.genai.client;
 
 import com.foundflow.common.domain.ItemAttributes;
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesRequest;
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesResponse;
-import com.foundflow.lostitem.genai.client.model.ImageContent;
+import com.foundflow.genai.client.model.ExtractAttributesRequest;
+import com.foundflow.genai.client.model.ExtractAttributesResponse;
+import com.foundflow.genai.client.model.ImageContent;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +25,6 @@ import java.util.Set;
  * service returns {@link Optional#empty()} so the caller can persist the
  * report without attributes.
  */
-@Service
 public class AttributeExtractionService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AttributeExtractionService.class);
@@ -137,7 +135,7 @@ public class AttributeExtractionService {
     }
 
     private static ItemAttributes toDomain(
-            com.foundflow.lostitem.genai.client.model.ItemAttributes attrs
+            com.foundflow.genai.client.model.ItemAttributes attrs
     ) {
         // Mutable list — Hibernate's @ElementCollection mutates this in place
         // (clear() + addAll()) when persisting, so an immutable List.copyOf

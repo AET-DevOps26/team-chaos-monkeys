@@ -1,9 +1,9 @@
-package com.foundflow.lostitem.service.genai;
+package com.foundflow.genai.client;
 
 import com.foundflow.common.domain.ItemAttributes;
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesRequest;
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesResponse;
-import com.foundflow.lostitem.genai.client.model.ImageContent;
+import com.foundflow.genai.client.model.ExtractAttributesRequest;
+import com.foundflow.genai.client.model.ExtractAttributesResponse;
+import com.foundflow.genai.client.model.ImageContent;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
@@ -114,14 +114,12 @@ class AttributeExtractionServiceTest {
         when(photoStorage.retrieve("photo-key")).thenReturn(new PhotoData(
                 new ByteArrayInputStream("HEIC".getBytes()), "image/heic", 4
         ));
+        when(genaiClient.extractAttributes(any())).thenReturn(buildResponse("hat", null, null));
 
-        Optional<ItemAttributes> result = service.extract("text desc", "photo-key");
+        service.extract("text desc", "photo-key");
 
         ArgumentCaptor<ExtractAttributesRequest> captor = ArgumentCaptor.forClass(ExtractAttributesRequest.class);
-        when(genaiClient.extractAttributes(any())).thenReturn(buildResponse("hat", null, null));
-        service.extract("text desc", "photo-key");
-        // Both invocations went text-only because heic isn't supported.
-        verify(genaiClient, org.mockito.Mockito.atLeastOnce()).extractAttributes(captor.capture());
+        verify(genaiClient).extractAttributes(captor.capture());
         assertNull(captor.getValue().getImage());
     }
 
@@ -151,8 +149,8 @@ class AttributeExtractionServiceTest {
     }
 
     private ExtractAttributesResponse buildResponse(String category, String brand, String color) {
-        com.foundflow.lostitem.genai.client.model.ItemAttributes attrs =
-                new com.foundflow.lostitem.genai.client.model.ItemAttributes();
+        com.foundflow.genai.client.model.ItemAttributes attrs =
+                new com.foundflow.genai.client.model.ItemAttributes();
         attrs.setCategory(category);
         attrs.setBrand(brand);
         attrs.setColor(color);

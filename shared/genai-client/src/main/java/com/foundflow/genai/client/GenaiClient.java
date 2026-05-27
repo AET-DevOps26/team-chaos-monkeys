@@ -1,7 +1,7 @@
-package com.foundflow.lostitem.service.genai;
+package com.foundflow.genai.client;
 
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesRequest;
-import com.foundflow.lostitem.genai.client.model.ExtractAttributesResponse;
+import com.foundflow.genai.client.model.ExtractAttributesRequest;
+import com.foundflow.genai.client.model.ExtractAttributesResponse;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 

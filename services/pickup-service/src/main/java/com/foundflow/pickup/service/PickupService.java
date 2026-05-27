@@ -194,7 +194,7 @@ public class PickupService {
         UUID venueId = resolveVenueFilter(requestedVenueId, jwt);
         List<PickupSchedule> schedules = venueId == null
                 ? scheduleRepository.findAll()
-                : scheduleRepository.findByVenueIdOrderByDateAscStartTimeAsc(venueId);
+                : scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId);
         return schedules.stream().map(this::toScheduleResponse).toList();
     }
 
@@ -202,7 +202,6 @@ public class PickupService {
         UUID venueId = resolveWriteVenue(request.venueId(), jwt);
         validateSchedule(
                 recurrenceType(request.recurrenceType()),
-                request.date(),
                 request.startDate(),
                 request.endDate(),
                 request.dayOfWeek(),
@@ -211,8 +210,7 @@ public class PickupService {
         );
         PickupSchedule schedule = scheduleRepository.save(new PickupSchedule(
                 recurrenceType(request.recurrenceType()),
-                oneOffDate(request.recurrenceType(), request.date()),
-                weeklyStartDate(request.recurrenceType(), request.startDate()),
+                request.startDate(),
                 weeklyEndDate(request.recurrenceType(), request.endDate()),
                 weeklyDayOfWeek(request.recurrenceType(), request.dayOfWeek()),
                 request.startTime(),
@@ -235,7 +233,6 @@ public class PickupService {
                     ScheduleRecurrenceType recurrenceType = recurrenceType(request.recurrenceType());
                     validateSchedule(
                             recurrenceType,
-                            request.date(),
                             request.startDate(),
                             request.endDate(),
                             request.dayOfWeek(),
@@ -243,8 +240,7 @@ public class PickupService {
                             request.endTime()
                     );
                     schedule.setRecurrenceType(recurrenceType);
-                    schedule.setDate(oneOffDate(recurrenceType, request.date()));
-                    schedule.setStartDate(weeklyStartDate(recurrenceType, request.startDate()));
+                    schedule.setStartDate(request.startDate());
                     schedule.setEndDate(weeklyEndDate(recurrenceType, request.endDate()));
                     schedule.setDayOfWeek(weeklyDayOfWeek(recurrenceType, request.dayOfWeek()));
                     schedule.setStartTime(request.startTime());
@@ -286,7 +282,7 @@ public class PickupService {
     }
 
     private List<PickupSlotResponse> slotsForVenue(UUID venueId) {
-        List<PickupSchedule> schedules = scheduleRepository.findByVenueIdOrderByDateAscStartTimeAsc(venueId);
+        List<PickupSchedule> schedules = scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId);
         Set<LocalDateTime> occupied = new HashSet<>();
         for (PickupSchedule schedule : schedules) {
             for (LocalDate date : scheduleDates(schedule)) {
@@ -305,7 +301,7 @@ public class PickupService {
         if (schedule.getRecurrenceType() == ScheduleRecurrenceType.WEEKLY) {
             return weeklyDates(schedule);
         }
-        return List.of(schedule.getDate());
+        return List.of(schedule.getStartDate());
     }
 
     private List<LocalDate> weeklyDates(PickupSchedule schedule) {
@@ -409,7 +405,6 @@ public class PickupService {
 
     private void validateSchedule(
             ScheduleRecurrenceType recurrenceType,
-            LocalDate date,
             LocalDate startDate,
             LocalDate endDate,
             java.time.DayOfWeek dayOfWeek,
@@ -419,14 +414,14 @@ public class PickupService {
         if (!startTime.isBefore(endTime)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Schedule startTime must be before endTime.");
         }
-        if (recurrenceType == ScheduleRecurrenceType.ONCE && date == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required for one-off schedules.");
+        if (startDate == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate is required for pickup schedules.");
         }
         if (recurrenceType == ScheduleRecurrenceType.WEEKLY) {
-            if (startDate == null || dayOfWeek == null) {
+            if (dayOfWeek == null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "startDate and dayOfWeek are required for weekly schedules."
+                        "dayOfWeek is required for weekly schedules."
                 );
             }
             if (endDate != null && endDate.isBefore(startDate)) {
@@ -437,14 +432,6 @@ public class PickupService {
 
     private ScheduleRecurrenceType recurrenceType(ScheduleRecurrenceType recurrenceType) {
         return recurrenceType == null ? ScheduleRecurrenceType.ONCE : recurrenceType;
-    }
-
-    private LocalDate oneOffDate(ScheduleRecurrenceType recurrenceType, LocalDate date) {
-        return recurrenceType(recurrenceType) == ScheduleRecurrenceType.ONCE ? date : null;
-    }
-
-    private LocalDate weeklyStartDate(ScheduleRecurrenceType recurrenceType, LocalDate startDate) {
-        return recurrenceType(recurrenceType) == ScheduleRecurrenceType.WEEKLY ? startDate : null;
     }
 
     private LocalDate weeklyEndDate(ScheduleRecurrenceType recurrenceType, LocalDate endDate) {
@@ -486,7 +473,6 @@ public class PickupService {
     private PickupScheduleResponse toScheduleResponse(PickupSchedule schedule) {
         return new PickupScheduleResponse(
                 schedule.getId(),
-                schedule.getDate(),
                 schedule.getRecurrenceType(),
                 schedule.getStartDate(),
                 schedule.getEndDate(),

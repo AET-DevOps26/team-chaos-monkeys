@@ -116,7 +116,6 @@ class Pickup {
 
 class PickupSchedule {
   - id: UUID
-  - date: Date
   - recurrenceType: ScheduleRecurrenceType
   - startDate: Date
   - endDate: Date

@@ -540,9 +540,9 @@ $matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.i
 Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
 
 $pickupScheduleResponse = Post-Json $opsClient "$GatewayBaseUrl/api/pickups/schedule" @{
-    recurrenceType = "WEEKLY"
     startDate = "2026-06-01"
     endDate = "2026-06-08"
+    recurrenceType = "WEEKLY"
     dayOfWeek = "MONDAY"
     startTime = "09:00:00"
     endTime = "10:00:00"

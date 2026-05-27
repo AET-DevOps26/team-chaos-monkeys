@@ -58,7 +58,7 @@ class PickupServiceTest {
         PickupService service = pickupService();
         when(magicLinkService.verifyForSlots(token))
                 .thenReturn(new MagicLinkClaims("match_view", UUID.randomUUID(), null, venueId, "lost@example.com", 1L));
-        when(scheduleRepository.findByVenueIdOrderByDateAscStartTimeAsc(venueId))
+        when(scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId))
                 .thenReturn(List.of(schedule(venueId)));
         when(pickupRepository.findByVenueIdAndPickupAtBetween(
                 venueId,
@@ -88,7 +88,7 @@ class PickupServiceTest {
         PickupService service = pickupService();
         when(magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW))
                 .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
-        when(scheduleRepository.findByVenueIdOrderByDateAscStartTimeAsc(venueId))
+        when(scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId))
                 .thenReturn(List.of(schedule(venueId)));
         when(pickupRepository.findByVenueIdAndPickupAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
@@ -120,10 +120,9 @@ class PickupServiceTest {
         PickupService service = pickupService();
         when(magicLinkService.verifyForSlots(token))
                 .thenReturn(new MagicLinkClaims("match_view", UUID.randomUUID(), null, venueId, "lost@example.com", 1L));
-        when(scheduleRepository.findByVenueIdOrderByDateAscStartTimeAsc(venueId))
+        when(scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId))
                 .thenReturn(List.of(new PickupSchedule(
                         ScheduleRecurrenceType.WEEKLY,
-                        null,
                         firstMonday,
                         firstMonday.plusWeeks(1),
                         DayOfWeek.MONDAY,
@@ -152,9 +151,8 @@ class PickupServiceTest {
 
         var response = service.createSchedule(
                 new CreatePickupScheduleRequest(
+                        null,
                         LocalDate.of(2026, 6, 1),
-                        null,
-                        null,
                         null,
                         null,
                         LocalTime.of(9, 0),

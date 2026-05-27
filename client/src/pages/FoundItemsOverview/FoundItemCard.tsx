@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import { FoundItemResponseStatus } from '@/api/found-items/model'
-import { useDeleteFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
+import {
+  getGetAllFoundItemsQueryKey,
+  useDeleteFoundItem,
+} from '@/api/found-items/found-item-controller/found-item-controller'
 import FoundItemPhoto from './FoundItemPhoto'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -37,7 +40,7 @@ function StatusPill({ status }: { status: FoundItemResponseStatus | undefined })
   if (!status) return null
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusPillCls[status] ?? statusPillCls[FoundItemResponseStatus.STORED]}`}
+      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusPillCls[status]}`}
     >
       {status}
     </span>
@@ -52,7 +55,9 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
   const { mutate: deleteItem, isPending: isDeleting } = useDeleteFoundItem({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/found-items'] })
+        queryClient.invalidateQueries({
+          queryKey: getGetAllFoundItemsQueryKey(),
+        })
       },
     },
   })
@@ -70,6 +75,10 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
     if (!isDeleting) setConfirming(false)
   }
 
+  const onCancelClick = () => {
+    if (!isDeleting) setConfirming(false)
+  }
+
   return (
     <article className="flex flex-col gap-2">
       <div
@@ -79,6 +88,31 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
         <div className="absolute inset-0 transition-all duration-300 ease-out group-hover:scale-[1.02] group-hover:blur-sm group-hover:brightness-75">
           <FoundItemPhoto id={item.id} alt={label} />
         </div>
+        {confirming && (
+          <button
+            type="button"
+            onClick={onCancelClick}
+            disabled={isDeleting}
+            aria-label={`Cancel delete ${label}`}
+            title="Cancel"
+            className="absolute right-2 top-2 z-10 animate-[foundItemFadeIn_180ms_ease-out_both] rounded-full bg-bg/85 p-1 text-text-h shadow-[var(--shadow)] backdrop-blur transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        )}
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 ease-out group-hover:pointer-events-auto group-hover:opacity-100">
           <button
             type="button"

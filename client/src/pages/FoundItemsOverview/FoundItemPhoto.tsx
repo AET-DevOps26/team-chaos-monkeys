@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
 
 const PHOTO_URL_STALE_MS = 4 * 60 * 1000
@@ -28,6 +29,49 @@ function PhotoPlaceholder({ label }: { label: string }) {
   )
 }
 
+function FoundItemPhotoInner({ id, alt }: { id: string; alt: string }) {
+  const { data, isLoading, isError, refetch } = useGetFoundItemPhotoUrl(id, {
+    query: {
+      staleTime: PHOTO_URL_STALE_MS,
+      retry: 1,
+    },
+  })
+
+  // Retry the URL fetch at most once per signed URL: if a freshly issued URL
+  // fails to load, refetch in case the server can issue a new one; if the
+  // replacement also fails, fall through to the placeholder instead of looping.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const [retriedUrl, setRetriedUrl] = useState<string | null>(null)
+
+  const url = data?.url
+  useEffect(() => {
+    if (url) setFailedUrl((prev) => (prev === url ? prev : null))
+  }, [url])
+
+  if (isLoading) {
+    return <div className="h-full w-full animate-pulse bg-border/40" aria-label={`Loading ${alt}`} />
+  }
+  if (isError || !url) return <PhotoPlaceholder label={alt} />
+  if (failedUrl === url) return <PhotoPlaceholder label={alt} />
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      className="h-full w-full object-cover"
+      onError={() => {
+        if (retriedUrl === url) {
+          setFailedUrl(url)
+          return
+        }
+        setRetriedUrl(url)
+        refetch()
+      }}
+    />
+  )
+}
+
 export default function FoundItemPhoto({
   id,
   alt,
@@ -35,29 +79,6 @@ export default function FoundItemPhoto({
   id: string | undefined
   alt: string
 }) {
-  const { data, isLoading, isError, refetch } = useGetFoundItemPhotoUrl(id ?? '', {
-    query: {
-      enabled: !!id,
-      staleTime: PHOTO_URL_STALE_MS,
-      retry: 1,
-    },
-  })
-
   if (!id) return <PhotoPlaceholder label={alt} />
-  if (isLoading) {
-    return <div className="h-full w-full animate-pulse bg-border/40" aria-label={`Loading ${alt}`} />
-  }
-  if (isError || !data?.url) return <PhotoPlaceholder label={alt} />
-
-  return (
-    <img
-      src={data.url}
-      alt={alt}
-      loading="lazy"
-      className="h-full w-full object-cover"
-      onError={() => {
-        refetch()
-      }}
-    />
-  )
+  return <FoundItemPhotoInner id={id} alt={alt} />
 }

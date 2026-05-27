@@ -29,6 +29,11 @@ enum MatchStatus {
   REJECTED
 }
 
+enum ScheduleRecurrenceType {
+  ONCE
+  WEEKLY
+}
+
 ' Shared embeddable
 class ItemAttributes {
   - category: String
@@ -101,12 +106,58 @@ class Notification {
   - sentAt: DateTime
 }
 
+class Pickup {
+  - id: UUID
+  - pickupAt: DateTime
+  - venueId: UUID
+  - matchId: UUID
+  - email: String
+}
+
+class PickupSchedule {
+  - id: UUID
+  - date: Date
+  - recurrenceType: ScheduleRecurrenceType
+  - startDate: Date
+  - endDate: Date
+  - dayOfWeek: DayOfWeek
+  - startTime: Time
+  - endTime: Time
+  - slotLengthInMinutes: int
+  - venueId: UUID
+}
+
+class MatchEmailLog {
+  - id: UUID
+  - recipient: String
+  - venueId: UUID
+  - matchId: UUID
+  - subject: String
+  - body: String
+  - magicLink: String
+  - sentAt: DateTime
+}
+
+class PickupEmailLog {
+  - id: UUID
+  - recipient: String
+  - venueId: UUID
+  - subject: String
+  - body: String
+  - magicLink: String
+  - sentAt: DateTime
+}
+
 ' Associations (representational - many relations modelled by UUID references)
 Venue "0..1" -- "*" User : assigned
 Venue "1" -- "*" FoundItem : owns
 Venue "1" -- "*" LostReport : owns
 Venue "1" -- "*" Match : owns
 Venue "1" -- "*" Notification : owns
+Venue "1" -- "*" Pickup : owns
+Venue "1" -- "*" PickupSchedule : defines
+Venue "1" -- "*" MatchEmailLog : logs
+Venue "1" -- "*" PickupEmailLog : logs
 
 User "1" -- "*" FoundItem : reporter
 
@@ -118,5 +169,7 @@ LostReport "1" *-- "1" ItemAttributes : attributes
 Match "*" -- "1" FoundItem : foundItem (id)
 Match "*" -- "1" LostReport : lostReport (id)
 Notification "*" -- "1" Match : match
+Pickup "0..1" -- "1" Match : match
+MatchEmailLog "*" -- "1" Match : match
 
 @enduml

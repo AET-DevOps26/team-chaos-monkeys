@@ -9,6 +9,7 @@ import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
 import com.foundflow.matching.repository.BucketCountView;
+import com.foundflow.matching.repository.MatchEmailLogRepository;
 import com.foundflow.matching.repository.MatchRepository;
 import com.foundflow.matching.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +39,15 @@ class MatchServiceTest {
 
     @Mock
     private LostItemClient lostItemClient;
+
+    @Mock
+    private MagicLinkService magicLinkService;
+
+    @Mock
+    private MatchEmailSender matchEmailSender;
+
+    @Mock
+    private MatchEmailLogRepository matchEmailLogRepository;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -318,12 +329,63 @@ class MatchServiceTest {
         verify(matchRepository, never()).save(any(Match.class));
     }
 
+    @Test
+    void createPublicMatchLink_shouldReturnMatchAndPickupUrls() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(magicLinkService.createMatchViewToken(matchId, venueId, "lost@example.com"))
+                .thenReturn("public-token");
+
+        var response = matchService.createPublicMatchLink(
+                matchId,
+                new com.foundflow.matching.dto.CreatePublicMatchLinkRequest("lost@example.com"),
+                staffJwt(venueId)
+        );
+
+        assertTrue(response.isPresent());
+        assertEquals("public-token", response.get().token());
+        assertEquals("http://localhost:8080/api/matches/public/public-token", response.get().matchUrl());
+        assertEquals("http://localhost:8080/api/pickups/public/public-token", response.get().pickupUrl());
+        verify(matchEmailSender).sendPublicMatchLink(
+                "lost@example.com",
+                venueId,
+                matchId,
+                "http://localhost:8080/api/matches/public/public-token"
+        );
+    }
+
+    @Test
+    void confirmPublicMatch_shouldUpdateLinkedMatchOnly() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        when(magicLinkService.verifyMatchViewToken("public-token"))
+                .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchRepository.save(match)).thenReturn(match);
+
+        var response = matchService.confirmPublicMatch("public-token");
+
+        assertTrue(response.isPresent());
+        assertEquals(MatchStatus.CONFIRMED, response.get().status());
+        verify(matchRepository).save(match);
+    }
+
     private MatchService matchService() {
         return new MatchService(
                 matchRepository,
                 venueAccessService,
                 foundItemClient,
-                lostItemClient
+                lostItemClient,
+                magicLinkService,
+                matchEmailSender,
+                matchEmailLogRepository,
+                "http://localhost:8080"
         );
     }
 

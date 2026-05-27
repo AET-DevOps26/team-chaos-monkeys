@@ -402,7 +402,11 @@ components:
       properties:
         provider:
           type: string
-          enum: [openai, local]
+          # `fake` is a deterministic in-process provider used by CI E2E
+          # and downstream service integration tests; it returns canned
+          # JSON without any network call. Real deployments use openai or
+          # local; callers can treat `fake` like `local` for routing.
+          enum: [openai, local, fake]
         model:
           type: string
           description: Provider-specific model identifier, e.g. `gpt-4o-mini` or `llama3.1:8b`.
@@ -416,7 +420,7 @@ components:
           enum: [ok, degraded]
         provider:
           type: string
-          enum: [openai, local]
+          enum: [openai, local, fake]
         providerReachable:
           type: boolean
 

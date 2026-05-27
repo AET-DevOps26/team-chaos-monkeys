@@ -43,6 +43,7 @@ export const getAllFoundItemsQueryParams = zod.object({
 
 
 export const createFoundItemBody = zod.object({
+  "request": zod.object({
   "photoKey": zod.string().optional(),
   "description": zod.string().optional(),
   "foundAt": zod.iso.datetime({}),
@@ -55,6 +56,8 @@ export const createFoundItemBody = zod.object({
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
+}),
+  "photo": zod.instanceof(File)
 })
 
 

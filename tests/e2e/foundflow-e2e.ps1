@@ -8,6 +8,12 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Net.Http
 
+$E2E_PHOTO_BYTES = [Convert]::FromBase64String(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l2x2iQAAAABJRU5ErkJggg=="
+)
+$E2E_PHOTO_MEDIA_TYPE = "image/png"
+$E2E_PHOTO_FILE_NAME = "e2e-photo.png"
+
 function Assert-Status {
     param(
         [System.Net.Http.HttpResponseMessage]$Response,
@@ -129,6 +135,66 @@ function Post-Json {
     return $Client.PostAsync($Url, (JsonContent $Body)).Result
 }
 
+function MultipartItemContent {
+    param(
+        [object]$RequestBody,
+        [bool]$IncludePhoto = $true
+    )
+
+    $content = [System.Net.Http.MultipartFormDataContent]::new()
+    $requestContent = [System.Net.Http.StringContent]::new(
+        ($RequestBody | ConvertTo-Json -Depth 8),
+        [Text.Encoding]::UTF8,
+        "application/json"
+    )
+    [void]$content.Add($requestContent, "request")
+
+    if ($IncludePhoto) {
+        $photoContent = [System.Net.Http.ByteArrayContent]::new($E2E_PHOTO_BYTES)
+        $photoContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($E2E_PHOTO_MEDIA_TYPE)
+        [void]$content.Add($photoContent, "photo", $E2E_PHOTO_FILE_NAME)
+    }
+
+    return ,$content
+}
+
+function PhotoOnlyContent {
+    $content = [System.Net.Http.MultipartFormDataContent]::new()
+    $photoContent = [System.Net.Http.ByteArrayContent]::new($E2E_PHOTO_BYTES)
+    $photoContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($E2E_PHOTO_MEDIA_TYPE)
+    [void]$content.Add($photoContent, "photo", $E2E_PHOTO_FILE_NAME)
+    return ,$content
+}
+
+function Assert-GeneratedPhotoKey {
+    param(
+        [object]$Item,
+        [string]$ExpectedPrefix,
+        [string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Item.photoKey) -or -not $Item.photoKey.StartsWith($ExpectedPrefix)) {
+        throw "$Label should have generated photoKey with prefix '$ExpectedPrefix'. Actual: $($Item.photoKey)"
+    }
+}
+
+function Assert-SignedPhotoUrl {
+    param(
+        [object]$Body,
+        [string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Body.url)) {
+        throw "$Label should return a non-empty signed photo URL."
+    }
+    if (-not [System.Uri]::IsWellFormedUriString($Body.url, [System.UriKind]::Absolute)) {
+        throw "$Label should return an absolute signed photo URL. Actual: $($Body.url)"
+    }
+    if (-not $Body.url.Contains("X-Amz-Signature")) {
+        throw "$Label should return a MinIO presigned URL. Actual: $($Body.url)"
+    }
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
@@ -140,8 +206,7 @@ $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Re
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
 
 $publicVenueId = "11111111-1111-1111-1111-111111111111"
-$publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
-    photoKey = "e2e-public-photo"
+$publicLostReportRequest = @{
     description = "E2E public lost report"
     lostAt = "2026-05-19T15:30:00"
     location = "Gateway test"
@@ -154,7 +219,18 @@ $publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
         marks = @("E2E")
     }
 }
+$publicLostReport = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $publicLostReportRequest)
+).Result
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
+$publicLostReportBody = Read-Json $publicLostReport
+Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item multipart create"
+
+$publicLostPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo").Result
+Assert-Status $publicLostPhoto 401 "Public client cannot read lost-item photo"
+$publicLostPhotoUrl = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo-url").Result
+Assert-Status $publicLostPhotoUrl 401 "Public client cannot request lost-item signed photo URL"
 
 $adminTokens = Get-TokenPair $AdminEmail $AdminPassword
 $adminTokens = Refresh-TokenPair $adminTokens.refreshToken
@@ -218,8 +294,7 @@ Assert-Status $adminCreateByOps 403 "OPS_MANAGER cannot create ADMIN"
 $opsSelfDelete = $opsClient.DeleteAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
 Assert-Status $opsSelfDelete 403 "OPS_MANAGER cannot delete itself"
 
-$foundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" @{
-    photoKey = "found-e2e"
+$foundRequest = @{
     description = "E2E found item"
     foundAt = "2026-05-19T15:45:00"
     locationHint = "Desk"
@@ -232,14 +307,66 @@ $foundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" @{
         marks = @("E2E")
     }
 }
+$foundResponse = $opsClient.PostAsync(
+    "$GatewayBaseUrl/api/found-items",
+    (MultipartItemContent $foundRequest)
+).Result
 Assert-Status $foundResponse 201 "OPS_MANAGER can create found item in own venue"
 $foundItem = Read-Json $foundResponse
 if ($foundItem.venueId -ne $venueId) {
     throw "Found item should use OPS_MANAGER venueId. Expected $venueId but got $($foundItem.venueId)."
 }
+Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item multipart create"
 
-$lostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
-    photoKey = "lost-e2e"
+$foundPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo").Result
+Assert-Status $foundPhoto 200 "OPS_MANAGER can read found-item photo"
+if ($foundPhoto.Content.Headers.ContentType.MediaType -ne $E2E_PHOTO_MEDIA_TYPE) {
+    throw "Found-item photo should be returned as $E2E_PHOTO_MEDIA_TYPE but got $($foundPhoto.Content.Headers.ContentType)."
+}
+
+$foundPhotoUrl = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo-url").Result
+Assert-Status $foundPhotoUrl 200 "OPS_MANAGER can request found-item signed photo URL"
+Assert-SignedPhotoUrl (Read-Json $foundPhotoUrl) "Found-item signed photo URL"
+
+$publicFoundPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo").Result
+Assert-Status $publicFoundPhoto 401 "Public client cannot read found-item photo"
+$publicFoundPhotoUrl = $publicClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo-url").Result
+Assert-Status $publicFoundPhotoUrl 401 "Public client cannot request found-item signed photo URL"
+
+$foundJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)", (JsonContent @{
+    photoKey = "attacker-controlled-found-photo-key"
+    description = "E2E found item JSON update"
+    foundAt = "2026-05-19T15:46:00"
+    locationHint = "Desk updated"
+    status = "STORED"
+    venueId = "33333333-3333-3333-3333-333333333333"
+    reporterId = "44444444-4444-4444-4444-444444444444"
+    attributes = @{
+        category = "Bag"
+        brand = "Test"
+        color = "Black"
+        marks = @("E2E", "JSON update")
+    }
+})).Result
+Assert-Status $foundJsonUpdate 200 "Found item JSON update cannot replace photoKey"
+$foundJsonUpdated = Read-Json $foundJsonUpdate
+if ($foundJsonUpdated.photoKey -ne $foundItem.photoKey) {
+    throw "Found item JSON update changed photoKey. Expected $($foundItem.photoKey) but got $($foundJsonUpdated.photoKey)."
+}
+
+$foundPhotoUpdate = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $foundPhotoUpdate 200 "OPS_MANAGER can replace found-item photo"
+$foundPhotoUpdated = Read-Json $foundPhotoUpdate
+Assert-GeneratedPhotoKey $foundPhotoUpdated "found-items/" "Found-item photo replacement"
+if ($foundPhotoUpdated.photoKey -eq $foundItem.photoKey) {
+    throw "Found item photo replacement should generate a new photoKey."
+}
+$foundItem = $foundPhotoUpdated
+
+$lostRequest = @{
     description = "E2E lost item"
     lostAt = "2026-05-19T15:50:00"
     location = "Desk"
@@ -252,8 +379,56 @@ $lostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
         marks = @("E2E")
     }
 }
+$lostResponse = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $lostRequest)
+).Result
 Assert-Status $lostResponse 201 "Public lost item can be created for test venue"
 $lostItem = Read-Json $lostResponse
+Assert-GeneratedPhotoKey $lostItem "lost-reports/" "Lost-item multipart create"
+
+$lostPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo").Result
+Assert-Status $lostPhoto 200 "OPS_MANAGER can read lost-item photo"
+if ($lostPhoto.Content.Headers.ContentType.MediaType -ne $E2E_PHOTO_MEDIA_TYPE) {
+    throw "Lost-item photo should be returned as $E2E_PHOTO_MEDIA_TYPE but got $($lostPhoto.Content.Headers.ContentType)."
+}
+
+$lostPhotoUrl = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo-url").Result
+Assert-Status $lostPhotoUrl 200 "OPS_MANAGER can request lost-item signed photo URL"
+Assert-SignedPhotoUrl (Read-Json $lostPhotoUrl) "Lost-item signed photo URL"
+
+$lostJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)", (JsonContent @{
+    photoKey = "attacker-controlled-lost-photo-key"
+    description = "E2E lost item JSON update"
+    lostAt = "2026-05-19T15:51:00"
+    location = "Desk updated"
+    status = "OPEN"
+    venueId = $venueId
+    contactEmail = "lost-updated-$suffix@example.com"
+    attributes = @{
+        category = "Bag"
+        brand = "Test"
+        color = "Black"
+        marks = @("E2E", "JSON update")
+    }
+})).Result
+Assert-Status $lostJsonUpdate 200 "Lost item JSON update cannot replace photoKey"
+$lostJsonUpdated = Read-Json $lostJsonUpdate
+if ($lostJsonUpdated.photoKey -ne $lostItem.photoKey) {
+    throw "Lost item JSON update changed photoKey. Expected $($lostItem.photoKey) but got $($lostJsonUpdated.photoKey)."
+}
+
+$lostPhotoUpdate = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $lostPhotoUpdate 200 "OPS_MANAGER can replace lost-item photo"
+$lostPhotoUpdated = Read-Json $lostPhotoUpdate
+Assert-GeneratedPhotoKey $lostPhotoUpdated "lost-reports/" "Lost-item photo replacement"
+if ($lostPhotoUpdated.photoKey -eq $lostItem.photoKey) {
+    throw "Lost item photo replacement should generate a new photoKey."
+}
+$lostItem = $lostPhotoUpdated
 
 $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
     foundItemId = $foundItem.id
@@ -266,7 +441,6 @@ $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
 Assert-Status $matchResponse 201 "OPS_MANAGER can create same-venue match"
 
 $otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
-    photoKey = "lost-other-e2e"
     description = "E2E lost item other venue"
     lostAt = "2026-05-19T15:55:00"
     location = "Other"

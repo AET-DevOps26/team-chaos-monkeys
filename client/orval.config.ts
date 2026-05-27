@@ -1,8 +1,45 @@
 import { defineConfig } from 'orval'
+import type { GeneratorVerbOptions } from '@orval/core'
 
 const mutator = {
   path: './src/api/mutator/custom-instance.ts',
   name: 'customInstance',
+}
+
+const multipartJsonPartTransformer = (verb: GeneratorVerbOptions): GeneratorVerbOptions => {
+  const multipart = verb.body.originalSchema && 'content' in verb.body.originalSchema
+    ? verb.body.originalSchema.content?.['multipart/form-data']
+    : undefined
+  const encodings = multipart?.encoding ?? {}
+  const jsonPartNames = Object.entries(encodings)
+    .filter(([, encoding]) => encoding.contentType === 'application/json')
+    .map(([name]) => name)
+
+  if (!verb.body.formData || !multipart) {
+    return verb
+  }
+
+  let formData = verb.body.formData
+  for (const name of jsonPartNames) {
+    formData = formData.replace(
+      new RegExp(`formData\\.append\\(\\\`${name}\\\`, JSON\\.stringify\\(([^)]+)\\)\\);`, 'g'),
+      `formData.append(\`${name}\`, new Blob([JSON.stringify($1)], { type: 'application/json' }));`,
+    )
+  }
+
+  return {
+    ...verb,
+    body: {
+      ...verb.body,
+      contentType: '',
+      formData,
+    },
+  }
+}
+
+const apiOverride = {
+  mutator,
+  transformer: multipartJsonPartTransformer,
 }
 
 export default defineConfig({
@@ -13,7 +50,7 @@ export default defineConfig({
       client: 'react-query',
       mode: 'tags-split',
       schemas: './src/api/auth/model',
-      override: { mutator },
+      override: apiOverride,
     },
   },
   'lost-items': {
@@ -23,7 +60,7 @@ export default defineConfig({
       client: 'react-query',
       mode: 'tags-split',
       schemas: './src/api/lost-items/model',
-      override: { mutator },
+      override: apiOverride,
     },
   },
   'lost-items-zod': {
@@ -41,7 +78,7 @@ export default defineConfig({
       client: 'react-query',
       mode: 'tags-split',
       schemas: './src/api/found-items/model',
-      override: { mutator },
+      override: apiOverride,
     },
   },
   'found-items-zod': {

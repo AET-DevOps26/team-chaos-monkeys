@@ -4,6 +4,7 @@ import ReportLostItem from '@/pages/public/ReportLostItem'
 import ReportConfirmation from '@/pages/public/ReportLostItem/ReportConfirmation'
 import Login from '@/pages/Login'
 import RequireAuth from '@/auth/RequireAuth'
+import Layout from '@/components/Layout/Layout'
 
 export default function AppRoutes() {
   return (
@@ -15,7 +16,9 @@ export default function AppRoutes() {
         path="/"
         element={
           <RequireAuth>
-            <FoundItemIntake />
+            <Layout>
+              <FoundItemIntake />
+            </Layout>
           </RequireAuth>
         }
       />

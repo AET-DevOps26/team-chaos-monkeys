@@ -25,7 +25,11 @@ axiosInstance.interceptors.response.use(
   },
 )
 
-export const customInstance = <T>(config: AxiosRequestConfig): Promise<T> =>
-  axiosInstance(config).then(({ data }) => data)
+export const customInstance = <T>(config: AxiosRequestConfig): Promise<T> => {
+  if (config.data instanceof FormData) {
+    config.headers = { ...config.headers, 'Content-Type': undefined }
+  }
+  return axiosInstance(config).then(({ data }) => data)
+}
 
 export type ErrorType<E> = AxiosError<E>

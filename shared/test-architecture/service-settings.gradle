@@ -1,0 +1,3 @@
+def sharedTestArchitectureDir = new File(settingsDir, '../../shared/test-architecture').canonicalFile
+
+includeBuild(sharedTestArchitectureDir.path)

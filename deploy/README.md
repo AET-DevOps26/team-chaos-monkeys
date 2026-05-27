@@ -8,24 +8,43 @@ Compose stack on it. Both paths — local and CI — use the same playbook.
 > `terraform destroy`). See "Deploy via CI" below. Local steps below remain
 > supported.
 
+## Teammates: quickest path to a running demo
+
+No local tooling needed — just GitHub.
+
+1. **Actions** tab → **Azure cycle (ephemeral VM)** → **Run workflow**
+2. Pick `Use workflow from: development`, `action: apply`, leave `image_tag: latest`
+3. Wait ~7 min — the run **Summary** prints the public IP and URLs
+4. Visit `http://<ip>/`; log in with `admin@foundflow.local` / `admin12345`
+5. When done, **re-run the workflow with `action: destroy`** — the VM is billed hourly even when idle (~$1.10/day)
+
+Coordinate before dispatching: only one VM exists at a time, and concurrent `apply` runs queue against the same Terraform state. CLI equivalent:
+
+```sh
+gh workflow run azure-cycle.yml --ref development -f action=apply
+# … wait for the run to finish, grab the IP from the Summary …
+gh workflow run azure-cycle.yml --ref development -f action=destroy
+```
+
 ## What this provisions
 
 - Resource group, VNet/subnet, NSG (SSH/HTTP/HTTPS), static public IP, NIC
-- One Ubuntu 22.04 LTS VM (`Standard_B2s` by default — see warning below)
+- One Ubuntu 22.04 LTS VM (`Standard_B2s_v2` by default — see warning below)
 - SSH key auth (no password)
 
 ## What this does NOT do
 
 - Build images on the VM. We push to GHCR from your laptop, the VM only pulls.
-- Run Ollama. The 4 GB VM can't host the local LLM; genai-service is forced
+- Run Ollama. The 8 GB VM can't host the local LLM; genai-service is forced
   onto `GENAI_PROVIDER=openai` in the prod override.
 
 ## Sizing warning
 
-`Standard_B2s` is 2 vCPU / 4 GB. With 7 Spring services + 7 Postgres + Prom +
-Grafana + frontend, this is **borderline**. If you see OOM kills (`docker
-compose ps` shows services restart-looping), bump `vm_size` to
-`Standard_B4ms` (4 vCPU / 16 GB) in `terraform.tfvars` and `terraform apply`.
+`Standard_B2s_v2` is 2 vCPU / 8 GB / ~$0.05/hr. With 7 Spring services + 7
+Postgres + RabbitMQ + MinIO + Prom + Grafana + frontend, this fits but leaves
+little headroom. If you see OOM kills (`docker compose ps` shows services
+restart-looping), bump `vm_size` to `Standard_B4ms` (4 vCPU / 16 GB) in
+`terraform.tfvars` and `terraform apply`.
 
 ## Prerequisites
 

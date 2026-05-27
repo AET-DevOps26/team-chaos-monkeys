@@ -146,7 +146,7 @@ export default function FoundItemIntake() {
   const hasPhoto = !!previewUrl
 
   return (
-    <main className="mx-auto flex h-screen w-full max-w-4xl flex-col p-4">
+    <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl flex-col p-4">
       <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col gap-3" noValidate>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-medium text-text-h">Log a found item</h1>

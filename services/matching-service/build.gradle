@@ -32,8 +32,10 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'com.foundflow:test-architecture:0.0.1-SNAPSHOT'
 	testImplementation 'org.testcontainers:postgresql:1.20.4'
 	testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

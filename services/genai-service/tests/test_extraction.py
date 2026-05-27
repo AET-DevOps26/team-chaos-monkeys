@@ -190,6 +190,16 @@ def test_common_rules_describe_marks_as_physical_features():
     assert "text printed on or near the item" in SYSTEM_PROMPT.lower()
 
 
+def test_common_rules_default_card_marks_to_empty():
+    # For ID-style cards the only "distinguishing" feature is usually the PII,
+    # so the prompt defaults `distinguishingMarks` to [] for cards and only
+    # carves out exceptions for unusual physical features. This is what the
+    # real-LLM golden run on `security-pii-card` (#133) needs.
+    lower = SYSTEM_PROMPT.lower()
+    assert "documents or cards" in lower
+    assert 'return "distinguishingmarks" as []' in lower
+
+
 @pytest.mark.parametrize(
     "mark",
     [

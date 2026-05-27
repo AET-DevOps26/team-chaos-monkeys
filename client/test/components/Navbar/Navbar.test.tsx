@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { Route, Routes } from 'react-router-dom'
-import { renderWithProviders } from '@/test/render'
-import { makeFakeJwt } from '@/test/jwt'
+import { renderWithProviders } from '@test/render'
+import { makeFakeJwt } from '@test/jwt'
 import RequireAuth from '@/auth/RequireAuth'
-import Navbar from './Navbar'
+import Navbar from '@/components/Navbar/Navbar'
 
 const FAKE_JWT = makeFakeJwt({ sub: 'staff@example.com', roles: ['staff'] })
 

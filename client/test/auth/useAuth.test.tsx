@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { AuthProvider } from '@/auth/AuthContext'
 import { useAuth } from '@/auth/useAuth'
 import { dispatchUnauthorized, getCurrentToken } from '@/auth/token-store'
-import { makeFakeJwt } from '@tests/jwt'
+import { makeFakeJwt } from '@test/jwt'
 
 const TOKEN = makeFakeJwt({ sub: 'user-1', roles: ['staff'], venue_id: 'venue-1' })
 

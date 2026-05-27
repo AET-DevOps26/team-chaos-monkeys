@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { Route, Routes } from 'react-router-dom'
-import { renderWithProviders } from '@tests/render'
-import { server } from '@tests/server'
-import { loginInvalidCredentials, loginSuccess } from '@tests/handlers'
-import { makeFakeJwt } from '@tests/jwt'
+import { renderWithProviders } from '@test/render'
+import { server } from '@test/server'
+import { loginInvalidCredentials, loginSuccess } from '@test/handlers'
+import { makeFakeJwt } from '@test/jwt'
 import Login from '@/pages/Login/Login'
 
 const FAKE_JWT = makeFakeJwt()

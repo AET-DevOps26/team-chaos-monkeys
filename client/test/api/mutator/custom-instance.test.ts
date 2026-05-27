@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
-import { server } from '@tests/server'
+import { server } from '@test/server'
 import { customInstance } from '@/api/mutator/custom-instance'
 import { setCurrentToken, onUnauthorized } from '@/auth/token-store'
 

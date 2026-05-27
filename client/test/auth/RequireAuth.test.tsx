@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { Route, Routes } from 'react-router-dom'
-import { renderWithProviders } from '@tests/render'
-import { makeFakeJwt } from '@tests/jwt'
+import { renderWithProviders } from '@test/render'
+import { makeFakeJwt } from '@test/jwt'
 import RequireAuth from '@/auth/RequireAuth'
 
 const FAKE_JWT = makeFakeJwt()

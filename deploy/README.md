@@ -1,8 +1,12 @@
-# FoundFlow — Azure VM Deploy (Bullet 1)
+# FoundFlow — Azure VM Deploy
 
-Minimal Terraform + bash setup to provision a single Azure VM and run the full
-Compose stack on it. Throwaway: Ansible replaces the bash scripts in the next
-iteration.
+Terraform provisions a single Azure VM; Ansible installs Docker and runs the
+Compose stack on it. Both paths — local and CI — use the same playbook.
+
+> The classic CD path is **`.github/workflows/azure-cycle.yml`**: a
+> `workflow_dispatch` job that runs `terraform apply` → `ansible-playbook` (or
+> `terraform destroy`). See "Deploy via CI" below. Local steps below remain
+> supported.
 
 ## What this provisions
 
@@ -97,14 +101,27 @@ echo "OPENAI_API_KEY=sk-..." >> .env
 cd deploy
 ```
 
-### 5. Bootstrap the VM
+### 5. Run the playbook
 
 ```bash
-./scripts/bootstrap.sh tum-azure
+cd ansible
+export OPENAI_API_KEY=sk-...
+ansible-playbook \
+  -i "$(terraform -chdir=../terraform output -raw public_ip)," \
+  --user azureuser \
+  --private-key ~/.ssh/tum_devops_azure \
+  deploy.yml \
+  -e "openai_api_key=$OPENAI_API_KEY"
+cd ..
 ```
 
-Installs Docker + compose plugin, ships `docker-compose.yml` + the prod
-override + `.env`, pulls images, and starts the stack. Safe to re-run.
+Installs Docker + compose plugin, rsyncs the repo, templates `.env` with
+`OPENAI_API_KEY`, pulls images, starts the stack, and waits for the gateway
+to return 200. Re-running against the same VM is a near-no-op when nothing
+changed.
+
+> `scripts/bootstrap.sh` is the legacy bash path. Still works, kept as a
+> one-shot debug helper — the Ansible playbook is the primary entrypoint.
 
 ### 6. Verify
 
@@ -142,6 +159,23 @@ ssh tum-azure 'cd ~/foundflow && sudo docker compose \
   sudo docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d'
 ```
 
+## Deploy via CI
+
+Actions tab → **Azure cycle (ephemeral VM)** → Run workflow:
+
+- `action: apply` — `terraform apply` + run the playbook against the new VM.
+  Run summary prints the public IP and URLs.
+- `action: destroy` — `terraform destroy`. Run this when you're done; the VM
+  is billed by the hour even when idle.
+
+Terraform state lives in the `tfstate` container of the
+`foundflowtfstate720ff3` storage account (RG `tfstate-rg`), so `apply` and
+`destroy` runs share state across workflow invocations.
+
+Required repo secrets: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`,
+`AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_VM_SSH_KEY` (private key),
+`OPENAI_API_KEY`.
+
 ## Tearing down (stop burning credits)
 
 ```bash
@@ -158,12 +192,16 @@ stays so you can re-`apply` to recreate.
 deploy/
 ├── README.md                      ← this file
 ├── docker-compose.prod.yml        ← VM-side overrides (image: from GHCR, no Ollama)
+├── ansible/
+│   ├── ansible.cfg
+│   ├── deploy.yml                 ← install Docker + sync repo + compose up
+│   └── templates/env.j2           ← .env template (OPENAI_API_KEY injected)
 ├── scripts/
-│   ├── bootstrap.sh               ← install Docker + ship compose + start stack
+│   ├── bootstrap.sh               ← deprecated; one-shot debug helper
 │   ├── build-and-push.sh          ← local build + push to GHCR
 │   └── update-ssh-config.sh       ← add `Host tum-azure` to ~/.ssh/config
 └── terraform/
-    ├── main.tf                    ← all resources, variables, outputs
+    ├── main.tf                    ← all resources, variables, outputs (azurerm remote backend)
     ├── terraform.tfvars.example   ← copy → terraform.tfvars (gitignored)
     └── .gitignore                 ← keeps state + tfvars out of git
 ```

@@ -1,0 +1,115 @@
+name: Azure cycle (ephemeral VM)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: apply (provision + deploy) or destroy
+        type: choice
+        options: [apply, destroy]
+        required: true
+        default: apply
+      image_tag:
+        description: Image tag to deploy
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-cycle
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Write SSH public key for Terraform
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -y -f <(printf '%s\n' "${{ secrets.AZURE_VM_SSH_KEY }}") > ~/.ssh/tum_devops_azure.pub
+          chmod 644 ~/.ssh/tum_devops_azure.pub
+
+      - name: Terraform init
+        working-directory: deploy/terraform
+        run: terraform init -input=false
+
+      - name: Terraform destroy
+        if: ${{ inputs.action == 'destroy' }}
+        working-directory: deploy/terraform
+        run: terraform destroy -auto-approve -input=false -var "subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Terraform apply
+        if: ${{ inputs.action == 'apply' }}
+        working-directory: deploy/terraform
+        run: terraform apply -auto-approve -input=false -var "subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Capture public IP
+        if: ${{ inputs.action == 'apply' }}
+        id: tf
+        working-directory: deploy/terraform
+        run: echo "public_ip=$(terraform output -raw public_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Ansible
+        if: ${{ inputs.action == 'apply' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ansible
+          ansible-galaxy collection install community.docker ansible.posix
+
+      - name: Write SSH private key
+        if: ${{ inputs.action == 'apply' }}
+        run: |
+          install -m 600 /dev/null ~/.ssh/id_rsa
+          printf '%s\n' "${{ secrets.AZURE_VM_SSH_KEY }}" > ~/.ssh/id_rsa
+
+      - name: Run playbook
+        if: ${{ inputs.action == 'apply' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        working-directory: deploy/ansible
+        run: |
+          ansible-playbook \
+            -i "${{ steps.tf.outputs.public_ip }}," \
+            --user azureuser \
+            --private-key ~/.ssh/id_rsa \
+            deploy.yml \
+            -e "openai_api_key=$OPENAI_API_KEY" \
+            -e "image_tag=${{ inputs.image_tag }}"
+
+      - name: Summarise
+        if: ${{ inputs.action == 'apply' && success() }}
+        run: |
+          IP="${{ steps.tf.outputs.public_ip }}"
+          {
+            echo "### Azure VM deployed"
+            echo
+            echo "- IP: \`$IP\`"
+            echo "- Frontend: http://$IP/"
+            echo "- Gateway health: http://$IP/api/actuator/health"
+            echo
+            echo "Don't forget to **destroy** when finished (re-run with \`action: destroy\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarise (destroy)
+        if: ${{ inputs.action == 'destroy' && success() }}
+        run: |
+          {
+            echo "### Azure VM destroyed"
+            echo
+            echo "Resources removed via \`terraform destroy\`. tfstate backend retained for next cycle."
+          } >> "$GITHUB_STEP_SUMMARY"

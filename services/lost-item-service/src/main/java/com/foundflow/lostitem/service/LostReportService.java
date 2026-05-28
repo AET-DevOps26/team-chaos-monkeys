@@ -13,6 +13,7 @@ import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
+import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
@@ -51,19 +52,22 @@ public class LostReportService {
     private final PhotoStorage photoStorage;
     private final Duration photoUrlTtl;
     private final LostReportEventPublisher eventPublisher;
+    private final AttributeExtractionService attributeExtractionService;
 
     public LostReportService(
             LostReportRepository lostReportRepository,
             VenueAccessService venueAccessService,
             PhotoStorage photoStorage,
             @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
-            LostReportEventPublisher eventPublisher
+            LostReportEventPublisher eventPublisher,
+            AttributeExtractionService attributeExtractionService
     ) {
         this.lostReportRepository = lostReportRepository;
         this.venueAccessService = venueAccessService;
         this.photoStorage = photoStorage;
         this.photoUrlTtl = photoUrlTtl;
         this.eventPublisher = eventPublisher;
+        this.attributeExtractionService = attributeExtractionService;
     }
 
     public LostReportResponse createLostReport(
@@ -81,6 +85,8 @@ public class LostReportService {
         UUID venueId = resolveCreateVenueId(request, jwt);
         String photoKey = hasPhoto(photo) ? storePhoto(photo) : null;
 
+        ItemAttributes attributes = toItemAttributes(request.attributes());
+
         LostReport lostReport = new LostReport(
                 photoKey,
                 request.description(),
@@ -89,10 +95,23 @@ public class LostReportService {
                 ReportStatus.OPEN,
                 venueId,
                 request.contactEmail(),
-                toItemAttributes(request.attributes())
+                attributes
         );
 
         LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
+
+        // Best-effort GenAI extraction (issue #128). Only runs when the
+        // request did not already carry attributes — staff-supplied input
+        // wins because the human on-site has more context than the model.
+        // Failures are swallowed inside AttributeExtractionService.
+        if (attributes == null) {
+            attributeExtractionService.extract(request.description(), photoKey)
+                    .ifPresent(extracted -> {
+                        savedLostReport.setAttributes(extracted);
+                        lostReportRepository.save(savedLostReport);
+                    });
+        }
+
         eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
     }

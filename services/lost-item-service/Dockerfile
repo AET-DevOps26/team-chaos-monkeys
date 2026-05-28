@@ -5,6 +5,8 @@ WORKDIR /workspace
 COPY shared/common-domain ./shared/common-domain
 COPY shared/photo-storage ./shared/photo-storage
 COPY shared/domain-events ./shared/domain-events
+COPY shared/genai-client ./shared/genai-client
+COPY api ./api
 COPY services/lost-item-service ./services/lost-item-service
 
 WORKDIR /workspace/services/lost-item-service

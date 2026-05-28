@@ -12,6 +12,7 @@ info:
   version: 0.1.0
   license:
     name: Coursework — TUM CIT423001
+    identifier: NOASSERTION
   description: |
     Synchronous HTTP contract for the FoundFlow system.
 
@@ -30,8 +31,8 @@ info:
     receive provider-specific fields or error shapes.
 
 servers:
-  - url: /api/v1
-    description: API root. Versioning is path-based; breaking changes bump to /v2.
+  - url: /
+    description: API root. (Versioning will be introduced once a breaking change ships.)
 
 # Default security applies to all operations. Operations that are reachable
 # without auth (e.g. K8s probes) override with `security: []`.
@@ -401,7 +402,11 @@ components:
       properties:
         provider:
           type: string
-          enum: [openai, local]
+          # `fake` is a deterministic in-process provider used by CI E2E
+          # and downstream service integration tests; it returns canned
+          # JSON without any network call. Real deployments use openai or
+          # local; callers can treat `fake` like `local` for routing.
+          enum: [openai, local, fake]
         model:
           type: string
           description: Provider-specific model identifier, e.g. `gpt-4o-mini` or `llama3.1:8b`.
@@ -415,7 +420,7 @@ components:
           enum: [ok, degraded]
         provider:
           type: string
-          enum: [openai, local]
+          enum: [openai, local, fake]
         providerReachable:
           type: boolean
 

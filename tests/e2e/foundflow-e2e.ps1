@@ -8,11 +8,17 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Net.Http
 
-$E2E_PHOTO_BYTES = [Convert]::FromBase64String(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l2x2iQAAAABJRU5ErkJggg=="
+# The genai-service rejects sub-pixel placeholders (1x1 PNG) at the Pillow
+# decode step before the provider is ever invoked, so for the extraction
+# assertions (issue #128) we need bytes that pass validation. The golden
+# umbrella image is already shipped with the repo and serves both the
+# normal photo-flow assertions and the new GenAI ones.
+$repoRoot = (Get-Item $PSScriptRoot).Parent.Parent.FullName
+$E2E_PHOTO_BYTES = [System.IO.File]::ReadAllBytes(
+    (Join-Path $repoRoot "services/genai-service/tests/golden/images/umbrella-red.jpg")
 )
-$E2E_PHOTO_MEDIA_TYPE = "image/png"
-$E2E_PHOTO_FILE_NAME = "e2e-photo.png"
+$E2E_PHOTO_MEDIA_TYPE = "image/jpeg"
+$E2E_PHOTO_FILE_NAME = "e2e-photo.jpg"
 
 function Assert-Status {
     param(
@@ -621,6 +627,50 @@ $kpiBody = Read-Json $kpis
 if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1 -or $kpiBody.pendingMatches -lt 1) {
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
+
+# Issue #128 — GenAI attribute extraction wires through to persistence.
+# CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
+# ItemAttributes JSON ({"category":"jacket",...}) so we can assert
+# extraction actually ran end-to-end.
+$extractionLostRequest = @{
+    description = "E2E lost item without attributes"
+    lostAt = "2026-05-19T16:00:00"
+    location = "GenAI extraction test"
+    venueId = $venueId
+    contactEmail = "extract-$suffix@example.com"
+}
+$extractionLostResponse = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $extractionLostRequest)
+).Result
+Assert-Status $extractionLostResponse 201 "Lost-item create runs GenAI extraction"
+$extractionLostItem = Read-Json $extractionLostResponse
+
+# GenAI extraction happens after the response is sent in the current
+# implementation? No - it's inline. The fake provider is synchronous and
+# returns immediately, so the response body already carries attributes.
+if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+    throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+}
+Write-Host "[OK] Lost-item GenAI extraction populated category='jacket'"
+
+$extractionFoundRequest = @{
+    description = "E2E found item without attributes"
+    foundAt = "2026-05-19T16:05:00"
+    locationHint = "GenAI extraction"
+    venueId = "33333333-3333-3333-3333-333333333333"
+    reporterId = "44444444-4444-4444-4444-444444444444"
+}
+$extractionFoundResponse = $opsClient.PostAsync(
+    "$GatewayBaseUrl/api/found-items",
+    (MultipartItemContent $extractionFoundRequest)
+).Result
+Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
+$extractionFoundItem = Read-Json $extractionFoundResponse
+if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+    throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+}
+Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
 
 Logout-RefreshToken $opsTokens.refreshToken
 Logout-RefreshToken $adminTokens.refreshToken

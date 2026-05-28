@@ -24,7 +24,7 @@ router = APIRouter(tags=["_internal"])
 
 
 class DiagnosticResponse(BaseModel):
-    provider: Literal["openai", "local"]
+    provider: Literal["openai", "local", "fake"]
     chat_ok: bool
     embed_ok: bool
     chat_latency_ms: int

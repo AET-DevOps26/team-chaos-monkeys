@@ -15,6 +15,7 @@ import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoUrlResponse;
@@ -50,6 +51,9 @@ class FoundItemServiceTest {
 
     @Mock
     private FoundItemEventPublisher eventPublisher;
+
+    @Mock
+    private AttributeExtractionService attributeExtractionService;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -331,7 +335,8 @@ class FoundItemServiceTest {
                 venueAccessService,
                 photoStorage,
                 Duration.ofMinutes(10),
-                eventPublisher
+                eventPublisher,
+                attributeExtractionService
         );
     }
 

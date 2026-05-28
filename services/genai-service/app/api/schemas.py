@@ -94,7 +94,11 @@ class ItemAttributes(CamelModel):
 class ModelInfo(CamelModel):
     """Which provider/model produced a result — the `ModelInfo` schema."""
 
-    provider: Literal["openai", "local"]
+    # `fake` is the in-process provider used by CI E2E and downstream
+    # Spring integration tests (issue #128) — it never makes a network
+    # call and returns canned JSON. Callers that care about provenance
+    # treat `fake` like `local` for routing/observability purposes.
+    provider: Literal["openai", "local", "fake"]
     model: str
 
 

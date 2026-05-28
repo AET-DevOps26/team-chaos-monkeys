@@ -96,7 +96,7 @@ Domain entities and their relationships. `ItemAttributes` is a value object embe
 
 `User` represents a staff/ops/admin profile, not a guest. Credentials, login state, refresh tokens, and JWT issuance belong to `auth-service`; the profile record belongs to `operations-service`. `authSubject` links the operational user profile to the authenticated identity.
 
-`LostReport.location` captures the rough place where the guest believes the item was lost. `LostReport.photoKey` is optional supporting evidence from the guest and is limited to a single photo to keep the public report flow lightweight. Found-item photos remain mandatory for staff intake. Image-based attribute extraction is out of scope for this iteration.
+`LostReport.location` captures the rough place where the guest believes the item was lost. `LostReport.photoKey` is optional supporting evidence from the guest and is limited to a single photo to keep the public report flow lightweight. Found-item photos remain mandatory for staff intake. After intake, `lost-item-service` and `found-item-service` call `genai-service` `/extract-attributes` with the description and (when present) the base64-encoded photo via the photo-storage abstraction; extraction is best-effort and never blocks intake (degraded mode: attributes stay null, report still persists).
 
 Match scoring keeps the two matching signals separate: `attributeScore` comes from structured `ItemAttributes`, `semanticScore` comes from vector similarity over descriptions, and `combinedScore` is the ranking score shown to staff. `combinedScore` is not a calibrated probability; it is a service-level score derived from the matching weights.
 

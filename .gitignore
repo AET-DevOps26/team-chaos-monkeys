@@ -6,6 +6,9 @@ docker-compose.override.yml
 
 **/build/
 **/.gradle/
+**/bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
 .env
 
 # Local-only helm secrets (see docs/local-k8s.md)

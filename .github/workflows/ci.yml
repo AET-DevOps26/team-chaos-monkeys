@@ -243,6 +243,7 @@ jobs:
             "pickup-service|http://localhost:8080/pickups/actuator/health"
             "notification-service|http://localhost:8080/notifications/actuator/health"
             "operations-service|http://localhost:8080/venues/actuator/health"
+            "genai-service|http://localhost:8000/health"
           )
 
           check_service() {

@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 
 @Component
 public class IntakeEventListener {
@@ -30,7 +31,11 @@ public class IntakeEventListener {
                 event.lostReportId(),
                 event.venueId()
         );
-        candidateMatchingService.findCandidatesForLostReport(event);
+        runCandidateSearch(
+                "LostReportCreated",
+                event.eventId(),
+                () -> candidateMatchingService.findCandidatesForLostReport(event)
+        );
     }
 
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE)
@@ -41,7 +46,11 @@ public class IntakeEventListener {
                 event.lostReportId(),
                 event.venueId()
         );
-        candidateMatchingService.findCandidatesForLostReportUpdate(event);
+        runCandidateSearch(
+                "LostReportUpdated",
+                event.eventId(),
+                () -> candidateMatchingService.findCandidatesForLostReportUpdate(event)
+        );
     }
 
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE)
@@ -52,7 +61,11 @@ public class IntakeEventListener {
                 event.foundItemId(),
                 event.venueId()
         );
-        candidateMatchingService.findCandidatesForFoundItem(event);
+        runCandidateSearch(
+                "FoundItemLogged",
+                event.eventId(),
+                () -> candidateMatchingService.findCandidatesForFoundItem(event)
+        );
     }
 
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE)
@@ -63,6 +76,23 @@ public class IntakeEventListener {
                 event.foundItemId(),
                 event.venueId()
         );
-        candidateMatchingService.findCandidatesForFoundItemUpdate(event);
+        runCandidateSearch(
+                "FoundItemUpdated",
+                event.eventId(),
+                () -> candidateMatchingService.findCandidatesForFoundItemUpdate(event)
+        );
+    }
+
+    private void runCandidateSearch(String eventType, java.util.UUID eventId, Runnable action) {
+        try {
+            action.run();
+        } catch (RestClientException exception) {
+            log.warn(
+                    "Skipping candidate search for {} event {} after GenAI error: {}",
+                    eventType,
+                    eventId,
+                    exception.getMessage()
+            );
+        }
     }
 }

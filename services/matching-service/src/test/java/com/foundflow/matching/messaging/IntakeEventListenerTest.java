@@ -7,11 +7,15 @@ import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
 import com.foundflow.matching.service.CandidateMatchingService;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -105,5 +109,49 @@ class IntakeEventListenerTest {
         listener.onFoundItemUpdated(event);
 
         verify(candidateMatchingService).findCandidatesForFoundItemUpdate(event);
+    }
+
+    @Test
+    void nonRetryableGenAiError_shouldBeSkippedWithoutRabbitRedelivery() {
+        CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
+        IntakeEventListener listener = new IntakeEventListener(candidateMatchingService);
+        LostReportCreatedEvent event = lostReportCreatedEvent();
+        doThrow(new RestClientException("bad request"))
+                .when(candidateMatchingService)
+                .findCandidatesForLostReport(event);
+
+        assertDoesNotThrow(() -> listener.onLostReportCreated(event));
+
+        verify(candidateMatchingService).findCandidatesForLostReport(event);
+    }
+
+    @Test
+    void retryableGenAiError_shouldBeSkippedWithoutRabbitRedelivery() {
+        CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
+        IntakeEventListener listener = new IntakeEventListener(candidateMatchingService);
+        LostReportCreatedEvent event = lostReportCreatedEvent();
+        ResourceAccessException exception = new ResourceAccessException("timeout");
+        doThrow(exception)
+                .when(candidateMatchingService)
+                .findCandidatesForLostReport(event);
+
+        assertDoesNotThrow(() -> listener.onLostReportCreated(event));
+
+        verify(candidateMatchingService).findCandidatesForLostReport(event);
+    }
+
+    private LostReportCreatedEvent lostReportCreatedEvent() {
+        return new LostReportCreatedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "lost-reports/2026/05/photo.jpg",
+                "Black backpack",
+                Instant.parse("2026-05-24T12:30:00Z"),
+                "Front desk",
+                "OPEN",
+                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+        );
     }
 }

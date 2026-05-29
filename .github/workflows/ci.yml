@@ -211,6 +211,7 @@ jobs:
             lost-item-service \
             found-item-service \
             matching-service \
+            pickup-service \
             notification-service \
             operations-service \
             gateway-service \
@@ -238,6 +239,7 @@ jobs:
             "lost-item-service|http://localhost:8080/lost-items/actuator/health"
             "found-item-service|http://localhost:8080/found-items/actuator/health"
             "matching-service|http://localhost:8080/matches/actuator/health"
+            "pickup-service|http://localhost:8080/pickups/actuator/health"
             "notification-service|http://localhost:8080/notifications/actuator/health"
             "operations-service|http://localhost:8080/venues/actuator/health"
           )

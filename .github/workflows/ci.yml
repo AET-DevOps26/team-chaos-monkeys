@@ -33,6 +33,7 @@ jobs:
           - found-item-service
           - gateway-service
           - matching-service
+          - pickup-service
           - notification-service
           - operations-service
 

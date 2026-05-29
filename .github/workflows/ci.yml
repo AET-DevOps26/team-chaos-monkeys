@@ -221,6 +221,7 @@ jobs:
             lost-item-db \
             found-item-db \
             matching-db \
+            pickup-db \
             notification-db \
             operations-db \
             minio \

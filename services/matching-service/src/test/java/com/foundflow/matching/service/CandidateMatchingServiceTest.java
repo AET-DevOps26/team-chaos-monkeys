@@ -74,7 +74,7 @@ class CandidateMatchingServiceTest {
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.1f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -104,7 +104,7 @@ class CandidateMatchingServiceTest {
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.6f))); // semantic=0.4, combined=0.4
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.6f))); // semantic=0.4, combined=0.4
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
                 .thenReturn(Optional.empty());
 
@@ -125,7 +125,7 @@ class CandidateMatchingServiceTest {
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         // Very high semantic similarity (distance 0.02) but categories differ → combined = 0.0
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", 0.02f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", "test text source", 0.02f)));
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
 
@@ -178,7 +178,7 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.of(existing));
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -202,7 +202,7 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.of(confirmed));
 
@@ -223,7 +223,7 @@ class CandidateMatchingServiceTest {
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(lostReportId, "Bag", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(lostReportId, "Bag", "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));

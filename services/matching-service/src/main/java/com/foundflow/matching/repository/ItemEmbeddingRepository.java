@@ -65,7 +65,7 @@ public class ItemEmbeddingRepository {
         PGvector query = new PGvector(embedding);
         return jdbcTemplate.query(
                 """
-                SELECT item_id, category, embedding <=> ? AS distance
+                SELECT item_id, category, text_source, embedding <=> ? AS distance
                 FROM item_embeddings
                 WHERE item_type = ? AND venue_id = ?
                 ORDER BY embedding <=> ?
@@ -74,7 +74,8 @@ public class ItemEmbeddingRepository {
                 (rs, n) -> new SimilarItemEmbedding(
                         rs.getObject(1, UUID.class),
                         rs.getString(2),
-                        rs.getFloat(3)
+                        rs.getString(3),
+                        rs.getFloat(4)
                 ),
                 query,
                 oppositeType.name(),

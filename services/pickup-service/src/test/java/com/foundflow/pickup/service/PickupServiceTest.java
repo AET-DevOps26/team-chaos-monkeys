@@ -90,8 +90,6 @@ class PickupServiceTest {
                 .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
         when(scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId))
                 .thenReturn(List.of(schedule(venueId)));
-        when(pickupRepository.findByVenueIdAndPickupAtBetween(any(), any(), any()))
-                .thenReturn(List.of());
         when(pickupRepository.save(any(Pickup.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(magicLinkService.createPickupManageToken(null, matchId, venueId, "lost@example.com"))

@@ -283,18 +283,33 @@ public class PickupService {
 
     private List<PickupSlotResponse> slotsForVenue(UUID venueId) {
         List<PickupSchedule> schedules = scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId);
-        Set<LocalDateTime> occupied = new HashSet<>();
-        for (PickupSchedule schedule : schedules) {
-            for (LocalDate date : scheduleDates(schedule)) {
-                LocalDateTime dayStart = date.atStartOfDay();
-                pickupRepository.findByVenueIdAndPickupAtBetween(venueId, dayStart, dayStart.plusDays(1))
-                        .forEach(pickup -> occupied.add(pickup.getPickupAt()));
-            }
+        List<ScheduleDates> scheduleDates = schedules.stream()
+                .map(schedule -> new ScheduleDates(schedule, scheduleDates(schedule)))
+                .toList();
+        Set<LocalDate> dates = new HashSet<>();
+        scheduleDates.forEach(entry -> dates.addAll(entry.dates()));
+        Set<LocalDateTime> occupied = occupiedPickupTimes(venueId, dates);
+
+        return scheduleDates.stream()
+                .flatMap(entry -> buildSlots(entry.schedule(), entry.dates(), occupied).stream())
+                .toList();
+    }
+
+    private Set<LocalDateTime> occupiedPickupTimes(UUID venueId, Set<LocalDate> dates) {
+        if (dates.isEmpty()) {
+            return Set.of();
         }
 
-        return schedules.stream()
-                .flatMap(schedule -> buildSlots(schedule, occupied).stream())
-                .toList();
+        LocalDate firstDate = dates.stream().min(LocalDate::compareTo).orElseThrow();
+        LocalDate lastDate = dates.stream().max(LocalDate::compareTo).orElseThrow();
+        Set<LocalDateTime> occupied = new HashSet<>();
+        pickupRepository.findByVenueIdAndPickupAtBetween(
+                        venueId,
+                        firstDate.atStartOfDay(),
+                        lastDate.plusDays(1).atStartOfDay()
+                )
+                .forEach(pickup -> occupied.add(pickup.getPickupAt()));
+        return occupied;
     }
 
     private List<LocalDate> scheduleDates(PickupSchedule schedule) {
@@ -321,9 +336,13 @@ public class PickupService {
         return dates;
     }
 
-    private List<PickupSlotResponse> buildSlots(PickupSchedule schedule, Set<LocalDateTime> occupied) {
+    private List<PickupSlotResponse> buildSlots(
+            PickupSchedule schedule,
+            List<LocalDate> dates,
+            Set<LocalDateTime> occupied
+    ) {
         java.util.ArrayList<PickupSlotResponse> slots = new java.util.ArrayList<>();
-        for (LocalDate date : scheduleDates(schedule)) {
+        for (LocalDate date : dates) {
             slots.addAll(buildSlotsForDate(schedule, date, occupied));
         }
         return slots;
@@ -351,20 +370,33 @@ public class PickupService {
     }
 
     private void ensureSlotAvailable(UUID venueId, LocalDateTime pickupAt, UUID currentPickupId) {
-        boolean slotExists = slotsForVenue(venueId).stream()
-                .anyMatch(slot -> slot.startsAt().equals(pickupAt));
-        if (!slotExists) {
+        if (!slotExistsForVenue(venueId, pickupAt)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup time is not part of the venue schedule.");
         }
 
-        LocalDateTime dayStart = pickupAt.toLocalDate().atStartOfDay();
-        boolean occupied = pickupRepository.findByVenueIdAndPickupAtBetween(venueId, dayStart, dayStart.plusDays(1))
+        boolean occupied = pickupRepository.findByVenueIdAndPickupAt(venueId, pickupAt)
                 .stream()
-                .anyMatch(pickup -> pickup.getPickupAt().equals(pickupAt)
-                        && !Objects.equals(pickup.getId(), currentPickupId));
+                .anyMatch(pickup -> !Objects.equals(pickup.getId(), currentPickupId));
         if (occupied) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Pickup slot is already booked.");
         }
+    }
+
+    private boolean slotExistsForVenue(UUID venueId, LocalDateTime pickupAt) {
+        return scheduleRepository.findByVenueIdOrderByStartDateAscStartTimeAsc(venueId).stream()
+                .anyMatch(schedule -> scheduleDates(schedule).contains(pickupAt.toLocalDate())
+                        && slotStartsAt(schedule, pickupAt));
+    }
+
+    private boolean slotStartsAt(PickupSchedule schedule, LocalDateTime pickupAt) {
+        LocalTime slotTime = pickupAt.toLocalTime();
+        if (slotTime.isBefore(schedule.getStartTime())) {
+            return false;
+        }
+
+        int minutesFromStart = (int) java.time.Duration.between(schedule.getStartTime(), slotTime).toMinutes();
+        return minutesFromStart % schedule.getSlotLengthInMinutes() == 0
+                && !slotTime.plusMinutes(schedule.getSlotLengthInMinutes()).isAfter(schedule.getEndTime());
     }
 
     private UUID resolveVenueFilter(UUID requestedVenueId, Jwt jwt) {
@@ -494,5 +526,8 @@ public class PickupService {
                 emailLog.getMagicLink(),
                 emailLog.getSentAt()
         );
+    }
+
+    private record ScheduleDates(PickupSchedule schedule, List<LocalDate> dates) {
     }
 }

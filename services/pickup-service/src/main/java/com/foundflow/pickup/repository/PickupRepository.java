@@ -14,6 +14,8 @@ public interface PickupRepository extends JpaRepository<Pickup, UUID> {
 
     Optional<Pickup> findFirstByMatchId(UUID matchId);
 
+    List<Pickup> findByVenueIdAndPickupAt(UUID venueId, LocalDateTime pickupAt);
+
     List<Pickup> findByVenueIdAndPickupAtBetween(
             UUID venueId,
             LocalDateTime startInclusive,

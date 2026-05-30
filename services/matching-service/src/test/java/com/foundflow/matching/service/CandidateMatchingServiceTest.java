@@ -28,6 +28,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,7 @@ class CandidateMatchingServiceTest {
     private MatchRepository matchRepository;
     private GenaiClient genaiClient;
     private MatchCandidateEventPublisher eventPublisher;
+    private MatchVerificationService verificationService;
     private CandidateMatchingService service;
 
     @BeforeEach
@@ -53,11 +55,13 @@ class CandidateMatchingServiceTest {
         matchRepository = mock(MatchRepository.class);
         genaiClient = mock(GenaiClient.class);
         eventPublisher = mock(MatchCandidateEventPublisher.class);
+        verificationService = mock(MatchVerificationService.class);
         service = new CandidateMatchingService(
                 itemEmbeddingRepository,
                 matchRepository,
                 genaiClient,
                 eventPublisher,
+                verificationService,
                 new SimpleMeterRegistry(),
                 TOP_K,
                 THRESHOLD
@@ -92,6 +96,8 @@ class CandidateMatchingServiceTest {
         assertThat(persisted.getCombinedScore()).isEqualTo(0.9f);
 
         verify(eventPublisher).publishMatchCandidateCreated(persisted);
+        verify(verificationService).verifyAsync(
+                eq(persisted.getId()), anyString(), anyString());
     }
 
     @Test

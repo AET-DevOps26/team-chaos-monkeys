@@ -36,10 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const login = useCallback((tokens: TokenResponse) => {
+    const accessToken = tokens.accessToken ?? null
     setRefreshToken(tokens.refreshToken ?? null)
-    setCurrentToken(tokens.accessToken ?? null)
-    setAccessToken(tokens.accessToken ?? null)
-    setStatus('authenticated')
+    setCurrentToken(accessToken)
+    setAccessToken(accessToken)
+    // Without an access token there's no authenticated session to claim.
+    setStatus(accessToken ? 'authenticated' : 'unauthenticated')
   }, [])
 
   const logout = useCallback(() => {

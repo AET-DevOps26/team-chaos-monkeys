@@ -1,10 +1,13 @@
 // Token holders shared between React (AuthContext) and non-React code (axios
 // interceptors, the silent-refresh helper).
 //
-// - Access token: in memory only. Short-lived; kept out of localStorage so an
-//   XSS payload can't read it from disk.
+// - Access token: in memory only. Short-lived and discarded on reload.
 // - Refresh token: persisted to localStorage so the session survives a page
 //   reload. AuthContext rehydrates the access token from it on boot.
+//
+// TODO: this poses at the moment XSS risk, but is not solvable without backend changes. 
+// The robust fix is to have auth-service issue the refresh token as
+// an httpOnly+Secure cookie (invisible to JS); 
 
 let currentToken: string | null = null
 

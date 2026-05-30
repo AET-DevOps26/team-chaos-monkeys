@@ -9,10 +9,14 @@ export const axiosInstance = axios.create({
 })
 
 // Auth endpoints whose own 401s must not trigger a refresh/retry: a bad password
-// on login, or an expired/revoked refresh token. These are handled locally (the
-// Login form, or refresh.ts) — never by tearing the session down here.
+// on login, an expired/revoked refresh token, or logout (which intentionally
+// clears the session). These are handled locally (the Login form, or refresh.ts)
+// — never by tearing the session down here.
 const isAuthBypass = (url?: string) =>
-  !!url && (url.includes('/api/auth/refresh') || url.includes('/api/auth/login'))
+  !!url &&
+  (url.includes('/api/auth/refresh') ||
+    url.includes('/api/auth/login') ||
+    url.includes('/api/auth/logout'))
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean }
 

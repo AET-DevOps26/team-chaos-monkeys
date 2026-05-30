@@ -108,6 +108,10 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8084" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
+    secretEnv:
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
     kind: spring

@@ -9,7 +9,7 @@ const linkIdle = 'text-text-h'
 const placeholderCls =
   'rounded px-3 py-1.5 text-sm font-medium text-text-h opacity-40 cursor-not-allowed select-none'
 
-const placeholders = ['Lost Items', 'Dashboard'] as const
+const placeholders = ['Dashboard'] as const
 
 export default function Navbar() {
   const { user, logout } = useAuth()
@@ -42,6 +42,16 @@ export default function Navbar() {
               }
             >
               Found Items
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/lost-items"
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : linkIdle}`
+              }
+            >
+              Lost Items
             </NavLink>
           </li>
           {placeholders.map((label) => (

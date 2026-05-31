@@ -1,6 +1,7 @@
 import type { LostReportResponse } from '@/api/lost-items/model'
 import { LostReportResponseStatus } from '@/api/lost-items/model'
-import LostReportPhoto from './LostReportPhoto'
+import { useGetLostReportPhotoUrl } from '@/api/lost-items/lost-report-controller/lost-report-controller'
+import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
@@ -52,7 +53,11 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-accent-bg/40">
       <td className={`${cellCls} w-12`}>
         <div className={thumbCls}>
-          <LostReportPhoto id={report.id} alt={label} />
+          <PhotoThumbnail
+            id={report.id}
+            alt={label}
+            usePhotoUrl={useGetLostReportPhotoUrl}
+          />
         </div>
       </td>
       <td className={`${cellCls} text-text-h`}>

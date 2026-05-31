@@ -25,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -74,6 +75,7 @@ public class PickupService {
         return slotsForVenue(claims.venueId());
     }
 
+    @Transactional
     public PublicPickupResponse createPublicPickup(String token, CreatePickupRequest request) {
         MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         String email = normalizeEmail(request.email());
@@ -101,6 +103,7 @@ public class PickupService {
         return toPublicResponse(pickup, manageUrl);
     }
 
+    @Transactional
     public Optional<PublicPickupResponse> updatePublicPickup(String token, UpdatePickupRequest request) {
         MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_PICKUP_MANAGE);
         return pickupRepository.findById(claims.pickupId())
@@ -118,6 +121,7 @@ public class PickupService {
                 });
     }
 
+    @Transactional
     public boolean deletePublicPickup(String token) {
         MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_PICKUP_MANAGE);
         return pickupRepository.findById(claims.pickupId())

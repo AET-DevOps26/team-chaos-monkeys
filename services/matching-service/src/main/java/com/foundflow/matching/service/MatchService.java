@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -223,6 +224,7 @@ public class MatchService {
         return updatePublicMatchStatus(token, MatchStatus.REJECTED);
     }
 
+    @Transactional
     public Optional<PublicMatchLinkResponse> createPublicMatchLink(
             UUID id,
             CreatePublicMatchLinkRequest request,

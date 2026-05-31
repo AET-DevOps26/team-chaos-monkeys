@@ -1,11 +1,8 @@
-package com.foundflow.matching.service;
+package com.foundflow.magiclink;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.Mac;
@@ -16,23 +13,23 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
 
-@Service
 public class MagicLinkService {
 
     public static final String TYPE_MATCH_VIEW = "match_view";
+    public static final String TYPE_PICKUP_MANAGE = "pickup_manage";
 
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final byte[] secret;
     private final long ttlSeconds;
 
-    @Autowired
-    public MagicLinkService(
-            @Value("${foundflow.magic-link.secret}") String secret,
-            @Value("${foundflow.magic-link.ttl-days:7}") long ttlDays
-    ) {
-        this.objectMapper = JsonMapper.builder().build();
-        this.clock = Clock.systemUTC();
+    public MagicLinkService(String secret, long ttlDays) {
+        this(JsonMapper.builder().build(), Clock.systemUTC(), secret, ttlDays);
+    }
+
+    MagicLinkService(ObjectMapper objectMapper, Clock clock, String secret, long ttlDays) {
+        this.objectMapper = objectMapper;
+        this.clock = clock;
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.ttlSeconds = ttlDays * 24 * 60 * 60;
     }
@@ -43,14 +40,33 @@ public class MagicLinkService {
                 matchId,
                 null,
                 venueId,
-                email == null ? null : email.trim().toLowerCase(),
-                Instant.now(clock).plusSeconds(ttlSeconds).getEpochSecond()
+                normalizeEmail(email),
+                expiresAt()
         ));
     }
 
-    public MagicLinkClaims verifyMatchViewToken(String token) {
+    public String createPickupManageToken(UUID pickupId, UUID matchId, UUID venueId, String email) {
+        return createToken(new MagicLinkClaims(
+                TYPE_PICKUP_MANAGE,
+                matchId,
+                pickupId,
+                venueId,
+                normalizeEmail(email),
+                expiresAt()
+        ));
+    }
+
+    public MagicLinkClaims verify(String token, String expectedType) {
         MagicLinkClaims claims = verify(token);
-        if (!TYPE_MATCH_VIEW.equals(claims.type())) {
+        if (!expectedType.equals(claims.type())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Magic link cannot be used for this action.");
+        }
+        return claims;
+    }
+
+    public MagicLinkClaims verifyForSlots(String token) {
+        MagicLinkClaims claims = verify(token);
+        if (!TYPE_MATCH_VIEW.equals(claims.type()) && !TYPE_PICKUP_MANAGE.equals(claims.type())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Magic link cannot be used for this action.");
         }
         return claims;
@@ -102,6 +118,10 @@ public class MagicLinkService {
         }
     }
 
+    private long expiresAt() {
+        return Instant.now(clock).plusSeconds(ttlSeconds).getEpochSecond();
+    }
+
     private byte[] sign(String payload) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -112,7 +132,7 @@ public class MagicLinkService {
         }
     }
 
-    private boolean timingSafeEquals(byte[] expected, byte[] actual) {
+    private static boolean timingSafeEquals(byte[] expected, byte[] actual) {
         if (expected.length != actual.length) {
             return false;
         }
@@ -121,6 +141,10 @@ public class MagicLinkService {
             diff |= expected[i] ^ actual[i];
         }
         return diff == 0;
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     private ResponseStatusException invalidToken() {

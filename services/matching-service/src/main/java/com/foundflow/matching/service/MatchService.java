@@ -1,5 +1,7 @@
 package com.foundflow.matching.service;
 
+import com.foundflow.magiclink.MagicLinkClaims;
+import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
@@ -207,7 +209,7 @@ public class MatchService {
     }
 
     public Optional<MatchResponse> getPublicMatch(String token) {
-        MagicLinkClaims claims = magicLinkService.verifyMatchViewToken(token);
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         return matchRepository.findById(claims.matchId())
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
                 .map(this::toResponse);
@@ -295,7 +297,7 @@ public class MatchService {
     }
 
     private Optional<MatchResponse> updatePublicMatchStatus(String token, MatchStatus status) {
-        MagicLinkClaims claims = magicLinkService.verifyMatchViewToken(token);
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         return matchRepository.findById(claims.matchId())
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
                 .map(match -> {

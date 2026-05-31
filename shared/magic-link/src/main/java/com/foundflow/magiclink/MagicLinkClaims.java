@@ -1,4 +1,4 @@
-package com.foundflow.pickup.service;
+package com.foundflow.magiclink;
 
 import java.util.UUID;
 

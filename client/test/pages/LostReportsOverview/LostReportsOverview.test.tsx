@@ -53,18 +53,13 @@ describe('<LostReportsOverview />', () => {
     expect(screen.queryByText('Black leather wallet')).not.toBeInTheDocument()
   })
 
-  it('expands a row on click to reveal the full description and lazily loads the photo', async () => {
+  it('renders a thumbnail for each report inline (no expansion needed)', async () => {
     server.use(lostReportsList(REPORTS), lostReportPhotoUrl())
-    const { user } = renderWithProviders(<LostReportsOverview />)
+    renderWithProviders(<LostReportsOverview />)
 
-    const summary = await screen.findByText('Black leather wallet')
-    // The remainder of the description and the photo are not present until expand.
-    expect(screen.queryByText(/with three cards inside/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('img', { name: 'Black leather wallet' })).not.toBeInTheDocument()
-
-    await user.click(summary)
-
-    expect(await screen.findByText(/with three cards inside/i)).toBeInTheDocument()
+    // The row label is the first line of the description...
+    await screen.findByText('Black leather wallet')
+    // ...and the photo thumbnail loads inline, without any click to expand.
     expect(
       await screen.findByRole('img', { name: 'Black leather wallet' }),
     ).toBeInTheDocument()

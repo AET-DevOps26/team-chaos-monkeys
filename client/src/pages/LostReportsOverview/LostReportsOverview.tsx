@@ -80,6 +80,9 @@ export default function LostReportsOverview() {
           <table className="w-full border-collapse" aria-busy={isFetching}>
             <thead className="border-b border-border bg-accent-bg/20">
               <tr>
+                <th scope="col" className={headCellCls}>
+                  <span className="sr-only">Photo</span>
+                </th>
                 <th scope="col" className={headCellCls}>Item</th>
                 <th scope="col" className={headCellCls}>Location</th>
                 <th scope="col" className={headCellCls}>Lost on</th>
@@ -87,11 +90,13 @@ export default function LostReportsOverview() {
                 <th scope="col" className={headCellCls}>Status</th>
               </tr>
             </thead>
-            {isLoading
-              ? Array.from({ length: 8 }).map((_, i) => <LostReportRowSkeleton key={i} />)
-              : data?.map((report) => (
-                  <LostReportRow key={report.id} report={report} />
-                ))}
+            <tbody>
+              {isLoading
+                ? Array.from({ length: 8 }).map((_, i) => <LostReportRowSkeleton key={i} />)
+                : data?.map((report) => (
+                    <LostReportRow key={report.id} report={report} />
+                  ))}
+            </tbody>
           </table>
         </div>
       )}

@@ -97,6 +97,38 @@ describe('useAuth', () => {
     expect(getRefreshToken()).toBeNull()
   })
 
+  it('ignores a boot refresh that resolves after the user logs out', async () => {
+    setRefreshToken('persisted-refresh')
+
+    let releaseRefresh!: () => void
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve
+    })
+    server.use(
+      http.post('*/api/auth/refresh', async () => {
+        await refreshGate
+        return HttpResponse.json({
+          accessToken: TOKEN,
+          refreshToken: 'rotated-refresh',
+          tokenType: 'Bearer',
+          expiresIn: 3600,
+        })
+      }),
+    )
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    expect(result.current.status).toBe('loading')
+
+    act(() => result.current.logout())
+    expect(result.current.status).toBe('unauthenticated')
+
+    releaseRefresh()
+    await waitFor(() => expect(getCurrentToken()).toBeNull())
+    expect(result.current.status).toBe('unauthenticated')
+    expect(result.current.accessToken).toBeNull()
+    expect(getRefreshToken()).toBeNull()
+  })
+
   it('throws when used outside an AuthProvider', () => {
     expect(() => renderHook(() => useAuth())).toThrow(/AuthProvider/)
   })

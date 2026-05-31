@@ -35,8 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getRefreshToken() ? 'loading' : 'unauthenticated',
   )
 
+  // Flipped by logout() to invalidate any in-flight refresh: refresh.ts writes
+  // the new token pair to the store and dispatches before its promise resolves,
+  // so without this gate a refresh that lands after logout would re-populate
+  // the store and re-authenticate the React state.
+  const sessionLive = useRef(true)
+
   const login = useCallback((tokens: TokenResponse) => {
     const accessToken = tokens.accessToken ?? null
+    sessionLive.current = accessToken !== null
     setRefreshToken(tokens.refreshToken ?? null)
     setCurrentToken(accessToken)
     setAccessToken(accessToken)
@@ -45,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
+    sessionLive.current = false
     const refreshToken = getRefreshToken()
     if (refreshToken) {
       // Best-effort server-side revocation; local state is cleared regardless.
@@ -58,33 +66,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Rehydrate the session on boot iff a refresh token was persisted at mount.
   // The ref guard plus refresh.ts' single-flight keep React StrictMode's
-  // double-invoked effect from rotating the token twice.
+  // double-invoked effect from rotating the token twice. Success and failure
+  // both surface through the dispatched events handled below, so this effect
+  // only kicks the refresh off and swallows the rejection.
   const bootstrapped = useRef(false)
   const hadRefreshTokenAtMount = useRef(getRefreshToken() !== null)
   useEffect(() => {
     if (bootstrapped.current) return
     bootstrapped.current = true
     if (!hadRefreshTokenAtMount.current) return
-
-    refreshAccessToken()
-      .then((token) => {
-        setAccessToken(token)
-        setStatus('authenticated')
-      })
-      .catch(() => {
-        setAccessToken(null)
-        setStatus('unauthenticated')
-      })
+    refreshAccessToken().catch(() => {})
   }, [])
 
   // A 401 anywhere that fails to refresh tears the session down.
   useEffect(() => onUnauthorized(logout), [logout])
 
-  // Keep React state in sync with interceptor-driven refreshes so the decoded
-  // user (roles/venue) reflects the latest access token.
+  // Keep React state in sync with refresh.ts (boot rehydration + the 401
+  // interceptor). A refresh that resolves after the user logged out is stale:
+  // scrub the writes refresh.ts already made to the token store, but leave
+  // the React state alone.
   useEffect(
     () =>
       onTokenRefreshed((token) => {
+        if (!sessionLive.current) {
+          setCurrentToken(null)
+          setRefreshToken(null)
+          return
+        }
         setAccessToken(token)
         setStatus('authenticated')
       }),

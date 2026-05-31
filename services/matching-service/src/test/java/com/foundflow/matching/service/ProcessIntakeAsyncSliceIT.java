@@ -1,6 +1,7 @@
 package com.foundflow.matching.service;
 
-import com.foundflow.matching.client.GenAiClient;
+import com.foundflow.genai.client.GenaiClient;
+import com.foundflow.genai.client.model.EmbedResponse;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.messaging.MatchCandidateEventPublisher;
@@ -44,7 +45,7 @@ class ProcessIntakeAsyncSliceIT {
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
     private MatchRepository matchRepository;
-    private GenAiClient genAiClient;
+    private GenaiClient genaiClient;
     private MatchCandidateEventPublisher eventPublisher;
     private MatchVerificationService verificationService;
     private CandidateMatchingService matchingService;
@@ -71,7 +72,7 @@ class ProcessIntakeAsyncSliceIT {
 
         itemEmbeddingRepository = mock(ItemEmbeddingRepository.class);
         matchRepository = mock(MatchRepository.class);
-        genAiClient = mock(GenAiClient.class);
+        genaiClient = mock(GenaiClient.class);
         eventPublisher = mock(MatchCandidateEventPublisher.class);
 
         verifyDone = new CountDownLatch(1);
@@ -98,7 +99,7 @@ class ProcessIntakeAsyncSliceIT {
         matchingService = new CandidateMatchingService(
                 itemEmbeddingRepository,
                 matchRepository,
-                genAiClient,
+                genaiClient,
                 eventPublisher,
                 verificationService,
                 new SimpleMeterRegistry(),
@@ -116,7 +117,7 @@ class ProcessIntakeAsyncSliceIT {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostItemId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f, 0.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category on the candidate so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, "blue jacket found side", 0.1f)));
@@ -159,7 +160,7 @@ class ProcessIntakeAsyncSliceIT {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostItemId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f, 0.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55 threshold
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, "found item text source", 0.1f)));
@@ -187,7 +188,7 @@ class ProcessIntakeAsyncSliceIT {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.FOUND, foundItemId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f, 0.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55 threshold
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(lostItemId, null, "lost report text source", 0.1f)));
@@ -203,5 +204,16 @@ class ProcessIntakeAsyncSliceIT {
                 eq("lost report text source"),     // lostText = candidate.textSource() (LOST side)
                 eq("blue jacket front desk")       // foundText = ownText (FOUND side)
         );
+    }
+
+    private static EmbedResponse embedResponse(float... vector) {
+        java.util.List<Float> boxed = new java.util.ArrayList<>(vector.length);
+        for (float v : vector) {
+            boxed.add(v);
+        }
+        EmbedResponse response = new EmbedResponse();
+        response.setEmbeddings(java.util.List.of(boxed));
+        response.setDimensions(vector.length);
+        return response;
     }
 }

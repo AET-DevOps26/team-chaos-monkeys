@@ -5,13 +5,28 @@ WORKDIR /workspace
 COPY shared/common-domain ./shared/common-domain
 COPY shared/photo-storage ./shared/photo-storage
 COPY shared/domain-events ./shared/domain-events
+COPY shared/genai-client ./shared/genai-client
+COPY api ./api
 COPY services/lost-item-service ./services/lost-item-service
 
 WORKDIR /workspace/services/lost-item-service
 
 RUN gradle clean bootJar --no-daemon
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jdk-alpine AS jre
+
+RUN "$JAVA_HOME/bin/jlink" \
+      --add-modules java.base,java.compiler,java.logging,java.naming,java.sql,java.management,java.instrument,java.security.jgss,java.xml,java.desktop,java.net.http,jdk.unsupported,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.management,jdk.management.agent,jdk.jdwp.agent,jdk.zipfs,jdk.naming.dns,jdk.httpserver \
+      --strip-debug --no-man-pages --no-header-files --compress=zip-9 \
+      --output /opt/jre
+
+FROM alpine:3.21
+
+RUN apk add --no-cache tzdata
+
+ENV JAVA_HOME=/opt/jre PATH="/opt/jre/bin:$PATH"
+
+COPY --from=jre /opt/jre /opt/jre
 
 WORKDIR /app
 

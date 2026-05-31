@@ -1,0 +1,14 @@
+# Local state, credentials, and provider plugins — never commit.
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform/
+# Note: .terraform.lock.hcl IS committed (pins provider versions for reproducibility)
+crash.log
+crash.*.log
+tfplan.binary
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

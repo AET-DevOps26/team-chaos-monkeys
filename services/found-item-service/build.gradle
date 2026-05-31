@@ -28,6 +28,7 @@ dependencies {
 	implementation 'com.foundflow:common-domain:0.0.1-SNAPSHOT'
 	implementation 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
 	implementation 'com.foundflow:domain-events:0.0.1-SNAPSHOT'
+	implementation 'com.foundflow:genai-client:0.0.1-SNAPSHOT'
 
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-amqp'
@@ -35,8 +36,10 @@ dependencies {
 	runtimeOnly 'org.postgresql:postgresql'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'com.foundflow:test-architecture:0.0.1-SNAPSHOT'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
 

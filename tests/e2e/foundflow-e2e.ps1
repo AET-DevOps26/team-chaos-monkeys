@@ -8,11 +8,17 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Net.Http
 
-$E2E_PHOTO_BYTES = [Convert]::FromBase64String(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l2x2iQAAAABJRU5ErkJggg=="
+# The genai-service rejects sub-pixel placeholders (1x1 PNG) at the Pillow
+# decode step before the provider is ever invoked, so for the extraction
+# assertions (issue #128) we need bytes that pass validation. The golden
+# umbrella image is already shipped with the repo and serves both the
+# normal photo-flow assertions and the new GenAI ones.
+$repoRoot = (Get-Item $PSScriptRoot).Parent.Parent.FullName
+$E2E_PHOTO_BYTES = [System.IO.File]::ReadAllBytes(
+    (Join-Path $repoRoot "services/genai-service/tests/golden/images/umbrella-red.jpg")
 )
-$E2E_PHOTO_MEDIA_TYPE = "image/png"
-$E2E_PHOTO_FILE_NAME = "e2e-photo.png"
+$E2E_PHOTO_MEDIA_TYPE = "image/jpeg"
+$E2E_PHOTO_FILE_NAME = "e2e-photo.jpg"
 
 function Assert-Status {
     param(
@@ -90,6 +96,20 @@ function Logout-RefreshToken {
     Assert-Status $response 204 "Refresh token can be logged out"
 }
 
+function Assert-RefreshRejected {
+    param(
+        [string]$RefreshToken,
+        [string]$Label
+    )
+
+    $client = [System.Net.Http.HttpClient]::new()
+    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
+        refreshToken = $RefreshToken
+    })).Result
+
+    Assert-Status $response 401 $Label
+}
+
 function New-GatewayClient {
     param([string]$AccessToken)
 
@@ -112,6 +132,10 @@ function JsonContent {
         [Text.Encoding]::UTF8,
         "application/json"
     )
+}
+
+function EmptyContent {
+    return [System.Net.Http.StringContent]::new("")
 }
 
 function Read-Json {
@@ -202,6 +226,15 @@ $publicClient = New-GatewayClient
 $health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
 Assert-Status $health 200 "Gateway health is public"
 
+$swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/swagger-ui/index.html").Result
+Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
+
+$gatewayApiDocs = $publicClient.GetAsync("$GatewayBaseUrl/v3/api-docs").Result
+Assert-Status $gatewayApiDocs 200 "Gateway OpenAPI docs are public"
+
+$authHealth = $publicClient.GetAsync("$GatewayBaseUrl/auth/actuator/health").Result
+Assert-Status $authHealth 200 "Proxied auth health endpoint is public"
+
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
 
@@ -238,6 +271,8 @@ $adminClient = New-GatewayClient $adminTokens.accessToken
 
 $users = $adminClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $users 200 "Admin can list users"
+$usersByEmail = $adminClient.GetAsync("$GatewayBaseUrl/api/users/by-email?email=$([System.Uri]::EscapeDataString($AdminEmail))").Result
+Assert-Status $usersByEmail 200 "Admin can load user by email"
 
 $suffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
 $venueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
@@ -248,6 +283,9 @@ $venueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
 Assert-Status $venueResponse 201 "Admin can create venue"
 $venue = Read-Json $venueResponse
 $venueId = $venue.id
+
+$venueById = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/$venueId").Result
+Assert-Status $venueById 200 "Admin can load venue by id"
 
 $opsEmail = "ops-$suffix@foundflow.local"
 $opsPassword = "ops12345"
@@ -282,6 +320,9 @@ $staff = Read-Json $staffResponse
 if ($staff.venueId -ne $venueId) {
     throw "OPS_MANAGER-created staff should receive own venueId. Expected $venueId but got $($staff.venueId)."
 }
+
+$staffTokens = Get-TokenPair $staffEmail "staff12345"
+$staffClient = New-GatewayClient $staffTokens.accessToken
 
 $adminCreateByOps = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
     email = "admin-$suffix@foundflow.local"
@@ -430,6 +471,34 @@ if ($lostPhotoUpdated.photoKey -eq $lostItem.photoKey) {
 }
 $lostItem = $lostPhotoUpdated
 
+$foundCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/count?status=STORED").Result
+Assert-Status $foundCountResponse 200 "OPS_MANAGER can read found-item count"
+$foundCountBody = Read-Json $foundCountResponse
+if ($foundCountBody.count -lt 1) {
+    throw "Found-item count should include the created item."
+}
+
+$foundHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/histogram?status=STORED").Result
+Assert-Status $foundHistogramResponse 200 "OPS_MANAGER can read found-item histogram"
+$foundHistogramBody = Read-Json $foundHistogramResponse
+if (@($foundHistogramBody.perDay).Count -lt 1) {
+    throw "Found-item histogram should contain at least one daily bucket."
+}
+
+$lostCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/count?status=OPEN").Result
+Assert-Status $lostCountResponse 200 "OPS_MANAGER can read lost-item count"
+$lostCountBody = Read-Json $lostCountResponse
+if ($lostCountBody.count -lt 1) {
+    throw "Lost-item count should include the created report."
+}
+
+$lostHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/histogram?status=OPEN").Result
+Assert-Status $lostHistogramResponse 200 "OPS_MANAGER can read lost-item histogram"
+$lostHistogramBody = Read-Json $lostHistogramResponse
+if (@($lostHistogramBody.perDay).Count -lt 1) {
+    throw "Lost-item histogram should contain at least one daily bucket."
+}
+
 $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
     foundItemId = $foundItem.id
     lostReportId = $lostItem.id
@@ -439,6 +508,7 @@ $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
     combinedScore = 0.85
 }
 Assert-Status $matchResponse 201 "OPS_MANAGER can create same-venue match"
+$match = Read-Json $matchResponse
 
 $otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
     description = "E2E lost item other venue"
@@ -466,6 +536,91 @@ $crossVenueMatch = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
 }
 Assert-Status $crossVenueMatch 403 "Cross-venue match is rejected"
 
+$matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
+Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
+
+$matchListResponse = $opsClient.GetAsync(
+    "$GatewayBaseUrl/api/matches?foundItem=$($foundItem.id)&lostItem=$($lostItem.id)&status=PENDING"
+).Result
+Assert-Status $matchListResponse 200 "OPS_MANAGER can list filtered matches"
+$matchListBody = Read-Json $matchListResponse
+if (@($matchListBody).Count -lt 1) {
+    throw "Filtered match list should include the created match."
+}
+
+$matchCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/count?status=PENDING").Result
+Assert-Status $matchCountResponse 200 "OPS_MANAGER can read match count"
+$matchCountBody = Read-Json $matchCountResponse
+if ($matchCountBody.count -lt 1) {
+    throw "Match count should include the created pending match."
+}
+
+$matchHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/histogram?status=PENDING").Result
+Assert-Status $matchHistogramResponse 200 "OPS_MANAGER can read match histogram"
+$matchHistogramBody = Read-Json $matchHistogramResponse
+if (@($matchHistogramBody.perDay).Count -lt 1) {
+    throw "Match histogram should contain at least one daily bucket."
+}
+
+$notificationCreateResponse = Post-Json $opsClient "$GatewayBaseUrl/api/notifications" @{
+    matchId = $match.id
+    venueId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    recipientAddress = "notify-$suffix@example.com"
+    language = "de"
+    subject = "Match gefunden"
+    header = "Gute Nachrichten"
+    body = "Bitte melden Sie sich."
+}
+Assert-Status $notificationCreateResponse 201 "OPS_MANAGER can create notification"
+$notification = Read-Json $notificationCreateResponse
+if ($notification.venueId -ne $venueId) {
+    throw "Notification should use OPS_MANAGER venueId. Expected $venueId but got $($notification.venueId)."
+}
+
+$notificationListResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($notification.recipientAddress))").Result
+Assert-Status $notificationListResponse 200 "OPS_MANAGER can filter notifications by email"
+$notificationListBody = Read-Json $notificationListResponse
+if (@($notificationListBody).Count -ne 1) {
+    throw "Notification email filter should return exactly one notification."
+}
+
+$notificationByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/$($notification.id)").Result
+Assert-Status $notificationByIdResponse 200 "OPS_MANAGER can load notification by id"
+
+$notificationUpdateResponse = $opsClient.PutAsync("$GatewayBaseUrl/api/notifications/$($notification.id)", (JsonContent @{
+    matchId = $match.id
+    venueId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    recipientAddress = $notification.recipientAddress
+    language = "en"
+    subject = "Updated subject"
+    header = "Updated header"
+    body = "Updated body"
+    sentAt = "2026-05-19T16:15:00"
+})).Result
+Assert-Status $notificationUpdateResponse 200 "OPS_MANAGER can update notification"
+$notificationUpdated = Read-Json $notificationUpdateResponse
+if ($notificationUpdated.venueId -ne $venueId) {
+    throw "OPS_MANAGER notification update should keep own venueId. Expected $venueId but got $($notificationUpdated.venueId)."
+}
+if ($notificationUpdated.language -ne "en" -or $notificationUpdated.sentAt -ne "2026-05-19T16:15:00") {
+    throw "Notification update should persist changed language and sentAt."
+}
+
+$blueprintsRead = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
+Assert-Status $blueprintsRead 200 "OPS_MANAGER can list notification blueprints"
+
+$staffBlueprintWrite = $staffClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
+Assert-Status $staffBlueprintWrite 403 "STAFF cannot create notification blueprints"
+
+$opsBlueprintWrite = $opsClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
+Assert-Status $opsBlueprintWrite 202 "OPS_MANAGER can create notification blueprints"
+
+$opsBlueprintUpdate = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/notifications/bluePrints/00000000-0000-0000-0000-000000000001",
+    (EmptyContent)
+).Result
+Assert-Status $opsBlueprintUpdate 202 "OPS_MANAGER can update notification blueprints"
+
 $kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis/$venueId").Result
 Assert-Status $kpis 200 "Admin can read venue KPIs"
 $kpiBody = Read-Json $kpis
@@ -473,7 +628,56 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
 
+# Issue #128 — GenAI attribute extraction wires through to persistence.
+# CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
+# ItemAttributes JSON ({"category":"jacket",...}) so we can assert
+# extraction actually ran end-to-end.
+$extractionLostRequest = @{
+    description = "E2E lost item without attributes"
+    lostAt = "2026-05-19T16:00:00"
+    location = "GenAI extraction test"
+    venueId = $venueId
+    contactEmail = "extract-$suffix@example.com"
+}
+$extractionLostResponse = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $extractionLostRequest)
+).Result
+Assert-Status $extractionLostResponse 201 "Lost-item create runs GenAI extraction"
+$extractionLostItem = Read-Json $extractionLostResponse
+
+# GenAI extraction happens after the response is sent in the current
+# implementation? No - it's inline. The fake provider is synchronous and
+# returns immediately, so the response body already carries attributes.
+if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+    throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+}
+Write-Host "[OK] Lost-item GenAI extraction populated category='jacket'"
+
+$extractionFoundRequest = @{
+    description = "E2E found item without attributes"
+    foundAt = "2026-05-19T16:05:00"
+    locationHint = "GenAI extraction"
+    venueId = "33333333-3333-3333-3333-333333333333"
+    reporterId = "44444444-4444-4444-4444-444444444444"
+}
+$extractionFoundResponse = $opsClient.PostAsync(
+    "$GatewayBaseUrl/api/found-items",
+    (MultipartItemContent $extractionFoundRequest)
+).Result
+Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
+$extractionFoundItem = Read-Json $extractionFoundResponse
+if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+    throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+}
+Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
+
 Logout-RefreshToken $opsTokens.refreshToken
 Logout-RefreshToken $adminTokens.refreshToken
+Logout-RefreshToken $staffTokens.refreshToken
+
+Assert-RefreshRejected $opsTokens.refreshToken "Logged-out OPS_MANAGER refresh token is rejected"
+Assert-RefreshRejected $adminTokens.refreshToken "Logged-out admin refresh token is rejected"
+Assert-RefreshRejected $staffTokens.refreshToken "Logged-out STAFF refresh token is rejected"
 
 Write-Host "[OK] FoundFlow E2E suite completed successfully."

@@ -31,6 +31,7 @@ jobs:
           - auth-service
           - lost-item-service
           - found-item-service
+          - gateway-service
           - matching-service
           - notification-service
           - operations-service
@@ -124,6 +125,37 @@ jobs:
         working-directory: ./client
         run: npm run build
 
+  client-tests:
+    name: Test client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Run Vitest with coverage
+        working-directory: ./client
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-coverage
+          path: client/coverage
+
   codegen-check:
     name: Verify Orval client matches committed specs
     runs-on: ubuntu-24.04
@@ -158,24 +190,39 @@ jobs:
     needs:
       - backend-tests
       - client-build
+      - client-tests
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Prepare CI environment file
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          # Use the deterministic 'fake' GenAI provider in CI so the
+          # extraction wiring (issue #128) can be exercised without
+          # pulling multi-GB Ollama models or a real OpenAI key.
+          echo "GENAI_PROVIDER=fake" >> .env
 
       - name: Build and start backend stack
         run: |
-          docker compose up --build -d \
+          docker compose up --build -d --no-deps \
             auth-service \
             lost-item-service \
             found-item-service \
             matching-service \
             notification-service \
             operations-service \
-            gateway-service
+            gateway-service \
+            genai-service \
+            auth-db \
+            lost-item-db \
+            found-item-db \
+            matching-db \
+            notification-db \
+            operations-db \
+            minio \
+            rabbitmq
 
       - name: Show running containers
         run: docker compose ps

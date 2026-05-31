@@ -86,11 +86,16 @@ services:
       - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
       - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
       - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-lost-photos" }
+      # GenAI extraction wiring (issue #128). Failures are best-effort and
+      # never block intake; see AttributeExtractionService.
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
       - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   found-item-service:
     kind: spring
@@ -106,11 +111,14 @@ services:
       - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
       - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
       - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-found-photos" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
       - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   matching-service:
     kind: spring

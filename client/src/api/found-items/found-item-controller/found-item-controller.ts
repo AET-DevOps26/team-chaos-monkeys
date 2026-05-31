@@ -26,11 +26,13 @@ import type {
 import type {
   CountFoundItemsParams,
   CountResponse,
-  CreateFoundItemBody,
+  CreateFoundItemWithPhotoBody,
   FoundItemResponse,
   GetAllFoundItemsParams,
   GetFoundItemHistogramParams,
   HistogramResponse,
+  PhotoUrlResponse,
+  UpdateFoundItemPhotoBody,
   UpdateFoundItemRequest
 } from '.././model';
 
@@ -239,6 +241,152 @@ const {mutation: mutationOptions} = options ?
 
       return useMutation(mutationOptions, queryClient);
     }
+    export const getFoundItemPhoto = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<Blob>(
+      {url: `/api/found-items/${id}/photo`, method: 'GET',
+        responseType: 'blob', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetFoundItemPhotoQueryKey = (id?: string,) => {
+    return [
+    `/api/found-items/${id}/photo`
+    ] as const;
+    }
+
+    
+export const getGetFoundItemPhotoQueryOptions = <TData = Awaited<ReturnType<typeof getFoundItemPhoto>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFoundItemPhotoQueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFoundItemPhoto>>> = ({ signal }) => getFoundItemPhoto(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetFoundItemPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof getFoundItemPhoto>>>
+export type GetFoundItemPhotoQueryError = ErrorType<unknown>
+
+
+export function useGetFoundItemPhoto<TData = Awaited<ReturnType<typeof getFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemPhoto<TData = Awaited<ReturnType<typeof getFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemPhoto<TData = Awaited<ReturnType<typeof getFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetFoundItemPhoto<TData = Awaited<ReturnType<typeof getFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetFoundItemPhotoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const updateFoundItemPhoto = (
+    id: string,
+    updateFoundItemPhotoBody: UpdateFoundItemPhotoBody,
+ ) => {
+      
+      const formData = new FormData();
+formData.append(`photo`, updateFoundItemPhotoBody.photo)
+
+      return customInstance<FoundItemResponse>(
+      {url: `/api/found-items/${id}/photo`, method: 'PUT',
+       data: formData
+    },
+      );
+    }
+  
+
+
+export const getUpdateFoundItemPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFoundItemPhoto>>, TError,{id: string;data: UpdateFoundItemPhotoBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateFoundItemPhoto>>, TError,{id: string;data: UpdateFoundItemPhotoBody}, TContext> => {
+
+const mutationKey = ['updateFoundItemPhoto'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFoundItemPhoto>>, {id: string;data: UpdateFoundItemPhotoBody}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateFoundItemPhoto(id,data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFoundItemPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof updateFoundItemPhoto>>>
+    export type UpdateFoundItemPhotoMutationBody = UpdateFoundItemPhotoBody
+    export type UpdateFoundItemPhotoMutationError = ErrorType<unknown>
+
+    export const useUpdateFoundItemPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFoundItemPhoto>>, TError,{id: string;data: UpdateFoundItemPhotoBody}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateFoundItemPhoto>>,
+        TError,
+        {id: string;data: UpdateFoundItemPhotoBody},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateFoundItemPhotoMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
     export const getAllFoundItems = (
     params?: GetAllFoundItemsParams,
  signal?: AbortSignal
@@ -326,14 +474,14 @@ export function useGetAllFoundItems<TData = Awaited<ReturnType<typeof getAllFoun
 
 
 
-export const createFoundItem = (
-    createFoundItemBody: CreateFoundItemBody,
+export const createFoundItemWithPhoto = (
+    createFoundItemWithPhotoBody: CreateFoundItemWithPhotoBody,
  signal?: AbortSignal
 ) => {
       
       const formData = new FormData();
-formData.append(`request`, new Blob([JSON.stringify(createFoundItemBody.request)], { type: 'application/json' }));
-formData.append(`photo`, createFoundItemBody.photo)
+formData.append(`request`, new Blob([JSON.stringify(createFoundItemWithPhotoBody.request)], { type: 'application/json' }));
+formData.append(`photo`, createFoundItemWithPhotoBody.photo)
 
       return customInstance<FoundItemResponse>(
       {url: `/api/found-items`, method: 'POST',
@@ -344,11 +492,11 @@ formData.append(`photo`, createFoundItemBody.photo)
   
 
 
-export const getCreateFoundItemMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemBody}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemBody}, TContext> => {
+export const getCreateFoundItemWithPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItemWithPhoto>>, TError,{data: CreateFoundItemWithPhotoBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createFoundItemWithPhoto>>, TError,{data: CreateFoundItemWithPhotoBody}, TContext> => {
 
-const mutationKey = ['createFoundItem'];
+const mutationKey = ['createFoundItemWithPhoto'];
 const {mutation: mutationOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -358,10 +506,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFoundItem>>, {data: CreateFoundItemBody}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFoundItemWithPhoto>>, {data: CreateFoundItemWithPhotoBody}> = (props) => {
           const {data} = props ?? {};
 
-          return  createFoundItem(data,)
+          return  createFoundItemWithPhoto(data,)
         }
 
         
@@ -369,24 +517,110 @@ const {mutation: mutationOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateFoundItemMutationResult = NonNullable<Awaited<ReturnType<typeof createFoundItem>>>
-    export type CreateFoundItemMutationBody = CreateFoundItemBody
-    export type CreateFoundItemMutationError = ErrorType<unknown>
+    export type CreateFoundItemWithPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof createFoundItemWithPhoto>>>
+    export type CreateFoundItemWithPhotoMutationBody = CreateFoundItemWithPhotoBody
+    export type CreateFoundItemWithPhotoMutationError = ErrorType<unknown>
 
-    export const useCreateFoundItem = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItem>>, TError,{data: CreateFoundItemBody}, TContext>, }
+    export const useCreateFoundItemWithPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFoundItemWithPhoto>>, TError,{data: CreateFoundItemWithPhotoBody}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createFoundItem>>,
+        Awaited<ReturnType<typeof createFoundItemWithPhoto>>,
         TError,
-        {data: CreateFoundItemBody},
+        {data: CreateFoundItemWithPhotoBody},
         TContext
       > => {
 
-      const mutationOptions = getCreateFoundItemMutationOptions(options);
+      const mutationOptions = getCreateFoundItemWithPhotoMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
-    export const getFoundItemHistogram = (
+    export const getFoundItemPhotoUrl = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<PhotoUrlResponse>(
+      {url: `/api/found-items/${id}/photo-url`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetFoundItemPhotoUrlQueryKey = (id?: string,) => {
+    return [
+    `/api/found-items/${id}/photo-url`
+    ] as const;
+    }
+
+    
+export const getGetFoundItemPhotoUrlQueryOptions = <TData = Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFoundItemPhotoUrlQueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>> = ({ signal }) => getFoundItemPhotoUrl(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetFoundItemPhotoUrlQueryResult = NonNullable<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>>
+export type GetFoundItemPhotoUrlQueryError = ErrorType<unknown>
+
+
+export function useGetFoundItemPhotoUrl<TData = Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemPhotoUrl>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemPhotoUrl>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemPhotoUrl<TData = Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFoundItemPhotoUrl>>,
+          TError,
+          Awaited<ReturnType<typeof getFoundItemPhotoUrl>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFoundItemPhotoUrl<TData = Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetFoundItemPhotoUrl<TData = Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFoundItemPhotoUrl>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetFoundItemPhotoUrlQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const getFoundItemHistogram = (
     params?: GetFoundItemHistogramParams,
  signal?: AbortSignal
 ) => {

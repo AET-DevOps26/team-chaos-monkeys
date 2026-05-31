@@ -98,6 +98,20 @@ def build_provider(settings: Settings) -> LLMProvider:
             embed_model=settings.ollama_embed_model,
             timeout_seconds=settings.timeout_seconds,
         )
+    if settings.provider == "fake":
+        from app.providers.fake import FakeProvider
+
+        # Canned JSON shaped like `ItemAttributes`. Lets docker-compose E2E
+        # and downstream Spring service integration tests exercise the full
+        # /extract-attributes path without OpenAI or Ollama.
+        return FakeProvider(
+            name="fake",
+            chat_response=(
+                '{"category":"jacket","brand":null,"color":"black",'
+                '"distinguishingMarks":[],"approximateTime":null,'
+                '"location":null}'
+            ),
+        )
     raise ValueError(f"unknown provider: {settings.provider!r}")
 
 

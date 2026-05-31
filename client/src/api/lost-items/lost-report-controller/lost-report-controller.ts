@@ -28,12 +28,17 @@ import type {
   CountLostReportsParams,
   CountResponse,
   CreateLostReportRequest,
+  CreateLostReportWithPhoto1BodyOne,
+  CreateLostReportWithPhotoBodyOne,
   GetAllLostReports1Params,
   GetAllLostReportsParams,
   GetLostReportHistogram1Params,
   GetLostReportHistogramParams,
   HistogramResponse,
   LostReportResponse,
+  PhotoUrlResponse,
+  UpdateLostReportPhoto1Body,
+  UpdateLostReportPhotoBody,
   UpdateLostReportRequest
 } from '.././model';
 
@@ -43,7 +48,299 @@ import type { ErrorType } from '../../mutator/custom-instance';
 
 
 
-export const getLostReportById = (
+export const getLostReportPhoto = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<Blob>(
+      {url: `/api/lost-items/${id}/photo`, method: 'GET',
+        responseType: 'blob', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetLostReportPhotoQueryKey = (id?: string,) => {
+    return [
+    `/api/lost-items/${id}/photo`
+    ] as const;
+    }
+
+    
+export const getGetLostReportPhotoQueryOptions = <TData = Awaited<ReturnType<typeof getLostReportPhoto>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLostReportPhotoQueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLostReportPhoto>>> = ({ signal }) => getLostReportPhoto(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLostReportPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof getLostReportPhoto>>>
+export type GetLostReportPhotoQueryError = ErrorType<unknown>
+
+
+export function useGetLostReportPhoto<TData = Awaited<ReturnType<typeof getLostReportPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhoto<TData = Awaited<ReturnType<typeof getLostReportPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhoto<TData = Awaited<ReturnType<typeof getLostReportPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetLostReportPhoto<TData = Awaited<ReturnType<typeof getLostReportPhoto>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetLostReportPhotoQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const updateLostReportPhoto = (
+    id: string,
+    updateLostReportPhotoBody: UpdateLostReportPhotoBody,
+ ) => {
+      
+      const formData = new FormData();
+formData.append(`photo`, updateLostReportPhotoBody.photo)
+
+      return customInstance<LostReportResponse>(
+      {url: `/api/lost-items/${id}/photo`, method: 'PUT',
+       data: formData
+    },
+      );
+    }
+  
+
+
+export const getUpdateLostReportPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto>>, TError,{id: string;data: UpdateLostReportPhotoBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto>>, TError,{id: string;data: UpdateLostReportPhotoBody}, TContext> => {
+
+const mutationKey = ['updateLostReportPhoto'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLostReportPhoto>>, {id: string;data: UpdateLostReportPhotoBody}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLostReportPhoto(id,data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLostReportPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof updateLostReportPhoto>>>
+    export type UpdateLostReportPhotoMutationBody = UpdateLostReportPhotoBody
+    export type UpdateLostReportPhotoMutationError = ErrorType<unknown>
+
+    export const useUpdateLostReportPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto>>, TError,{id: string;data: UpdateLostReportPhotoBody}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateLostReportPhoto>>,
+        TError,
+        {id: string;data: UpdateLostReportPhotoBody},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateLostReportPhotoMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    export const getLostReportPhoto1 = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<Blob>(
+      {url: `/api/lost-reports/${id}/photo`, method: 'GET',
+        responseType: 'blob', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetLostReportPhoto1QueryKey = (id?: string,) => {
+    return [
+    `/api/lost-reports/${id}/photo`
+    ] as const;
+    }
+
+    
+export const getGetLostReportPhoto1QueryOptions = <TData = Awaited<ReturnType<typeof getLostReportPhoto1>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLostReportPhoto1QueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLostReportPhoto1>>> = ({ signal }) => getLostReportPhoto1(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLostReportPhoto1QueryResult = NonNullable<Awaited<ReturnType<typeof getLostReportPhoto1>>>
+export type GetLostReportPhoto1QueryError = ErrorType<unknown>
+
+
+export function useGetLostReportPhoto1<TData = Awaited<ReturnType<typeof getLostReportPhoto1>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhoto1>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhoto1>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhoto1<TData = Awaited<ReturnType<typeof getLostReportPhoto1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhoto1>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhoto1>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhoto1<TData = Awaited<ReturnType<typeof getLostReportPhoto1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetLostReportPhoto1<TData = Awaited<ReturnType<typeof getLostReportPhoto1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhoto1>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetLostReportPhoto1QueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const updateLostReportPhoto1 = (
+    id: string,
+    updateLostReportPhoto1Body: UpdateLostReportPhoto1Body,
+ ) => {
+      
+      const formData = new FormData();
+formData.append(`photo`, updateLostReportPhoto1Body.photo)
+
+      return customInstance<LostReportResponse>(
+      {url: `/api/lost-reports/${id}/photo`, method: 'PUT',
+       data: formData
+    },
+      );
+    }
+  
+
+
+export const getUpdateLostReportPhoto1MutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto1>>, TError,{id: string;data: UpdateLostReportPhoto1Body}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto1>>, TError,{id: string;data: UpdateLostReportPhoto1Body}, TContext> => {
+
+const mutationKey = ['updateLostReportPhoto1'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLostReportPhoto1>>, {id: string;data: UpdateLostReportPhoto1Body}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLostReportPhoto1(id,data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLostReportPhoto1MutationResult = NonNullable<Awaited<ReturnType<typeof updateLostReportPhoto1>>>
+    export type UpdateLostReportPhoto1MutationBody = UpdateLostReportPhoto1Body
+    export type UpdateLostReportPhoto1MutationError = ErrorType<unknown>
+
+    export const useUpdateLostReportPhoto1 = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLostReportPhoto1>>, TError,{id: string;data: UpdateLostReportPhoto1Body}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateLostReportPhoto1>>,
+        TError,
+        {id: string;data: UpdateLostReportPhoto1Body},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateLostReportPhoto1MutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    export const getLostReportById = (
     id: string,
  signal?: AbortSignal
 ) => {
@@ -418,27 +715,26 @@ export function useGetAllLostReports<TData = Awaited<ReturnType<typeof getAllLos
 
 
 
-export const createLostReport = (
-    createLostReportRequest: CreateLostReportRequest,
+export const createLostReportWithPhoto = (
+    createLostReportWithPhotoBody: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest,
  signal?: AbortSignal
 ) => {
       
       
       return customInstance<LostReportResponse>(
       {url: `/api/lost-items`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: createLostReportRequest, signal
+      data: createLostReportWithPhotoBody, signal
     },
       );
     }
   
 
 
-export const getCreateLostReportMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReport>>, TError,{data: CreateLostReportRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createLostReport>>, TError,{data: CreateLostReportRequest}, TContext> => {
+export const getCreateLostReportWithPhotoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext> => {
 
-const mutationKey = ['createLostReport'];
+const mutationKey = ['createLostReportWithPhoto'];
 const {mutation: mutationOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -448,10 +744,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReport>>, {data: CreateLostReportRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto>>, {data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createLostReport(data,)
+          return  createLostReportWithPhoto(data,)
         }
 
         
@@ -459,20 +755,20 @@ const {mutation: mutationOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateLostReportMutationResult = NonNullable<Awaited<ReturnType<typeof createLostReport>>>
-    export type CreateLostReportMutationBody = CreateLostReportRequest
-    export type CreateLostReportMutationError = ErrorType<unknown>
+    export type CreateLostReportWithPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof createLostReportWithPhoto>>>
+    export type CreateLostReportWithPhotoMutationBody = CreateLostReportWithPhotoBodyOne | CreateLostReportRequest
+    export type CreateLostReportWithPhotoMutationError = ErrorType<unknown>
 
-    export const useCreateLostReport = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReport>>, TError,{data: CreateLostReportRequest}, TContext>, }
+    export const useCreateLostReportWithPhoto = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createLostReport>>,
+        Awaited<ReturnType<typeof createLostReportWithPhoto>>,
         TError,
-        {data: CreateLostReportRequest},
+        {data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest},
         TContext
       > => {
 
-      const mutationOptions = getCreateLostReportMutationOptions(options);
+      const mutationOptions = getCreateLostReportWithPhotoMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
@@ -563,27 +859,26 @@ export function useGetAllLostReports1<TData = Awaited<ReturnType<typeof getAllLo
 
 
 
-export const createLostReport1 = (
-    createLostReportRequest: CreateLostReportRequest,
+export const createLostReportWithPhoto1 = (
+    createLostReportWithPhoto1Body: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest,
  signal?: AbortSignal
 ) => {
       
       
       return customInstance<LostReportResponse>(
       {url: `/api/lost-reports`, method: 'POST',
-      headers: {'Content-Type': 'application/json', },
-      data: createLostReportRequest, signal
+      data: createLostReportWithPhoto1Body, signal
     },
       );
     }
   
 
 
-export const getCreateLostReport1MutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReport1>>, TError,{data: CreateLostReportRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createLostReport1>>, TError,{data: CreateLostReportRequest}, TContext> => {
+export const getCreateLostReportWithPhoto1MutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext> => {
 
-const mutationKey = ['createLostReport1'];
+const mutationKey = ['createLostReportWithPhoto1'];
 const {mutation: mutationOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -593,10 +888,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReport1>>, {data: CreateLostReportRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, {data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createLostReport1(data,)
+          return  createLostReportWithPhoto1(data,)
         }
 
         
@@ -604,24 +899,196 @@ const {mutation: mutationOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateLostReport1MutationResult = NonNullable<Awaited<ReturnType<typeof createLostReport1>>>
-    export type CreateLostReport1MutationBody = CreateLostReportRequest
-    export type CreateLostReport1MutationError = ErrorType<unknown>
+    export type CreateLostReportWithPhoto1MutationResult = NonNullable<Awaited<ReturnType<typeof createLostReportWithPhoto1>>>
+    export type CreateLostReportWithPhoto1MutationBody = CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest
+    export type CreateLostReportWithPhoto1MutationError = ErrorType<unknown>
 
-    export const useCreateLostReport1 = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReport1>>, TError,{data: CreateLostReportRequest}, TContext>, }
+    export const useCreateLostReportWithPhoto1 = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createLostReport1>>,
+        Awaited<ReturnType<typeof createLostReportWithPhoto1>>,
         TError,
-        {data: CreateLostReportRequest},
+        {data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest},
         TContext
       > => {
 
-      const mutationOptions = getCreateLostReport1MutationOptions(options);
+      const mutationOptions = getCreateLostReportWithPhoto1MutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }
-    export const getLostReportHistogram = (
+    export const getLostReportPhotoUrl = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<PhotoUrlResponse>(
+      {url: `/api/lost-items/${id}/photo-url`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetLostReportPhotoUrlQueryKey = (id?: string,) => {
+    return [
+    `/api/lost-items/${id}/photo-url`
+    ] as const;
+    }
+
+    
+export const getGetLostReportPhotoUrlQueryOptions = <TData = Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLostReportPhotoUrlQueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLostReportPhotoUrl>>> = ({ signal }) => getLostReportPhotoUrl(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLostReportPhotoUrlQueryResult = NonNullable<Awaited<ReturnType<typeof getLostReportPhotoUrl>>>
+export type GetLostReportPhotoUrlQueryError = ErrorType<unknown>
+
+
+export function useGetLostReportPhotoUrl<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhotoUrl>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhotoUrl>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhotoUrl<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhotoUrl>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhotoUrl>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhotoUrl<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetLostReportPhotoUrl<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetLostReportPhotoUrlQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const getLostReportPhotoUrl1 = (
+    id: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<PhotoUrlResponse>(
+      {url: `/api/lost-reports/${id}/photo-url`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetLostReportPhotoUrl1QueryKey = (id?: string,) => {
+    return [
+    `/api/lost-reports/${id}/photo-url`
+    ] as const;
+    }
+
+    
+export const getGetLostReportPhotoUrl1QueryOptions = <TData = Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLostReportPhotoUrl1QueryKey(id);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>> = ({ signal }) => getLostReportPhotoUrl1(id, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLostReportPhotoUrl1QueryResult = NonNullable<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>>
+export type GetLostReportPhotoUrl1QueryError = ErrorType<unknown>
+
+
+export function useGetLostReportPhotoUrl1<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhotoUrl1>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhotoUrl1>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhotoUrl1<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLostReportPhotoUrl1>>,
+          TError,
+          Awaited<ReturnType<typeof getLostReportPhotoUrl1>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLostReportPhotoUrl1<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetLostReportPhotoUrl1<TData = Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLostReportPhotoUrl1>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetLostReportPhotoUrl1QueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+export const getLostReportHistogram = (
     params?: GetLostReportHistogramParams,
  signal?: AbortSignal
 ) => {

@@ -5,7 +5,9 @@ import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
-import com.foundflow.matching.client.GenAiClient;
+import com.foundflow.genai.client.GenaiClient;
+import com.foundflow.genai.client.model.EmbedRequest;
+import com.foundflow.genai.client.model.EmbedResponse;
 import com.foundflow.matching.domain.ItemEmbedding;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.domain.Match;
@@ -36,7 +38,7 @@ public class CandidateMatchingService {
 
     private final ItemEmbeddingRepository itemEmbeddingRepository;
     private final MatchRepository matchRepository;
-    private final GenAiClient genAiClient;
+    private final GenaiClient genaiClient;
     private final MatchCandidateEventPublisher eventPublisher;
     private final MeterRegistry meterRegistry;
 
@@ -46,7 +48,7 @@ public class CandidateMatchingService {
     public CandidateMatchingService(
             ItemEmbeddingRepository itemEmbeddingRepository,
             MatchRepository matchRepository,
-            GenAiClient genAiClient,
+            GenaiClient genaiClient,
             MatchCandidateEventPublisher eventPublisher,
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
@@ -54,7 +56,7 @@ public class CandidateMatchingService {
     ) {
         this.itemEmbeddingRepository = itemEmbeddingRepository;
         this.matchRepository = matchRepository;
-        this.genAiClient = genAiClient;
+        this.genaiClient = genaiClient;
         this.eventPublisher = eventPublisher;
         this.meterRegistry = meterRegistry;
         this.topK = topK;
@@ -121,10 +123,15 @@ public class CandidateMatchingService {
         }
 
         String ownCategory = attributes != null ? attributes.category() : null;
+        EmbedRequest embedRequest = new EmbedRequest()
+                .texts(List.of(embeddingText))
+                .purpose(itemType == ItemType.LOST
+                        ? EmbedRequest.PurposeEnum.LOST_REPORT
+                        : EmbedRequest.PurposeEnum.FOUND_ITEM);
         float[] embedding = Timer.builder("matching.embedding.duration")
                 .description("Time to fetch an embedding from genai-service")
                 .register(meterRegistry)
-                .record(() -> genAiClient.embed(embeddingText));
+                .record(() -> toFloatArray(genaiClient.embed(embedRequest)));
 
         itemEmbeddingRepository.upsert(new ItemEmbedding(
                 UUID.randomUUID(),
@@ -212,6 +219,18 @@ public class CandidateMatchingService {
                 LocalDateTime.now()
         );
         return matchRepository.save(fresh);
+    }
+
+    private static float[] toFloatArray(EmbedResponse response) {
+        if (response == null || response.getEmbeddings() == null || response.getEmbeddings().isEmpty()) {
+            throw new IllegalStateException("GenAI /embed returned no embeddings.");
+        }
+        List<Float> first = response.getEmbeddings().get(0);
+        float[] vector = new float[first.size()];
+        for (int i = 0; i < first.size(); i++) {
+            vector[i] = first.get(i);
+        }
+        return vector;
     }
 
     static float categoryGate(String own, String candidate) {

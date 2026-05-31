@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { server } from '@test/server'
 import { refreshSuccess } from '@test/handlers'
 import { customInstance } from '@/api/mutator/custom-instance'
-import { onUnauthorized, setCurrentToken, setRefreshToken } from '@/auth/token-store'
+import { getRefreshToken, onUnauthorized, setCurrentToken, setRefreshToken } from '@/auth/token-store'
 
 describe('customInstance', () => {
   it('attaches the Bearer token from the token store on outgoing requests', async () => {
@@ -93,6 +93,25 @@ describe('customInstance', () => {
       customInstance({ url: '/api/needs-auth', method: 'GET' }),
     ).rejects.toMatchObject({ response: { status: 401 } })
     expect(handler).toHaveBeenCalledTimes(1)
+    off()
+  })
+
+  it('does not tear down the session when the refresh fails transiently (5xx)', async () => {
+    setRefreshToken('stored-refresh')
+    server.use(
+      http.post('*/api/auth/refresh', () => HttpResponse.json({}, { status: 503 })),
+      http.get('*/api/needs-auth', () => HttpResponse.json({}, { status: 401 })),
+    )
+    const handler = vi.fn()
+    const off = onUnauthorized(handler)
+
+    await expect(
+      customInstance({ url: '/api/needs-auth', method: 'GET' }),
+    ).rejects.toMatchObject({ response: { status: 401 } })
+    // Transient auth-service failure: the refresh token may still be valid, so
+    // it is kept and no logout is triggered.
+    expect(handler).not.toHaveBeenCalled()
+    expect(getRefreshToken()).toBe('stored-refresh')
     off()
   })
 

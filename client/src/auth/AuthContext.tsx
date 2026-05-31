@@ -66,16 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Rehydrate the session on boot iff a refresh token was persisted at mount.
   // The ref guard plus refresh.ts' single-flight keep React StrictMode's
-  // double-invoked effect from rotating the token twice. Success and failure
-  // both surface through the dispatched events handled below, so this effect
-  // only kicks the refresh off and swallows the rejection.
+  // double-invoked effect from rotating the token twice. Success surfaces via
+  // the token-refreshed event; an auth rejection via the unauthorized event.
+  // A transient failure dispatches neither (the token is kept for a later
+  // retry), so this effect lands 'unauthenticated' itself to clear the spinner.
   const bootstrapped = useRef(false)
   const hadRefreshTokenAtMount = useRef(getRefreshToken() !== null)
   useEffect(() => {
     if (bootstrapped.current) return
     bootstrapped.current = true
     if (!hadRefreshTokenAtMount.current) return
-    refreshAccessToken().catch(() => {})
+    refreshAccessToken().catch(() => setStatus('unauthenticated'))
   }, [])
 
   // A 401 anywhere that fails to refresh tears the session down.

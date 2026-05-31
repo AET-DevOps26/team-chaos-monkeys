@@ -18,15 +18,21 @@ export const setCurrentToken = (token: string | null) => {
 
 const REFRESH_TOKEN_KEY = 'foundflow.refreshToken'
 
+// In-memory mirror of the refresh token. Normally redundant with localStorage,
+// but it's the source of truth when storage is unavailable (private mode,
+// quota) — see the fallback in get/setRefreshToken below.
+let memoryRefreshToken: string | null = null
+
 export const getRefreshToken = (): string | null => {
   try {
     return localStorage.getItem(REFRESH_TOKEN_KEY)
   } catch {
-    return null
+    return memoryRefreshToken
   }
 }
 
 export const setRefreshToken = (token: string | null) => {
+  memoryRefreshToken = token
   try {
     if (token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, token)
@@ -34,7 +40,8 @@ export const setRefreshToken = (token: string | null) => {
       localStorage.removeItem(REFRESH_TOKEN_KEY)
     }
   } catch {
-    // Storage unavailable (private mode, quota). Session degrades to in-memory.
+    // Storage unavailable (private mode, quota). The in-memory mirror above
+    // keeps the session live for this tab; it just won't survive a reload.
   }
 }
 

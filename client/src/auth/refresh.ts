@@ -13,6 +13,14 @@ import {
 // effect, collapse to one network call and one rotation of the refresh token.
 let inFlight: Promise<string> | null = null
 
+// Only a 401/403 from the refresh endpoint means the refresh token itself is
+// dead (expired/revoked/rotated) — the one case where retrying can never help.
+// Network errors, 5xx, and a malformed response are transient: the token may
+// still be valid, so we keep it and let the next request (or reload) retry.
+const isSessionDead = (error: unknown): boolean =>
+  axios.isAxiosError(error) &&
+  (error.response?.status === 401 || error.response?.status === 403)
+
 // Deliberately uses a bare axios call rather than the orval-generated `refresh()`
 // / shared `axiosInstance`: that keeps the response interceptor from re-entering
 // itself when the refresh itself 401s, and avoids a custom-instance ⇄
@@ -33,11 +41,17 @@ async function performRefresh(): Promise<string> {
     dispatchTokenRefreshed(data.accessToken)
     return data.accessToken
   } catch (error) {
-    // Refresh failed (expired/revoked/rotated token, or network). This is the
-    // single place a session is torn down automatically.
-    setCurrentToken(null)
-    setRefreshToken(null)
-    dispatchUnauthorized()
+    if (isSessionDead(error)) {
+      // Refresh token rejected (expired/revoked/rotated). This is the single
+      // place a session is torn down automatically.
+      setCurrentToken(null)
+      setRefreshToken(null)
+      dispatchUnauthorized()
+    } else {
+      // Transient failure: drop the now-stale access token but keep the refresh
+      // token so the next request — or a reload — can recover the session.
+      setCurrentToken(null)
+    }
     throw error
   }
 }

@@ -162,6 +162,26 @@ These are graded requirements, not preferences. Violating them costs points:
 - Start work with `git fetch origin && git checkout -b <branch> origin/development`.
 - CI runs on both branches; protect `main` with required-checks once CD is live.
 
+## Issue Hierarchy (Epics & Sub-Issues)
+
+Every issue must be linked into the epic tree via GitHub's **sub-issue** relationship — not just a `Part of #N` mention in the body. Plain-text references do **not** nest issues under their epic in GitHub Projects; only a real parent link makes the work roll up on the board. The top-level subsystem epics are: **#7 GenAI**, plus the per-subsystem epics for frontend and backend.
+
+When you open or triage an issue, set its parent immediately:
+
+```sh
+# Get node IDs (parent epic + child issue)
+gh api graphql -F owner=AET-DevOps26 -F name=team-chaos-monkeys -f query='
+  query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
+    parent:issue(number:7){id} child:issue(number:177){id parent{number}}}}'
+
+# Link child under parent
+gh api graphql -H "GraphQL-Features: sub_issues" \
+  -F parent="<parent node id>" -F child="<child node id>" \
+  -f query='mutation($parent:ID!,$child:ID!){addSubIssue(input:{issueId:$parent,subIssueId:$child}){subIssue{number parent{number}}}}'
+```
+
+Nest epics under epics where appropriate (e.g. `#7 → #177 → #178/#179/#180`). A `Part of #N` line in the body is fine as human-readable context, but it is **not** a substitute for the link.
+
 ## When Adding a New Spring Service
 
 1. Mirror `services/auth-service/` (Gradle wrapper, Spring Boot 4.0.6, Java 21, JUnit 5).

@@ -101,17 +101,36 @@ def build_provider(settings: Settings) -> LLMProvider:
     if settings.provider == "fake":
         from app.providers.fake import FakeProvider
 
-        # Canned JSON shaped like `ItemAttributes`. Lets docker-compose E2E
-        # and downstream Spring service integration tests exercise the full
-        # /extract-attributes path without OpenAI or Ollama.
-        return FakeProvider(
-            name="fake",
-            chat_response=(
-                '{"category":"jacket","brand":null,"color":"black",'
-                '"distinguishingMarks":[],"approximateTime":null,'
-                '"location":null}'
-            ),
+        # The fake serves every endpoint deterministically for CI E2E and
+        # downstream Spring integration tests. It branches on a marker in the
+        # system prompt so /answer and /verify-match get schema-valid JSON
+        # instead of the default extraction blob.
+        _EXTRACTION_JSON = (
+            '{"category":"jacket","brand":null,"color":"black",'
+            '"distinguishingMarks":[],"approximateTime":null,"location":null}'
         )
+        _ANSWER_JSON = (
+            '{"answer":"Top candidate is the first listed item [1].",'
+            '"citations":["fake-id"],"grounded":true}'
+        )
+        _VERIFY_JSON = (
+            '{"verdict":"uncertain","confidence":0.5,'
+            '"rationale":"Fake provider canned response."}'
+        )
+
+        def _canned(messages: list[Message], _json_mode: bool) -> str:
+            system = ""
+            for msg in messages:
+                if msg["role"] == "system" and isinstance(msg["content"], str):
+                    system = msg["content"]
+                    break
+            if '"grounded"' in system:
+                return _ANSWER_JSON
+            if '"verdict"' in system:
+                return _VERIFY_JSON
+            return _EXTRACTION_JSON
+
+        return FakeProvider(name="fake", chat_response=_canned)
     raise ValueError(f"unknown provider: {settings.provider!r}")
 
 

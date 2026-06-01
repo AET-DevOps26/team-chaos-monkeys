@@ -70,6 +70,40 @@ jobs:
           docker exec ollama ollama pull qwen2.5:0.5b
           docker exec ollama ollama pull nomic-embed-text
 
+      - name: Start genai-service
+        working-directory: ./services/genai-service
+        env:
+          GENAI_PROVIDER: local
+          OLLAMA_BASE_URL: http://localhost:11434
+          OLLAMA_CHAT_MODEL: qwen2.5:0.5b
+          OLLAMA_EMBED_MODEL: nomic-embed-text
+          GENAI_TIMEOUT_SECONDS: '120'
+          EMBEDDING_DIMENSIONS: '768'
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/genai.log 2>&1 &
+          # Wait for service to be ready
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:8000/health > /dev/null; then
+              echo "genai-service is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "genai-service did not become reachable"
+          cat /tmp/genai.log
+          exit 1
+
+      - name: Verify /_diagnostic reports actual dim 768
+        run: |
+          set -euo pipefail
+          DIAG=$(curl -fsS http://localhost:8000/_diagnostic)
+          CONFIGURED=$(echo "$DIAG" | python -c "import sys,json;print(json.load(sys.stdin)['embed_dimensions_configured'])")
+          ACTUAL=$(echo "$DIAG" | python -c "import sys,json;print(json.load(sys.stdin)['embed_dimensions_actual'])")
+          if [ "$CONFIGURED" != "768" ] || [ "$ACTUAL" != "768" ]; then
+            echo "Expected 768/768, got configured=$CONFIGURED actual=$ACTUAL"
+            exit 1
+          fi
+
       - name: Run integration tests
         working-directory: ./services/genai-service
         env:
@@ -78,6 +112,7 @@ jobs:
           OLLAMA_CHAT_MODEL: qwen2.5:0.5b
           OLLAMA_EMBED_MODEL: nomic-embed-text
           GENAI_TIMEOUT_SECONDS: '120'
+          EMBEDDING_DIMENSIONS: '768'
         run: pytest tests/integration/ -v
 
       - name: Dump Ollama logs on failure

@@ -162,6 +162,39 @@ paths:
         '502': { $ref: '#/components/responses/ProviderUnavailable' }
         '504': { $ref: '#/components/responses/ProviderTimeout' }
 
+  /answer:
+    post:
+      tags: [genai]
+      operationId: answer
+      summary: Generate a grounded, cited answer over retrieved items
+      description: |
+        Called by `matching-service` (or a future search endpoint) to synthesise
+        a natural-language answer from a set of pre-retrieved item snippets.
+        The model generates a response grounded exclusively in the supplied
+        snippets and returns citation indices so the caller can surface sources.
+        `grounded` is `false` when the model could not ground its answer in the
+        snippets and fell back to parametric knowledge — callers should treat
+        such responses as low-confidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+      responses:
+        '200':
+          description: Answer generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422': { $ref: '#/components/responses/ModelOutputInvalid' }
+        '429': { $ref: '#/components/responses/ProviderRateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/ProviderUnavailable' }
+        '504': { $ref: '#/components/responses/ProviderTimeout' }
+
   /health:
     get:
       tags: [ops]
@@ -387,6 +420,82 @@ components:
         rationale:
           type: string
           description: Short plain-text explanation, staff-facing.
+        modelInfo:
+          $ref: '#/components/schemas/ModelInfo'
+
+    # --- /answer ----------------------------------------------------------------
+
+    SearchSnippet:
+      type: object
+      description: A single retrieved item snippet passed to the answer endpoint.
+      required: [id, itemType, text]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Stable identifier of the source record (lost-report or found-item id).
+        itemType:
+          type: string
+          enum: [lost_report, found_item]
+          description: Whether the snippet originates from a lost report or a found item.
+        category:
+          type: [string, 'null']
+          description: Coarse item category, e.g. `jacket`. Null when unknown.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: |
+            Plain-text representation of the item, used as the grounding context
+            for the LLM. Typically the concatenation of the item's description
+            and extracted attributes.
+        distance:
+          type: [number, 'null']
+          description: |
+            Vector distance from the query embedding, as returned by pgvector.
+            Null when snippets are retrieved by a non-vector method.
+
+    AnswerRequest:
+      type: object
+      required: [query, snippets]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: The user or staff search query to answer.
+        snippets:
+          type: array
+          maxItems: 32
+          description: Retrieved item snippets that the model must ground its answer in.
+          items:
+            $ref: '#/components/schemas/SearchSnippet'
+        language:
+          type: string
+          pattern: '^[a-z]{2}$'
+          default: en
+          description: ISO 639-1 language for the generated answer. Defaults to `en`.
+
+    AnswerResponse:
+      type: object
+      required: [answer, citations, grounded, modelInfo]
+      properties:
+        answer:
+          type: string
+          description: Natural-language answer synthesised from the supplied snippets.
+        citations:
+          type: array
+          description: |
+            List of `id` values from the request `snippets` that the model cited
+            as the basis for its answer. Empty when no snippets were cited.
+          items:
+            type: string
+        grounded:
+          type: boolean
+          description: |
+            `true` when the answer is grounded exclusively in the supplied snippets.
+            `false` when the model fell back to parametric knowledge — treat as
+            low-confidence and surface a caveat to the user.
         modelInfo:
           $ref: '#/components/schemas/ModelInfo'
 

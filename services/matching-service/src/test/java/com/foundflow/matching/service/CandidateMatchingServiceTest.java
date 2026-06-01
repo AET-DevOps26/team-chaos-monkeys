@@ -4,7 +4,9 @@ import com.foundflow.events.FoundItemLoggedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
-import com.foundflow.matching.client.GenAiClient;
+import com.foundflow.genai.client.GenaiClient;
+import com.foundflow.genai.client.model.EmbedRequest;
+import com.foundflow.genai.client.model.EmbedResponse;
 import com.foundflow.matching.domain.ItemEmbedding;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.domain.Match;
@@ -41,7 +43,7 @@ class CandidateMatchingServiceTest {
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
     private MatchRepository matchRepository;
-    private GenAiClient genAiClient;
+    private GenaiClient genaiClient;
     private MatchCandidateEventPublisher eventPublisher;
     private CandidateMatchingService service;
 
@@ -49,12 +51,12 @@ class CandidateMatchingServiceTest {
     void setUp() {
         itemEmbeddingRepository = mock(ItemEmbeddingRepository.class);
         matchRepository = mock(MatchRepository.class);
-        genAiClient = mock(GenAiClient.class);
+        genaiClient = mock(GenaiClient.class);
         eventPublisher = mock(MatchCandidateEventPublisher.class);
         service = new CandidateMatchingService(
                 itemEmbeddingRepository,
                 matchRepository,
-                genAiClient,
+                genaiClient,
                 eventPublisher,
                 new SimpleMeterRegistry(),
                 TOP_K,
@@ -70,7 +72,7 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f, 0.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
@@ -100,7 +102,7 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.6f))); // semantic=0.4, combined=0.4
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
@@ -120,7 +122,7 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         // Very high semantic similarity (distance 0.02) but categories differ → combined = 0.0
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", 0.02f)));
@@ -157,7 +159,7 @@ class CandidateMatchingServiceTest {
 
         service.findCandidatesForLostReportUpdate(event);
 
-        verifyNoInteractions(genAiClient);
+        verifyNoInteractions(genaiClient);
         verify(itemEmbeddingRepository, never()).upsert(any(ItemEmbedding.class));
         verify(itemEmbeddingRepository, never()).findTopKSimilar(any(), any(), any(), any(Integer.class));
         verifyNoInteractions(eventPublisher);
@@ -174,7 +176,7 @@ class CandidateMatchingServiceTest {
                 1.0f, 0.6f, 0.6f, LocalDateTime.now().minusHours(1));
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
@@ -198,7 +200,7 @@ class CandidateMatchingServiceTest {
                 1.0f, 0.6f, 0.6f, LocalDateTime.now().minusDays(1));
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
@@ -219,7 +221,7 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.FOUND, foundItemId))
                 .thenReturn(Optional.empty());
-        when(genAiClient.embed(any())).thenReturn(new float[]{1.0f});
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(lostReportId, "Bag", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
@@ -254,9 +256,51 @@ class CandidateMatchingServiceTest {
 
         service.findCandidatesForLostReport(event);
 
-        verifyNoInteractions(genAiClient);
+        verifyNoInteractions(genaiClient);
         verifyNoInteractions(eventPublisher);
         verify(itemEmbeddingRepository, never()).upsert(any(ItemEmbedding.class));
+    }
+
+    @Test
+    void lostReportIntake_sendsPurposeLostReportToEmbed() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of());
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Bag"));
+
+        ArgumentCaptor<EmbedRequest> captor = ArgumentCaptor.forClass(EmbedRequest.class);
+        verify(genaiClient).embed(captor.capture());
+        assertThat(captor.getValue().getPurpose()).isEqualTo(EmbedRequest.PurposeEnum.LOST_REPORT);
+        assertThat(captor.getValue().getTexts()).hasSize(1);
+    }
+
+    @Test
+    void foundItemIntake_sendsPurposeFoundItemToEmbed() {
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of());
+
+        service.findCandidatesForFoundItem(new FoundItemLoggedEvent(
+                UUID.randomUUID(), Instant.now(),
+                foundItemId, venueId,
+                "found/photo.jpg", "Bag",
+                Instant.now(), "Front desk", "STORED",
+                UUID.randomUUID(),
+                new ItemAttributesPayload("Bag", null, null, List.of())
+        ));
+
+        ArgumentCaptor<EmbedRequest> captor = ArgumentCaptor.forClass(EmbedRequest.class);
+        verify(genaiClient).embed(captor.capture());
+        assertThat(captor.getValue().getPurpose()).isEqualTo(EmbedRequest.PurposeEnum.FOUND_ITEM);
     }
 
     @Test
@@ -294,5 +338,16 @@ class CandidateMatchingServiceTest {
                 "OPEN",
                 new ItemAttributesPayload(category, null, null, List.of())
         );
+    }
+
+    private static EmbedResponse embedResponse(float... vector) {
+        List<Float> boxed = new java.util.ArrayList<>(vector.length);
+        for (float v : vector) {
+            boxed.add(v);
+        }
+        EmbedResponse response = new EmbedResponse();
+        response.setEmbeddings(List.of(boxed));
+        response.setDimensions(vector.length);
+        return response;
     }
 }

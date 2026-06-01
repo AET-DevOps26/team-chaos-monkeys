@@ -1,8 +1,6 @@
 package com.foundflow.genai.client;
 
-import com.foundflow.photo.storage.PhotoStorage;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -14,15 +12,14 @@ import org.springframework.web.client.RestClient;
 /**
  * Spring Boot auto-configuration for the GenAI client.
  *
- * <p>Activates whenever a service depends on this module — no per-service
- * wiring required. The {@link GenaiClient} bean is created from
- * {@link GenaiProperties} (prefix {@code genai.}) and the
- * {@link AttributeExtractionService} is wired from the {@link GenaiClient}
- * plus the consumer's {@link PhotoStorage} bean (contributed by the
- * photo-storage shared module).
+ * <p>Always-on: registers the {@link GenaiClient} bean from
+ * {@link GenaiProperties} (prefix {@code genai.}). The
+ * {@link AttributeExtractionService} bean lives in
+ * {@link AttributeExtractionAutoConfiguration} and only activates when the
+ * photo-storage module is on the classpath, so consumers that only need
+ * embeddings (e.g. matching-service) don't have to pull photo-storage.
  */
 @AutoConfiguration
-@AutoConfigureAfter(name = "com.foundflow.photo.storage.PhotoStorageAutoConfiguration")
 @EnableConfigurationProperties(GenaiProperties.class)
 public class GenaiClientAutoConfiguration {
 
@@ -43,15 +40,5 @@ public class GenaiClientAutoConfiguration {
         }
 
         return new GenaiClient(builder.build());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public AttributeExtractionService attributeExtractionService(
-            GenaiClient genaiClient,
-            PhotoStorage photoStorage,
-            GenaiProperties properties
-    ) {
-        return new AttributeExtractionService(genaiClient, photoStorage, properties);
     }
 }

@@ -18,7 +18,11 @@ repositories {
 
 dependencies {
     api 'com.foundflow:common-domain:0.0.1-SNAPSHOT'
-    api 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
+    // photo-storage is optional: only AttributeExtractionService uses it.
+    // Consumers that need that service (lost/found-item) declare photo-storage
+    // directly; consumers that only need GenaiClient (matching-service) skip it.
+    compileOnly 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
+    testImplementation 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
 
     api 'org.springframework:spring-web:7.0.0'
     api 'org.springframework:spring-context:7.0.0'

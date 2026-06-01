@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { TokenResponse } from '@/api/auth/model'
 import type { FoundItemResponse, PhotoUrlResponse } from '@/api/found-items/model'
+import type { LostReportResponse } from '@/api/lost-items/model'
 
 export const loginSuccess = (accessToken = 'test-access-token') =>
   http.post('*/api/auth/login', () =>
@@ -54,5 +55,22 @@ export const foundItemPhotoUrl = (url = 'https://example.test/photo.jpg') =>
 
 export const foundItemDeleteSuccess = () =>
   http.delete('*/api/found-items/:id', () => new HttpResponse(null, { status: 204 }))
+
+export const lostReportsList = (items: LostReportResponse[]) =>
+  http.get('*/api/lost-items', ({ request }) => {
+    const status = new URL(request.url).searchParams.get('status')
+    const filtered = status ? items.filter((i) => i.status === status) : items
+    return HttpResponse.json<LostReportResponse[]>(filtered)
+  })
+
+export const lostReportsListError = () =>
+  http.get('*/api/lost-items', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
+
+export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') =>
+  http.get('*/api/lost-items/:id/photo-url', () =>
+    HttpResponse.json<PhotoUrlResponse>({ url }),
+  )
 
 export const handlers = [loginSuccess(), logoutSuccess()]

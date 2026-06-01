@@ -60,6 +60,7 @@ def _format_snippet(index: int, snippet: SearchSnippet) -> str:
     header = f"[{index}] id={snippet.id} type={snippet.item_type}"
     if snippet.category:
         header += f" category={snippet.category}"
+    # `distance` is intentionally not shown to the model in v1 — retrieval order is conveyed by snippet position; the field is reserved for future re-ranking.
     return f"{header}\n\"\"\"\n{snippet.text}\n\"\"\""
 
 

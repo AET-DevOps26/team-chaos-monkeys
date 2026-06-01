@@ -492,10 +492,7 @@ components:
             type: string
         grounded:
           type: boolean
-          description: |
-            `true` when the answer is grounded exclusively in the supplied snippets.
-            `false` when the model fell back to parametric knowledge — treat as
-            low-confidence and surface a caveat to the user.
+          description: "True when the answer is backed by at least one cited retrieved item; false when no provided item was relevant (the answer then states that no matching items were found)."
         modelInfo:
           $ref: '#/components/schemas/ModelInfo'
 

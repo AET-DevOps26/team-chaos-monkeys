@@ -1,12 +1,29 @@
 .superpowers/
+docs/superpowers/plans/
 
 # Per-developer compose customization (port overrides, debug mounts, etc.).
 # Copy docker-compose.override.yml.example to start.
 docker-compose.override.yml
 
 **/build/
+**/bin/
 **/.gradle/
 .env
+.env.*
+!.env.example
+
+# macOS
+**/.DS_Store
+
+# Claude Code workspace state
+.claude/
+
+# VS Code devcontainer auto-generated lock
+.devcontainer/devcontainer-lock.json
+
+# Local-only personal notes / task scratchpad
+tasks/
+meeting-notes.*
 
 # Local-only helm secrets (see docs/local-k8s.md)
 infra/helm/foundflow/values-local.yaml.local

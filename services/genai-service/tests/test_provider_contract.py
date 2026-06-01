@@ -104,6 +104,7 @@ def _ollama_harness(respx_mock: respx.MockRouter) -> ProviderHarness:
         chat_model="llama3.2:3b",
         vision_model="llava:7b",
         embed_model="nomic-embed-text",
+        embedding_dimensions=3,
         timeout_seconds=5,
     )
     chat = respx_mock.post("http://ollama-test:11434/api/chat")

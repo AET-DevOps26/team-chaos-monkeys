@@ -80,6 +80,7 @@ class OllamaProvider:
         chat_model: str,
         vision_model: str,
         embed_model: str,
+        embedding_dimensions: int,
         timeout_seconds: int,
     ) -> None:
         self._client = AsyncClient(host=base_url, timeout=float(timeout_seconds))
@@ -89,6 +90,7 @@ class OllamaProvider:
         # performance characteristics unchanged.
         self._vision_model = vision_model
         self._embed_model = embed_model
+        self._embedding_dimensions = embedding_dimensions
 
     async def chat(
         self, messages: list[Message], *, json_mode: bool = False
@@ -136,7 +138,14 @@ class OllamaProvider:
         embeddings = response.embeddings
         if not embeddings:
             raise LLMError("ollama returned no embeddings")
-        return list(embeddings[0])
+        embedding = list(embeddings[0])
+        if len(embedding) != self._embedding_dimensions:
+            raise ValueError(
+                f"Expected {self._embedding_dimensions} dims but Ollama model "
+                f"{self._embed_model} returned {len(embedding)}. "
+                f"Pick an embed model whose natural dim matches."
+            )
+        return embedding
 
     async def aclose(self) -> None:
         # AsyncClient holds an httpx.AsyncClient internally; close it for

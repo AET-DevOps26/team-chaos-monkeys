@@ -86,6 +86,7 @@ def build_provider(settings: Settings) -> LLMProvider:
             api_key=settings.openai_api_key or "",
             chat_model=settings.openai_chat_model,
             embed_model=settings.openai_embed_model,
+            embedding_dimensions=settings.embedding_dimensions,
             timeout_seconds=settings.timeout_seconds,
         )
     if settings.provider == "local":
@@ -96,6 +97,7 @@ def build_provider(settings: Settings) -> LLMProvider:
             chat_model=settings.ollama_chat_model,
             vision_model=settings.ollama_vision_model,
             embed_model=settings.ollama_embed_model,
+            embedding_dimensions=settings.embedding_dimensions,
             timeout_seconds=settings.timeout_seconds,
         )
     if settings.provider == "fake":

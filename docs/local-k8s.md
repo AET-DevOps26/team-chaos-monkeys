@@ -32,7 +32,36 @@ Confirm `kubectl get nodes` shows one Ready node before continuing.
 - `kubectl` >= 1.30
 - `helm` >= 3.13
 
-## One-time setup
+## Quickstart (one command)
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Writes `values-local.yaml.local` with the three required secrets, bootstraps
+the cluster (ingress-nginx + kube-prom-stack + namespace), builds every
+service image, and runs `helm upgrade --install`. Prints the entry-point URLs
+on success. Re-running is safe — all underlying steps are idempotent. The
+manual flow below is for step-by-step control.
+
+The `helm upgrade --install` step uses `--wait --timeout 10m`, so the
+quickstart command blocks until every pod is Ready (or it gives up). To watch
+progress live in another terminal:
+
+```sh
+kubectl -n team-chaos-monkeys get pods -w
+```
+
+A healthy install ends with all 18 pods at `1/1 Running` — six `*-db-0`, one
+each of `minio-0` and `rabbitmq-*`, nine app deployments, and `grafana-*`.
+Spring services may briefly show `0/1 CrashLoopBackOff` while their database
+comes up; that's the documented startup race and self-heals within ~60s.
+
+
+## step by step (setup once)
 
 ```sh
 make -C infra/helm cluster-bootstrap
@@ -44,12 +73,30 @@ namespace — the same name we use on AET, so values diffs stay minimal. It
 targets your current kubectl context, so make sure that's pointing at the
 local cluster.
 
-## Build and deploy
+## Secrets locally
+
+For local-only secrets (OPENAI_API_KEY, etc.), create a gitignored values file
+next to `values-local.yaml`:
+
+```sh
+  cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
+  secrets:
+    openaiApiKey: sk-...
+    devAdminEmail: admin@local.test
+    devAdminPassword: changeme
+  EOF
+```
+
+## Build and deploy (manual)
 
 ```sh
 make -C infra/helm build          # docker build every service image
 make -C infra/helm helm-install   # helm dep update + helm upgrade --install
 ```
+
+Requires `values-local.yaml.local` (see [Secrets locally](#secrets-locally));
+auth-service and genai-service won't start without `devAdminEmail`,
+`devAdminPassword`, and `openaiApiKey`.
 
 No image-import step: the local Kubernetes uses the same containerd that the
 Docker daemon writes into, so `docker build` is enough. The chart sets
@@ -92,6 +139,22 @@ Browser:
 `127.0.0.1`, so it works with the ingress-nginx LoadBalancer service on the
 local cluster without any `/etc/hosts` editing.
 
+The chart also brings up **RabbitMQ** (`rabbitmq` Service, ports 5672/15672)
+and **MinIO** (`minio` Service, ports 9000/9001) in-namespace. Both are
+cluster-internal, not on the ingress. To poke at the MinIO console or the
+RabbitMQ management UI:
+
+```sh
+kubectl -n team-chaos-monkeys port-forward svc/minio    9001:9001
+kubectl -n team-chaos-monkeys port-forward svc/rabbitmq 15672:15672
+```
+
+Credentials live in the `foundflow-minio` and `foundflow-rabbitmq` Secrets:
+```sh
+kubectl -n team-chaos-monkeys get secret foundflow-minio    -o jsonpath='{.data.accessKey}' | base64 -d
+kubectl -n team-chaos-monkeys get secret foundflow-rabbitmq -o jsonpath='{.data.username}'  | base64 -d
+```
+
 ## Iterate on a single service
 
 ```sh
@@ -113,19 +176,8 @@ kubectl -n monitoring port-forward svc/kps-kube-prometheus-stack-prometheus 9090
 You should see all 8 ServiceMonitors as healthy targets and `foundflow-alerts`
 listed under Alerts.
 
-## Secrets locally
+> RabbitMQ and MinIO are not currently scraped
 
-For local-only secrets (OPENAI_API_KEY, etc.), create a gitignored values file
-next to `values-local.yaml`:
-
-```sh
-cat > infra/helm/foundflow/values-local.yaml.local <<'EOF'
-secrets:
-  openaiApiKey: sk-...
-  devAdminEmail: admin@local.test
-  devAdminPassword: changeme
-EOF
-```
 
 The `helm-install` target picks it up automatically when present. The file is
 covered by both `.helmignore` and the project `.gitignore`.

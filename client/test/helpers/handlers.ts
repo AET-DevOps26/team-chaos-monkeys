@@ -18,6 +18,24 @@ export const loginInvalidCredentials = () =>
     HttpResponse.json({ message: 'Invalid credentials' }, { status: 401 }),
   )
 
+export const refreshSuccess = (accessToken = 'refreshed-access-token', refreshToken = 'rotated-refresh-token') =>
+  http.post('*/api/auth/refresh', () =>
+    HttpResponse.json<TokenResponse>({
+      accessToken,
+      refreshToken,
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+    }),
+  )
+
+export const refreshFailure = () =>
+  http.post('*/api/auth/refresh', () =>
+    HttpResponse.json({ message: 'Invalid refresh token' }, { status: 401 }),
+  )
+
+export const logoutSuccess = () =>
+  http.post('*/api/auth/logout', () => new HttpResponse(null, { status: 204 }))
+
 export const foundItemsList = (items: FoundItemResponse[]) =>
   http.get('*/api/found-items', ({ request }) => {
     const status = new URL(request.url).searchParams.get('status')
@@ -55,4 +73,4 @@ export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') 
     HttpResponse.json<PhotoUrlResponse>({ url }),
   )
 
-export const handlers = [loginSuccess()]
+export const handlers = [loginSuccess(), logoutSuccess()]

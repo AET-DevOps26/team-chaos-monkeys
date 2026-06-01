@@ -5,6 +5,7 @@ import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import { loginInvalidCredentials, loginSuccess } from '@test/handlers'
 import { makeFakeJwt } from '@test/jwt'
+import { getRefreshToken } from '@/auth/token-store'
 import Login from '@/pages/Login/Login'
 
 const FAKE_JWT = makeFakeJwt()
@@ -29,6 +30,18 @@ describe('<Login />', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => expect(screen.getByText('home')).toBeInTheDocument())
+  })
+
+  it('persists the refresh token returned by login', async () => {
+    server.use(loginSuccess(FAKE_JWT))
+    const { user } = renderLogin()
+
+    await user.type(screen.getByLabelText(/email/i), 'staff@example.com')
+    await user.type(screen.getByLabelText(/password/i), 'hunter22')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => expect(screen.getByText('home')).toBeInTheDocument())
+    expect(getRefreshToken()).toBe('test-refresh-token')
   })
 
   it('shows an invalid-credentials message on 401', async () => {

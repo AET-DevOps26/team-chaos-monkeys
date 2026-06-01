@@ -8,7 +8,6 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
 from app.dependencies import get_llm
 from app.main import app
 from app.providers.fake import FakeProvider

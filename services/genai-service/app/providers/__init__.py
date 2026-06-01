@@ -113,6 +113,7 @@ def build_provider(settings: Settings) -> LLMProvider:
                 '"distinguishingMarks":[],"approximateTime":null,'
                 '"location":null}'
             ),
+            embedding_dimensions=settings.embedding_dimensions,
         )
     raise ValueError(f"unknown provider: {settings.provider!r}")
 

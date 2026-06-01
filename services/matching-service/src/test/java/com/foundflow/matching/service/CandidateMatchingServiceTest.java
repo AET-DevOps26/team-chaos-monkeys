@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -40,11 +41,13 @@ class CandidateMatchingServiceTest {
 
     private static final int TOP_K = 20;
     private static final float THRESHOLD = 0.55f;
+    private static final int EMBEDDING_DIM = 768;
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
     private MatchRepository matchRepository;
     private GenaiClient genaiClient;
     private MatchCandidateEventPublisher eventPublisher;
+    private SimpleMeterRegistry meters;
     private CandidateMatchingService service;
 
     @BeforeEach
@@ -53,14 +56,16 @@ class CandidateMatchingServiceTest {
         matchRepository = mock(MatchRepository.class);
         genaiClient = mock(GenaiClient.class);
         eventPublisher = mock(MatchCandidateEventPublisher.class);
+        meters = new SimpleMeterRegistry();
         service = new CandidateMatchingService(
                 itemEmbeddingRepository,
                 matchRepository,
                 genaiClient,
                 eventPublisher,
-                new SimpleMeterRegistry(),
+                meters,
                 TOP_K,
-                THRESHOLD
+                THRESHOLD,
+                EMBEDDING_DIM
         );
     }
 
@@ -313,6 +318,24 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
+    void processIntake_throwsAndIncrementsMetric_whenEmbeddingDimMismatches() {
+        when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponseOfLength(1024));
+
+        assertThatThrownBy(() -> service.processIntake(
+                ItemType.LOST, UUID.randomUUID(), UUID.randomUUID(),
+                "blue jacket", new ItemAttributesPayload("jacket", null, null, List.of())))
+                .isInstanceOf(EmbeddingDimensionMismatchException.class);
+
+        // Repository never called
+        verify(itemEmbeddingRepository, never()).upsert(any(ItemEmbedding.class));
+
+        // Metric labelled correctly
+        assertThat(meters.counter("matching.embedding.dim_mismatch_total",
+                "expected", "768", "actual", "1024").count()).isEqualTo(1.0);
+    }
+
+    @Test
     void buildEmbeddingText_includesAllAvailableAttributeFields() {
         String text = CandidateMatchingService.buildEmbeddingText(
                 "Black backpack",
@@ -341,13 +364,25 @@ class CandidateMatchingServiceTest {
     }
 
     private static EmbedResponse embedResponse(float... vector) {
-        List<Float> boxed = new java.util.ArrayList<>(vector.length);
+        // Pad to EMBEDDING_DIM so the per-ingest dimension assertion passes.
+        List<Float> boxed = new java.util.ArrayList<>(EMBEDDING_DIM);
         for (float v : vector) {
             boxed.add(v);
         }
+        while (boxed.size() < EMBEDDING_DIM) {
+            boxed.add(0.0f);
+        }
         EmbedResponse response = new EmbedResponse();
         response.setEmbeddings(List.of(boxed));
-        response.setDimensions(vector.length);
+        response.setDimensions(EMBEDDING_DIM);
         return response;
+    }
+
+    private static EmbedResponse embedResponseOfLength(int n) {
+        EmbedResponse r = new EmbedResponse();
+        java.util.List<Float> v = new java.util.ArrayList<>(n);
+        for (int i = 0; i < n; i++) v.add(0.0f);
+        r.setEmbeddings(java.util.List.of(v));
+        return r;
     }
 }

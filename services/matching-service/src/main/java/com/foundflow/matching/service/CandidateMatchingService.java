@@ -44,6 +44,7 @@ public class CandidateMatchingService {
 
     private final int topK;
     private final float threshold;
+    private final int embeddingDim;
 
     public CandidateMatchingService(
             ItemEmbeddingRepository itemEmbeddingRepository,
@@ -52,7 +53,8 @@ public class CandidateMatchingService {
             MatchCandidateEventPublisher eventPublisher,
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
-            @Value("${foundflow.matching.threshold:0.55}") float threshold
+            @Value("${foundflow.matching.threshold:0.55}") float threshold,
+            @Value("${foundflow.matching.embedding-dim}") int embeddingDim
     ) {
         this.itemEmbeddingRepository = itemEmbeddingRepository;
         this.matchRepository = matchRepository;
@@ -61,6 +63,7 @@ public class CandidateMatchingService {
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
+        this.embeddingDim = embeddingDim;
     }
 
     public void findCandidatesForLostReport(LostReportCreatedEvent event) {
@@ -132,6 +135,16 @@ public class CandidateMatchingService {
                 .description("Time to fetch an embedding from genai-service")
                 .register(meterRegistry)
                 .record(() -> toFloatArray(genaiClient.embed(embedRequest)));
+
+        if (embedding.length != embeddingDim) {
+            meterRegistry.counter("matching.embedding.dim_mismatch_total",
+                    "expected", String.valueOf(embeddingDim),
+                    "actual", String.valueOf(embedding.length)).increment();
+            throw new EmbeddingDimensionMismatchException(
+                    "Embedding from genai-service has " + embedding.length
+                            + " dims, expected " + embeddingDim
+                            + " for item " + itemType + " " + itemId);
+        }
 
         itemEmbeddingRepository.upsert(new ItemEmbedding(
                 UUID.randomUUID(),

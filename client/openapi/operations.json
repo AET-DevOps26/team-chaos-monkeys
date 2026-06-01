@@ -1,0 +1,167 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/venues": {
+      "get": {
+        "tags": [
+          "venue-controller"
+        ],
+        "operationId": "getAllVenues",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VenueResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/venues/{id}": {
+      "get": {
+        "tags": [
+          "venue-controller"
+        ],
+        "operationId": "getVenueById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/venues/kpis": {
+      "get": {
+        "tags": [
+          "venue-controller"
+        ],
+        "operationId": "getVenueKpis",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueKpiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/venues/kpis/{id}": {
+      "get": {
+        "tags": [
+          "venue-controller"
+        ],
+        "operationId": "getVenueKpisById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueKpiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VenueResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string"
+          },
+          "defaultLanguage": {
+            "type": "string"
+          }
+        }
+      },
+      "VenueKpiResponse": {
+        "type": "object",
+        "properties": {
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totalFoundItems": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalLostItems": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalMatches": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pendingMatches": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

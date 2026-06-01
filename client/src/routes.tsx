@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import Dashboard from '@/pages/Dashboard'
 import FoundItemIntake from '@/pages/FoundItemIntake'
 import FoundItemsOverview from '@/pages/FoundItemsOverview'
 import ReportLostItem from '@/pages/public/ReportLostItem'
@@ -15,6 +16,16 @@ export default function AppRoutes() {
       <Route path="/report/confirmation" element={<ReportConfirmation />} />
       <Route
         path="/"
+        element={
+          <RequireAuth>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/intake"
         element={
           <RequireAuth>
             <Layout>

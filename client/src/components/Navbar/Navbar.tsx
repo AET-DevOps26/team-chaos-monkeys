@@ -9,7 +9,7 @@ const linkIdle = 'text-text-h'
 const placeholderCls =
   'rounded px-3 py-1.5 text-sm font-medium text-text-h opacity-40 cursor-not-allowed select-none'
 
-const placeholders = ['Lost Items', 'Dashboard'] as const
+const placeholders = ['Lost Items'] as const
 
 export default function Navbar() {
   const { user, logout } = useAuth()
@@ -27,6 +27,16 @@ export default function Navbar() {
             <NavLink
               to="/"
               end
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : linkIdle}`
+              }
+            >
+              Dashboard
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/intake"
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : linkIdle}`
               }

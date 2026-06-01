@@ -5,8 +5,9 @@ import { FoundItemResponseStatus } from '@/api/found-items/model'
 import {
   getGetAllFoundItemsQueryKey,
   useDeleteFoundItem,
+  useGetFoundItemPhotoUrl,
 } from '@/api/found-items/found-item-controller/found-item-controller'
-import FoundItemPhoto from './FoundItemPhoto'
+import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
@@ -86,7 +87,11 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
         onMouseLeave={onMouseLeave}
       >
         <div className="absolute inset-0 transition-all duration-300 ease-out group-hover:scale-[1.02] group-hover:blur-sm group-hover:brightness-75">
-          <FoundItemPhoto id={item.id} alt={label} />
+          <PhotoThumbnail
+            id={item.id}
+            alt={label}
+            usePhotoUrl={useGetFoundItemPhotoUrl}
+          />
         </div>
         {confirming && (
           <button

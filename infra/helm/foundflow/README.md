@@ -2,7 +2,7 @@
 
 Single umbrella chart that deploys all FoundFlow services (gateway + 6 Spring
 microservices + Python GenAI service + React client), six per-service Bitnami
-PostgreSQL releases, and an in-namespace Grafana preloaded with the
+PostgreSQL releasess and an in-namespace Grafana preloaded with the
 `Services — RED` dashboard.
 
 Deploys exclusively into the namespace `team-chaos-monkeys`.
@@ -10,7 +10,16 @@ Deploys exclusively into the namespace `team-chaos-monkeys`.
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/local-k8s.md` for runtime-specific setup; from there:
+OrbStack. See `docs/local-k8s.md` for runtime-specific setup. One-command path:
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Step-by-step (manual) path:
 
 ```sh
 make -C infra/helm cluster-bootstrap   # one-time: ingress-nginx + kube-prom-stack + namespace
@@ -50,6 +59,8 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 | `templates/servicemonitor.yaml` | One `ServiceMonitor` per scrape-enabled service. |
 | `templates/prometheusrule.yaml` | `ServiceDown`, `HighErrorRate`, GenAI alerts. |
 | `templates/grafana/*.yaml` | Grafana Deployment + Service + provisioning ConfigMaps + admin Secret. |
+| `templates/rabbitmq.yaml` | In-namespace RabbitMQ broker (Deployment + Service + Secret). |
+| `templates/minio.yaml` | In-namespace MinIO object store for photos (StatefulSet + Service + Secret). |
 | `dashboards/services-red.json` | Symlink to `infra/grafana/dashboards/services-red.json` (the docker-compose Grafana reads the same file). |
 
 ## Conventions
@@ -74,6 +85,16 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   the cluster Prometheus Operator picks them up. Default in `values.yaml` is
   `kube-prometheus-stack`; `values-local.yaml` overrides to `kps` (matches the
   `make cluster-bootstrap` install); AET overrides to `rancher-monitoring`.
+
+- **RabbitMQ and MinIO are in-cluster siblings of the apps.** Service names
+  match compose (`rabbitmq`, `minio`), so `SPRING_RABBITMQ_HOST=rabbitmq` and
+  `PHOTO_STORAGE_ENDPOINT=http://minio:9000` are the same env values used in
+  compose. MinIO is **cluster-internal only** — not exposed on the ingress.
+  `PHOTO_STORAGE_PUBLIC_ENDPOINT` is also set to `http://minio:9000`, so signed
+  URLs are not browser-reachable from the cluster install today; browser-facing
+  photo fetches need to go through the gateway, or a follow-up adding a MinIO
+  ingress subpath. The shared `MinioPhotoStorage` calls `ensureBucketExists()`
+  on startup, so no bucket-bootstrap Job is needed.
 
 ## Adding a new service
 
@@ -105,7 +126,9 @@ No service-code changes required — the provider switch already exists.
 - GitHub Actions workflow that runs `helm upgrade --install` against AET on
   merge to `main` (follow-up CICD ticket).
 - Image-publish-to-GHCR step in CI (prerequisite for the CD ticket).
-- RabbitMQ subchart wiring (not yet a build dependency of any service).
+- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO
+  is cluster-internal in this PR; an ingress subpath or gateway proxy is a
+  follow-up.
 
 ## Dashboard sync
 

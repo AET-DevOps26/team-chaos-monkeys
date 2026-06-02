@@ -71,7 +71,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 │   ├── matching-service/       — pgvector-backed match candidates
 │   ├── pickup-service/         — pickup schedules, public pickup booking, local email logs
 │   ├── notification-service/   — guest pickup notifications
-│   ├── operations-service/     — staff profiles + venue KPIs
+│   ├── operations-service/     — venue records + KPI aggregation
 │   └── genai-service/          — Python 3.12 + FastAPI; extraction, embedding, verification
 ├── shared/
 │   └── common-domain/          — shared domain types
@@ -143,7 +143,7 @@ If a host port clashes with something else on your machine (e.g. another project
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
 - **Releases:** `main` is reserved for release PRs from `development`; the automated deploy on merge is planned (see below) but not wired up yet.
 - **CI** (`.github/workflows/ci.yml`): runs on every PR — Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
-- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned via Helm charts under `infra/` (to be added in a later milestone).
+- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned; Helm charts already live under `infra/helm/`, and the remaining work is wiring automated deploys.
 
 ## Observability
 

@@ -26,7 +26,7 @@ services/
   found-item-service/              — Spring Boot 4.0.6 (8083)
   matching-service/                — Spring Boot 4.0.6, owns the pgvector index (8084)
   notification-service/            — Spring Boot 4.0.6 (8085)
-  operations-service/              — Spring Boot 4.0.6, owns venues + staff profiles (8086)
+  operations-service/              — Spring Boot 4.0.6, owns venues + KPI aggregation (8086)
   pickup-service/                  — Spring Boot 4.0.6, magic-link guest pickup scheduling (8087)
   genai-service/                   — Python 3.12 + FastAPI (8000)
 api/openapi.yaml                   — contract-first OpenAPI 3.1 spec for genai-service only; Spring services stay code-first via springdoc (see api/README.md)
@@ -125,7 +125,7 @@ The system is **event-driven with synchronous edges**. The intake → matching s
 
 **OpenAPI 3.1 is the contract for sync APIs.** `api/openapi.yaml` covers the GenAI service only (issue #48); the Spring services are code-first via springdoc — each exposes `/v3/api-docs`, aggregated through the gateway Swagger UI (see `api/README.md`). The Orval-driven frontend client reads cached per-service snapshots from `client/openapi/*.json` (refreshed via `npm run codegen:fetch` against a running gateway). The `codegen-check` CI job guards against drift. Do not hand-write DTOs that the spec covers, and do not introduce direct cross-service HTTP calls without the generated client.
 
-**Auth.** `auth-service` is a Spring OAuth2 Authorization Server (issues JWTs) and Resource Server. `gateway-service` is a Resource Server that validates JWTs against the auth-service JWK set (`/oauth2/jwks`). `auth-service` owns credentials, sessions, and refresh-token state; `operations-service` owns staff/ops/admin user *profiles*. They are linked by `authSubject` — keep this boundary; don't put profile fields in `auth-service` or credential state in `operations-service`.
+**Auth.** `auth-service` is a Spring OAuth2 Authorization Server (issues JWTs) and Resource Server. `gateway-service` is a Resource Server that validates JWTs against the auth-service JWK set (`/oauth2/jwks`). `auth-service` owns credentials, user records, sessions, and refresh-token state. `operations-service` owns venue records and KPI aggregation, and authorizes access from JWT roles plus the `venue_id` claim.
 
 **Provider switch for the LLM.** `GENAI_PROVIDER=openai|local|fake` selects the OpenAI API, a local Ollama backend, or the deterministic `fake` provider used in tests/E2E. Implementations live in `app/providers/{openai,ollama,fake}.py` and share the same provider interface — same code path, no separate implementations. A nightly `genai-integration.yml` workflow runs the service against a real Ollama backend (`qwen2.5:0.5b` + `nomic-embed-text`) and is non-blocking (`continue-on-error: true`).
 

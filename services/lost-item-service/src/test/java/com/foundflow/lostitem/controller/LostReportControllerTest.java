@@ -48,12 +48,18 @@ class LostReportControllerTest {
         CreateLostReportRequest request = createRequest(venueId);
         LostReportResponse response = response(id, venueId, ReportStatus.OPEN);
 
-        when(lostReportService.createLostReport(eq(request), any(Jwt.class))).thenReturn(response);
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
 
-        mockMvc.perform(post("/api/lost-items")
-                        .with(staffPrincipal(venueId))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(request)))
+        when(lostReportService.createLostReport(eq(request), any(), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/lost-items")
+                        .file(requestPart)
+                        .with(staffPrincipal(venueId)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/lost-items/" + id))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))
@@ -67,11 +73,17 @@ class LostReportControllerTest {
         CreateLostReportRequest request = createRequest(venueId);
         LostReportResponse response = response(id, venueId, ReportStatus.OPEN);
 
-        when(lostReportService.createLostReport(eq(request), isNull())).thenReturn(response);
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
 
-        mockMvc.perform(post("/api/lost-items")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(request)))
+        when(lostReportService.createLostReport(eq(request), any(), isNull())).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/lost-items")
+                        .file(requestPart))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/lost-items/" + id))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))

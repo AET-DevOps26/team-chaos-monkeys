@@ -11,7 +11,7 @@ infrastructure.
 | --- | --- |
 | Client | React, Vite, TypeScript |
 | Gateway | Spring Cloud Gateway |
-| Backend services | Spring Boot 3, Java 21 |
+| Backend services | Spring Boot 4.0.6, Java 21 |
 | GenAI | Python 3.12, FastAPI |
 | Databases | PostgreSQL 17, pgvector for matching |
 | Events | RabbitMQ topic exchange |
@@ -106,7 +106,7 @@ and routing.
 - Every Spring service has a dedicated PostgreSQL database and Flyway history.
 - Matching uses `pgvector/pgvector:pg17` for `item_embeddings`.
 - MinIO stores item photos in local compose. Services persist only `photoKey`.
-- RabbitMQ stores transient queues; PostgreSQL remains authoritative.
+- RabbitMQ queues are durable; PostgreSQL remains authoritative.
 - Prometheus scrapes Spring actuator endpoints and the GenAI `/metrics`
   endpoint. Grafana dashboards are committed under `infra/grafana` and
   `infra/helm/foundflow/dashboards`.

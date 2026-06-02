@@ -90,7 +90,6 @@ Fields:
 Fields:
 
 - `eventId`
-- `version`
 - `occurredAt`
 - `matchId`
 - `lostReportId`

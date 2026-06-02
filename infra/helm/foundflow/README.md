@@ -10,7 +10,7 @@ Deploys exclusively into the namespace `team-chaos-monkeys`.
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/local-k8s.md` for runtime-specific setup. One-command path:
+OrbStack. See `docs/deployment/local-kubernetes.md` for runtime-specific setup. One-command path:
 
 ```sh
 make -C infra/helm kube-quickstart \

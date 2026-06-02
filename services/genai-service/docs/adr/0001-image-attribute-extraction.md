@@ -8,9 +8,9 @@
 
 ## Context
 
-`genai-service` today extracts structured `ItemAttributes` from a free-text lost-item description only. This was the conscious cut for the first iteration: `docs/architecture.md` §3.2 deferred image-based extraction (*"Image-based attribute extraction is out of scope for this iteration."*) and tracked it as issue #90.
+`genai-service` today extracts structured `ItemAttributes` from a free-text lost-item description only. This was the conscious cut for the first iteration: `docs/product/problem-statement.md` deferred image-based extraction (*"Image-based attribute extraction is out of scope for this iteration."*) and tracked it as issue #90.
 
-Found-item intake is part of the standard user flow per `docs/architecture.md` §3.2 — staff photos are mandatory, and the image is the primary signal for those reports. Implementing #90 brings image extraction into the supported set; this ADR captures the design decisions before code lands.
+Found-item intake is part of the standard user flow per `docs/product/problem-statement.md` — staff photos are mandatory, and the image is the primary signal for those reports. Implementing #90 brings image extraction into the supported set; this ADR captures the design decisions before code lands.
 
 The design touches the API contract, the LLM provider abstraction, the prompt, observability, testing, and security. The decisions are inter-dependent — image transport choice constrains provider abstraction; reconciliation policy constrains prompt; etc. — so they are captured in one ADR rather than split across many.
 
@@ -255,7 +255,7 @@ Image fixtures live in `tests/golden/images/` as actual JPEG/PNG files (≤200 K
 ## References
 
 - Issue [#90](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/90) — *Implement image-based attribute extraction from item photos*
-- `docs/architecture.md` §1.3, §3.2 — original deferral and item-photo semantics
+- `docs/architecture/system-architecture.md` (data storage) and `docs/product/problem-statement.md` (scope) — original deferral and item-photo semantics
 - Issue [#55](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/55) / PR [#87](https://github.com/AET-DevOps26/team-chaos-monkeys/pull/87) — text golden set foundation
 - Issue [#67](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/67) — photo-storage abstraction (closed)
 - PR [#127](https://github.com/AET-DevOps26/team-chaos-monkeys/pull/127) — GenAI-domain alert rules (in flight; modality reshape lands in #90's PR)

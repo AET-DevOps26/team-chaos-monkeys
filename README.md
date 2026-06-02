@@ -1,6 +1,6 @@
 # Team Chaos Monkeys — FoundFlow
 
-Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. FoundFlow is a cloud-native lost-and-found platform for hospitality and event venues — see [`docs/problem-statement.md`](docs/problem-statement.md) for the domain framing and [`docs/architecture.md`](docs/architecture.md) for the system design.
+Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. FoundFlow is a cloud-native lost-and-found platform for hospitality and event venues — see [`docs/product/problem-statement.md`](docs/product/problem-statement.md) for the domain framing and [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) for the system design.
 
 ## Team
 
@@ -47,13 +47,13 @@ To stop and clean up volumes: `docker compose down -v`.
 The system is **event-driven with synchronous edges**:
 
 - **REST/JSON** carries user-facing commands and queries from the frontend, public magic-link flows for match confirmation and pickup scheduling, and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
-- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ (planned — wired in a later milestone; see [`docs/architecture.md`](docs/architecture.md)).
+- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
 
 Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules, booked pickups, and local pickup-email logs.
 
-Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/api-security.md`](docs/api-security.md).
+Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md).
 
-Photo storage uses a shared abstraction so the same code targets MinIO locally and Azure Blob in the cloud (planned; not implemented yet) — design rationale in [`docs/photo-storage.md`](docs/photo-storage.md).
+Photo storage uses a shared abstraction so the same code targets MinIO locally and Azure Blob in the cloud — design rationale in [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md).
 
 ## Repository layout
 
@@ -62,7 +62,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 ├── api/
 │   └── openapi.yaml            — GenAI service contract (Spring paths land via #61)
 ├── client/                     — React + Vite + TypeScript frontend
-├── docs/                       — architecture, problem statement, security model
+├── docs/                       — architecture/, course/, product/, deployment/, research/, diagrams/
 ├── services/
 │   ├── gateway-service/        — Spring Cloud Gateway, edge routing
 │   ├── auth-service/           — OAuth2 authorization server + user management
@@ -158,8 +158,9 @@ Every Spring service exposes `/actuator/prometheus` (Micrometer); `genai-service
 
 ## Documentation index
 
-- [`docs/problem-statement.md`](docs/problem-statement.md) — domain framing
-- [`docs/architecture.md`](docs/architecture.md) — system design and UML
-- [`docs/api-security.md`](docs/api-security.md) — roles, claims, endpoint permissions
-- [`docs/photo-storage.md`](docs/photo-storage.md) — storage abstraction shared by lost/found item services
-- [`docs/task-description.md`](docs/task-description.md) — original course brief (do not edit)
+- [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/product/problem-statement.md`](docs/product/problem-statement.md) — domain framing
+- [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) — system design (diagrams under `docs/diagrams/`)
+- [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md) — roles, claims, endpoint permissions
+- [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md) — storage abstraction shared by lost/found item services
+- [`docs/course/requirements.md`](docs/course/requirements.md) — course requirements & grading

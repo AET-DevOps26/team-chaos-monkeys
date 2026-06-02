@@ -22,7 +22,7 @@ default in local and Kubernetes-oriented deployments.
 
 - Spring services expose `/actuator/prometheus` via Micrometer.
 - Gateway also exposes actuator metrics.
-- GenAI exposes `/metrics` through `prometheus_client`.
+- GenAI exposes `/metrics` through `prometheus-fastapi-instrumentator`.
 
 The core dashboard shape follows RED metrics:
 

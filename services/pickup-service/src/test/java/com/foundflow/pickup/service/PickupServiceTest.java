@@ -1,5 +1,7 @@
 package com.foundflow.pickup.service;
 
+import com.foundflow.magiclink.MagicLinkClaims;
+import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.pickup.domain.Pickup;
 import com.foundflow.pickup.domain.PickupSchedule;
 import com.foundflow.pickup.domain.ScheduleRecurrenceType;

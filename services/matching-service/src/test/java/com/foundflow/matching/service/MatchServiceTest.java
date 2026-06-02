@@ -1,5 +1,7 @@
 package com.foundflow.matching.service;
 
+import com.foundflow.magiclink.MagicLinkClaims;
+import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
@@ -364,7 +366,7 @@ class MatchServiceTest {
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
-        when(magicLinkService.verifyMatchViewToken("public-token"))
+        when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
                 .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(matchRepository.save(match)).thenReturn(match);

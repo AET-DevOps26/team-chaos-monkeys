@@ -29,7 +29,7 @@
 | Infrastructure | **Ansible + Terraform** | Terraform for infrastructure provisioning and Ansible for Configuration Management. |
 ### 1.2 Microservice Decomposition
 
-The backend is split into seven Spring Boot services with narrow responsibilities and a single owned data domain each. The GenAI service runs as a peer. RabbitMQ carries domain events so intake, matching, pickup, notification, and operations workflows are not coupled through synchronous call chains.
+The backend is split into seven Spring Boot services with narrow responsibilities and a single owned data domain each. The GenAI service runs as a peer. RabbitMQ carries domain events so intake, matching, notification, and operations workflows are not coupled through synchronous call chains. Pickup is the one service that stays purely REST/JWT today — its public magic-link flow and staff schedule APIs do not produce or consume domain events.
 
 | Service | Owns | Talks to |
 |---|---|---|
@@ -198,12 +198,10 @@ graph TB
     Found --> Rabbit
     Rabbit --> Match
     Rabbit --> Notif
-    Rabbit --> Pickup
     Rabbit --> Ops
     Rabbit --> Auth
     Match --> Rabbit
     Notif --> Rabbit
-    Pickup --> Rabbit
     Ops --> Rabbit
 
     %% GenAI Integration

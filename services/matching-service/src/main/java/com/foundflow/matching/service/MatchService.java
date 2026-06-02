@@ -1,5 +1,7 @@
 package com.foundflow.matching.service;
 
+import com.foundflow.magiclink.MagicLinkClaims;
+import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
@@ -22,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -207,7 +210,7 @@ public class MatchService {
     }
 
     public Optional<MatchResponse> getPublicMatch(String token) {
-        MagicLinkClaims claims = magicLinkService.verifyMatchViewToken(token);
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         return matchRepository.findById(claims.matchId())
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
                 .map(this::toResponse);
@@ -221,6 +224,7 @@ public class MatchService {
         return updatePublicMatchStatus(token, MatchStatus.REJECTED);
     }
 
+    @Transactional
     public Optional<PublicMatchLinkResponse> createPublicMatchLink(
             UUID id,
             CreatePublicMatchLinkRequest request,
@@ -295,7 +299,7 @@ public class MatchService {
     }
 
     private Optional<MatchResponse> updatePublicMatchStatus(String token, MatchStatus status) {
-        MagicLinkClaims claims = magicLinkService.verifyMatchViewToken(token);
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         return matchRepository.findById(claims.matchId())
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
                 .map(match -> {

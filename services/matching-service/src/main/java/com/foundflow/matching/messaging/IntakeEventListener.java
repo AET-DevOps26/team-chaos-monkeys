@@ -6,6 +6,8 @@ import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
 import com.foundflow.matching.service.CandidateMatchingService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -16,11 +18,17 @@ import org.springframework.web.client.RestClientException;
 public class IntakeEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(IntakeEventListener.class);
+    private static final String SKIPPED_COUNTER = "matching.candidate_search.skipped";
 
     private final CandidateMatchingService candidateMatchingService;
+    private final MeterRegistry meterRegistry;
 
-    public IntakeEventListener(CandidateMatchingService candidateMatchingService) {
+    public IntakeEventListener(
+            CandidateMatchingService candidateMatchingService,
+            MeterRegistry meterRegistry
+    ) {
         this.candidateMatchingService = candidateMatchingService;
+        this.meterRegistry = meterRegistry;
     }
 
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE)
@@ -93,6 +101,10 @@ public class IntakeEventListener {
                     eventId,
                     exception.getMessage()
             );
+            Counter.builder(SKIPPED_COUNTER)
+                    .tag("event_type", eventType)
+                    .register(meterRegistry)
+                    .increment();
         }
     }
 }

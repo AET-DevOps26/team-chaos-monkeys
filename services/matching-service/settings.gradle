@@ -1,10 +1,7 @@
 rootProject.name = 'matching-service'
-includeBuild('../../shared/domain-events')
 includeBuild('../../shared/common-domain')
-// Needed to compile the shared genai-client (its AttributeExtractionService
-// has a compileOnly dependency on photo-storage). Not on the runtime classpath
-// of matching-service because compileOnly is not transitive.
 includeBuild('../../shared/photo-storage')
+includeBuild('../../shared/domain-events')
 includeBuild('../../shared/genai-client')
 def sharedTestArchitectureSettings = new File(settingsDir, '../../shared/test-architecture/service-settings.gradle').canonicalFile
 if (sharedTestArchitectureSettings.isFile()) {

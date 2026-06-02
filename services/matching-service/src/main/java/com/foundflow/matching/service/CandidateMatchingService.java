@@ -40,6 +40,7 @@ public class CandidateMatchingService {
     private final MatchRepository matchRepository;
     private final GenaiClient genaiClient;
     private final MatchCandidateEventPublisher eventPublisher;
+    private final MatchVerificationService verificationService;
     private final MeterRegistry meterRegistry;
 
     private final int topK;
@@ -50,6 +51,7 @@ public class CandidateMatchingService {
             MatchRepository matchRepository,
             GenaiClient genaiClient,
             MatchCandidateEventPublisher eventPublisher,
+            MatchVerificationService verificationService,
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
             @Value("${foundflow.matching.threshold:0.55}") float threshold
@@ -58,6 +60,7 @@ public class CandidateMatchingService {
         this.matchRepository = matchRepository;
         this.genaiClient = genaiClient;
         this.eventPublisher = eventPublisher;
+        this.verificationService = verificationService;
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
@@ -180,6 +183,11 @@ public class CandidateMatchingService {
 
             if (persisted != null) {
                 eventPublisher.publishMatchCandidateCreated(persisted);
+                String ownText = embeddingText;
+                String otherText = candidate.textSource();
+                String lostText = itemType == ItemType.LOST ? ownText : otherText;
+                String foundText = itemType == ItemType.LOST ? otherText : ownText;
+                verificationService.verifyAsync(persisted.getId(), lostText, foundText);
             }
         }
     }

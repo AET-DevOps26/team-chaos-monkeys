@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCreateFoundItem } from '@/api/found-items/found-item-controller/found-item-controller'
-import type { CreateFoundItemRequest } from '@/api/found-items/model'
+import { useCreateFoundItemWithPhoto } from '@/api/found-items/found-item-controller/found-item-controller'
+import type { CreateFoundItemRequest, CreateFoundItemWithPhotoBody } from '@/api/found-items/model'
 import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
@@ -85,7 +85,7 @@ export default function FoundItemIntake() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const { user } = useAuth()
-  const createFoundItem = useCreateFoundItem()
+  const createFoundItem = useCreateFoundItemWithPhoto()
 
   useEffect(() => {
     if (!photo) {
@@ -107,7 +107,6 @@ export default function FoundItemIntake() {
     }
     const hasAttributes = Object.values(attributes).some((v) => v !== undefined)
 
-    // TODO: upload data.photo to object storage and pass the returned key as photoKey
     const payload: CreateFoundItemRequest = {
       description: data.description || undefined,
       // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
@@ -120,8 +119,13 @@ export default function FoundItemIntake() {
     }
 
     setSubmitError(null)
+    if (!data.photo) {
+      setSubmitError('Photo is required.')
+      return
+    }
     try {
-      await createFoundItem.mutateAsync({ data: payload })
+      const multipartPayload: CreateFoundItemWithPhotoBody = { request: payload, photo: data.photo }
+      await createFoundItem.mutateAsync({ data: multipartPayload })
       reset({
         description: '',
         foundAt: nowForDatetimeLocal(),
@@ -142,7 +146,7 @@ export default function FoundItemIntake() {
   const hasPhoto = !!previewUrl
 
   return (
-    <main className="mx-auto flex h-screen w-full max-w-4xl flex-col p-4">
+    <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl flex-col p-4">
       <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col gap-3" noValidate>
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-medium text-text-h">Log a found item</h1>

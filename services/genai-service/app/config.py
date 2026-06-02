@@ -23,7 +23,11 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    provider: Literal["openai", "local"] = Field(alias="GENAI_PROVIDER")
+    # `fake` is a deterministic in-process provider used by docker-compose
+    # E2E and downstream service integration tests. It never makes a network
+    # call and returns canned JSON shaped like `ItemAttributes` so the
+    # extraction path succeeds without an OpenAI key or local Ollama.
+    provider: Literal["openai", "local", "fake"] = Field(alias="GENAI_PROVIDER")
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_chat_model: str = Field(default="gpt-4o-mini", alias="OPENAI_CHAT_MODEL")
@@ -33,6 +37,7 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = Field(default="http://ollama:11434", alias="OLLAMA_BASE_URL")
     ollama_chat_model: str = Field(default="llama3.2:3b", alias="OLLAMA_CHAT_MODEL")
+    ollama_vision_model: str = Field(default="llava:7b", alias="OLLAMA_VISION_MODEL")
     ollama_embed_model: str = Field(
         default="nomic-embed-text", alias="OLLAMA_EMBED_MODEL"
     )

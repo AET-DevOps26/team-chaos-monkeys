@@ -1,0 +1,3 @@
+rootProject.name = 'genai-client'
+includeBuild('../common-domain')
+includeBuild('../photo-storage')

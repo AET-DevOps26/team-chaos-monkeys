@@ -13,6 +13,8 @@ The Ollama SDK raises:
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import ollama
 from ollama import AsyncClient
@@ -24,7 +26,37 @@ from app.exceptions import (
     LLMTimeoutError,
     LLMUnavailableError,
 )
-from app.providers import Message
+from app.providers import Message, has_image_content
+
+
+def _to_ollama_message(msg: Message) -> dict[str, Any]:
+    """Translate a `Message` into the Ollama chat API shape.
+
+    Ollama splits multimodal content across two fields on a single message:
+    `content` (the joined text) and `images` (a list of base64 strings).
+    Our `Message.content` may be a plain string or a list of content parts;
+    list inputs are flattened — text parts joined by a single newline,
+    image parts collected into the `images` array.
+
+    A message with only an image is admitted with `content=""`; the model
+    handles this fine and the explicit empty string is preferable to a
+    missing field on the wire.
+    """
+    content = msg["content"]
+    if isinstance(content, str):
+        return {"role": msg["role"], "content": content}
+
+    text_chunks: list[str] = []
+    images: list[str] = []
+    for part in content:
+        if part["type"] == "text":
+            text_chunks.append(part["text"])
+        else:
+            images.append(part["dataBase64"])
+    out: dict[str, Any] = {"role": msg["role"], "content": "\n".join(text_chunks)}
+    if images:
+        out["images"] = images
+    return out
 
 
 def _map_response_error(e: ollama.ResponseError) -> LLMError:
@@ -46,20 +78,27 @@ class OllamaProvider:
         *,
         base_url: str,
         chat_model: str,
+        vision_model: str,
         embed_model: str,
         timeout_seconds: int,
     ) -> None:
         self._client = AsyncClient(host=base_url, timeout=float(timeout_seconds))
         self._chat_model = chat_model
+        # Used when an incoming chat carries an image content part.
+        # See ADR 0001 §7 — split text/vision models keep the text-path
+        # performance characteristics unchanged.
+        self._vision_model = vision_model
         self._embed_model = embed_model
 
     async def chat(
         self, messages: list[Message], *, json_mode: bool = False
     ) -> str:
+        model = self._vision_model if has_image_content(messages) else self._chat_model
+        wire_messages = [_to_ollama_message(msg) for msg in messages]
         try:
             response = await self._client.chat(
-                model=self._chat_model,
-                messages=list(messages),
+                model=model,
+                messages=wire_messages,
                 format="json" if json_mode else "",
             )
         except ollama.ResponseError as e:

@@ -1,0 +1,146 @@
+{{/*
+In-namespace MinIO for photo storage. Renders:
+  - Secret      foundflow-minio   (keys: accessKey, secretKey — secretKey held
+    stable across upgrades via lookup() when values.minio.secretKey is empty)
+  - Service     minio              (ClusterIP, S3 API on 9000, console on 9001)
+  - StatefulSet minio               (single replica; PVC mounted at /data)
+
+No bucket-bootstrap Job — shared/photo-storage's MinioPhotoStorage calls
+ensureBucketExists() on startup, so lost-item-service and found-item-service
+create their own buckets on first request.
+
+Cluster-internal only: not exposed on the ingress. Both PHOTO_STORAGE_ENDPOINT
+and PHOTO_STORAGE_PUBLIC_ENDPOINT are set to http://minio:9000 in values.yaml,
+so signed URLs resolve inside the cluster only. Browser-facing photo fetches
+must currently proxy through the gateway; serving signed URLs to the browser
+directly would require a separate ingress entry and is left for a follow-up.
+*/}}
+{{- if .Values.minio.enabled -}}
+{{- $existing := lookup "v1" "Secret" .Values.namespace.name "foundflow-minio" -}}
+{{- $secretKey := "" -}}
+{{- if .Values.minio.secretKey -}}
+{{- $secretKey = .Values.minio.secretKey -}}
+{{- else if and $existing $existing.data $existing.data.secretKey -}}
+{{- $secretKey = index $existing.data "secretKey" | b64dec -}}
+{{- else -}}
+{{- $secretKey = randAlphaNum 32 -}}
+{{- end -}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foundflow-minio
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/component: object-store
+type: Opaque
+stringData:
+  accessKey: {{ .Values.minio.accessKey | quote }}
+  secretKey: {{ $secretKey | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/component: object-store
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: api
+      port: 9000
+      targetPort: api
+      protocol: TCP
+    - name: console
+      port: 9001
+      targetPort: console
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/component: object-store
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "foundflow.labels" . | nindent 8 }}
+        app.kubernetes.io/name: minio
+        app.kubernetes.io/component: object-store
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: foundflow-minio
+                  key: accessKey
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foundflow-minio
+                  key: secretKey
+          readinessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- with .Values.minio.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.global.storageClassName }}
+        storageClassName: {{ .Values.global.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.minio.persistence.storageSize | quote }}
+{{- end }}

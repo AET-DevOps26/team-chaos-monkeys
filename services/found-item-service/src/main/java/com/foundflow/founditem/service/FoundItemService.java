@@ -9,16 +9,31 @@ import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
+import com.foundflow.genai.client.AttributeExtractionService;
+import com.foundflow.photo.storage.PhotoConstraints;
+import com.foundflow.photo.storage.PhotoData;
+import com.foundflow.photo.storage.PhotoNotFoundException;
+import com.foundflow.photo.storage.PhotoStorage;
+import com.foundflow.photo.storage.PhotoStorageException;
+import com.foundflow.photo.storage.PhotoUrlResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.net.URI;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -31,37 +46,68 @@ import java.util.stream.Collectors;
 @Service
 public class FoundItemService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(FoundItemService.class);
     private final FoundItemRepository foundItemRepository;
     private final VenueAccessService venueAccessService;
+    private final PhotoStorage photoStorage;
+    private final Duration photoUrlTtl;
+    private final FoundItemEventPublisher eventPublisher;
+    private final AttributeExtractionService attributeExtractionService;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
-            VenueAccessService venueAccessService
+            VenueAccessService venueAccessService,
+            PhotoStorage photoStorage,
+            @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
+            FoundItemEventPublisher eventPublisher,
+            AttributeExtractionService attributeExtractionService
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
+        this.photoStorage = photoStorage;
+        this.photoUrlTtl = photoUrlTtl;
+        this.eventPublisher = eventPublisher;
+        this.attributeExtractionService = attributeExtractionService;
     }
 
     public FoundItemResponse createFoundItem(
             CreateFoundItemRequest request,
+            MultipartFile photo,
             Jwt jwt
     ) {
         UUID venueId = venueAccessService.isAdmin(jwt)
                 ? request.venueId()
                 : venueAccessService.getVenueId(jwt);
+        String photoKey = storePhoto(photo);
+
+        ItemAttributes attributes = toItemAttributes(request.attributes());
 
         FoundItem foundItem = new FoundItem(
-                request.photoKey(),
+                photoKey,
                 request.description(),
                 request.foundAt(),
                 request.locationHint(),
                 ItemStatus.STORED,
                 venueId,
                 request.reporterId(),
-                toItemAttributes(request.attributes())
+                attributes
         );
 
-        FoundItem savedFoundItem = foundItemRepository.save(foundItem);
+        FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
+
+        // Best-effort GenAI extraction (issue #128). Only runs when the
+        // staff member did not supply attributes — staff input wins because
+        // a human on-site has more context than the model.
+        // Failures are swallowed inside AttributeExtractionService.
+        if (attributes == null) {
+            attributeExtractionService.extract(request.description(), photoKey)
+                    .ifPresent(extracted -> {
+                        savedFoundItem.setAttributes(extracted);
+                        foundItemRepository.save(savedFoundItem);
+                    });
+        }
+
+        eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);
     }
 
@@ -96,7 +142,6 @@ public class FoundItemService {
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
 
-                    foundItem.setPhotoKey(request.photoKey());
                     foundItem.setDescription(request.description());
                     foundItem.setFoundAt(request.foundAt());
                     foundItem.setLocationHint(request.locationHint());
@@ -114,7 +159,80 @@ public class FoundItemService {
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
+                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     return toResponse(updatedFoundItem);
+                });
+    }
+
+    public Optional<FoundItemResponse> updateFoundItemPhoto(
+            UUID id,
+            MultipartFile photo,
+            Jwt jwt
+    ) {
+        return foundItemRepository.findById(id)
+                .map(foundItem -> {
+                    verifyVenueAccess(jwt, foundItem.getVenueId());
+
+                    String previousPhotoKey = foundItem.getPhotoKey();
+                    String photoKey = storePhoto(photo);
+                    foundItem.setPhotoKey(photoKey);
+
+                    FoundItem updatedFoundItem = saveOrCompensate(foundItem, photoKey, id);
+                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
+                    safeDeletePhoto(previousPhotoKey, id);
+
+                    return toResponse(updatedFoundItem);
+                });
+    }
+
+    public Optional<PhotoData> getFoundItemPhoto(UUID id, Jwt jwt) {
+        return foundItemRepository.findById(id)
+                .map(foundItem -> {
+                    verifyVenueAccess(jwt, foundItem.getVenueId());
+                    String photoKey = foundItem.getPhotoKey();
+                    if (photoKey == null || photoKey.isBlank()) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
+                    }
+                    try {
+                        return photoStorage.retrieve(photoKey);
+                    } catch (PhotoNotFoundException exception) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (PhotoStorageException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY,
+                                "Photo storage backend failure.",
+                                exception
+                        );
+                    }
+                });
+    }
+
+    public Optional<PhotoUrlResponse> getFoundItemPhotoUrl(UUID id, Jwt jwt) {
+        return foundItemRepository.findById(id)
+                .map(foundItem -> {
+                    verifyVenueAccess(jwt, foundItem.getVenueId());
+                    String photoKey = foundItem.getPhotoKey();
+                    if (photoKey == null || photoKey.isBlank()) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
+                    }
+                    try {
+                        URI signedUrl = photoStorage.signedUrl(photoKey, photoUrlTtl);
+                        return new PhotoUrlResponse(signedUrl);
+                    } catch (PhotoNotFoundException exception) {
+                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+                    } catch (UnsupportedOperationException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.NOT_IMPLEMENTED,
+                                "Signed photo URLs are not supported by this storage backend.",
+                                exception
+                        );
+                    } catch (PhotoStorageException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY,
+                                "Photo storage backend failure.",
+                                exception
+                        );
+                    }
                 });
     }
 
@@ -122,7 +240,9 @@ public class FoundItemService {
         return foundItemRepository.findById(id)
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
+                    String photoKey = foundItem.getPhotoKey();
                     foundItemRepository.delete(foundItem);
+                    safeDeletePhoto(photoKey, id);
                     return true;
                 })
                 .orElse(false);
@@ -206,6 +326,62 @@ public class FoundItemService {
         if (!venueAccessService.canAccessVenue(jwt, resourceVenueId)) {
             throw new AccessDeniedException("No access to this venue.");
         }
+    }
+
+    private String storePhoto(MultipartFile photo) {
+        validatePhoto(photo);
+        try {
+            return photoStorage.store(new PhotoData(
+                    photo.getInputStream(),
+                    photo.getContentType(),
+                    photo.getSize()
+            ));
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read uploaded photo.", exception);
+        } catch (PhotoStorageException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not store uploaded photo.", exception);
+        }
+    }
+
+    private FoundItem saveOrCompensate(FoundItem foundItem, String newlyStoredPhotoKey, UUID itemId) {
+        try {
+            return foundItemRepository.save(foundItem);
+        } catch (RuntimeException exception) {
+            if (newlyStoredPhotoKey != null) {
+                safeDeletePhoto(newlyStoredPhotoKey, itemId);
+            }
+            throw exception;
+        }
+    }
+
+    private void safeDeletePhoto(String photoKey, UUID itemId) {
+        if (photoKey == null || photoKey.isBlank()) {
+            return;
+        }
+        try {
+            photoStorage.delete(photoKey);
+        } catch (PhotoStorageException exception) {
+            LOGGER.warn("Could not delete photo {} for found item {}.", photoKey, itemId, exception);
+        }
+    }
+
+    private void validatePhoto(MultipartFile photo) {
+        if (photo == null || photo.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo must not be empty.");
+        }
+        PhotoConstraints.Violation violation = PhotoConstraints.check(photo.getContentType(), photo.getSize());
+        if (violation == null) {
+            return;
+        }
+        throw new ResponseStatusException(statusFor(violation), violation.message());
+    }
+
+    private static HttpStatus statusFor(PhotoConstraints.Violation violation) {
+        return switch (violation) {
+            case TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case UNSUPPORTED_TYPE -> HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+            case EMPTY -> HttpStatus.BAD_REQUEST;
+        };
     }
 
     private List<TimeBucketCount> toTimeBucketCounts(List<BucketCountView> buckets) {

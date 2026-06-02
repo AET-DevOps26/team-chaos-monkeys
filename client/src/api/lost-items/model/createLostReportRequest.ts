@@ -9,11 +9,6 @@ import type { ItemAttributesDto } from './itemAttributesDto';
 export interface CreateLostReportRequest {
   /**
    * @minLength 0
-   * @maxLength 255
-   */
-  photoKey?: string;
-  /**
-   * @minLength 0
    * @maxLength 2000
    */
   description: string;

@@ -1,0 +1,74 @@
+{{/*
+One Deployment per entry in `services:` (values.yaml).
+Image, env, probes, and metrics are filled in by helpers in _helpers.tpl.
+
+DB readiness / startup ordering:
+Kubernetes has no `depends_on` equivalent — Helm releases are not pod-ordered,
+and Deployments don't wait on StatefulSets. Spring services that declare a
+`dbRef` will start before their Postgres pod is Ready, fail the JDBC
+connection, and CrashLoopBackOff until kubelet's exponential backoff hits a
+retry where Postgres is up (usually 30–90s on first install). This is
+self-healing and harmless, but it makes `helm install --wait` look noisy on
+cold starts.
+If we ever want clean startup, add an initContainer per service that loops on
+`pg_isready -h <dbRef> -p 5432` before the app container runs. Skipped for
+now: the crash-loop is cheap, and the alternative adds a container to every
+Deployment for a one-time cosmetic win.
+*/}}
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace.name }}
+  labels:
+    {{- include "foundflow.svcLabels" (dict "ctx" $ "name" $name) | nindent 4 }}
+spec:
+  replicas: {{ default 1 $svc.replicas }}
+  selector:
+    matchLabels:
+      {{- include "foundflow.selectorLabels" (dict "ctx" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "foundflow.svcLabels" (dict "ctx" $ "name" $name) | nindent 8 }}
+      {{- if $svc.metrics }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $svc.port | quote }}
+        prometheus.io/path: {{ include "foundflow.metricsPath" (dict "svc" $svc) | quote }}
+      {{- end }}
+    spec:
+      containers:
+        - name: app
+          image: {{ include "foundflow.image" (dict "ctx" $ "name" $name "svc" $svc) | quote }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          {{- $health := include "foundflow.healthPath" (dict "svc" $svc) }}
+          readinessProbe:
+            httpGet:
+              path: {{ $health }}
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: {{ $health }}
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          env:
+            {{- include "foundflow.env" (dict "ctx" $ "name" $name "svc" $svc) | nindent 12 }}
+          {{- with $svc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

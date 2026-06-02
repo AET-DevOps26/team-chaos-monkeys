@@ -103,6 +103,85 @@
         }
       }
     },
+    "/api/found-items/{id}/photo": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getFoundItemPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "updateFoundItemPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/found-items": {
       "get": {
         "tags": [
@@ -145,16 +224,33 @@
         "tags": [
           "found-item-controller"
         ],
-        "operationId": "createFoundItem",
+        "operationId": "createFoundItemWithPhoto",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/CreateFoundItemRequest"
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateFoundItemRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo",
+                  "request"
+                ]
+              },
+              "encoding": {
+                "request": {
+                  "contentType": "application/json"
+                }
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -163,6 +259,37 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/FoundItemResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/found-items/{id}/photo-url": {
+      "get": {
+        "tags": [
+          "found-item-controller"
+        ],
+        "operationId": "getFoundItemPhotoUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoUrlResponse"
                 }
               }
             }
@@ -286,9 +413,6 @@
       "UpdateFoundItemRequest": {
         "type": "object",
         "properties": {
-          "photoKey": {
-            "type": "string"
-          },
           "description": {
             "type": "string"
           },
@@ -372,9 +496,6 @@
       "CreateFoundItemRequest": {
         "type": "object",
         "properties": {
-          "photoKey": {
-            "type": "string"
-          },
           "description": {
             "type": "string"
           },
@@ -402,6 +523,15 @@
           "reporterId",
           "venueId"
         ]
+      },
+      "PhotoUrlResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
       },
       "HistogramResponse": {
         "type": "object",

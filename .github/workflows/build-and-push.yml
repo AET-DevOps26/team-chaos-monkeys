@@ -25,9 +25,8 @@ jobs:
     env:
       IMAGE_REGISTRY: ghcr.io/aet-devops26/team-chaos-monkeys
       IMAGE_TAG: ${{ inputs.image_tag || 'latest' }}
-      # The Azure VM is x86_64; pin to amd64 so a future arm64 runner can't
-      # produce images that bomb with "exec format error" on pull.
       DOCKER_DEFAULT_PLATFORM: linux/amd64
+      OPENAI_API_KEY: ci-build-placeholder
 
     steps:
       - name: Checkout repository
@@ -42,6 +41,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare env file
+        run: cp .env.example .env
 
       - name: Build images
         run: |

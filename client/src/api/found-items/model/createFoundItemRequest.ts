@@ -7,7 +7,6 @@
 import type { ItemAttributesDto } from './itemAttributesDto';
 
 export interface CreateFoundItemRequest {
-  photoKey?: string;
   description?: string;
   foundAt: string;
   locationHint?: string;

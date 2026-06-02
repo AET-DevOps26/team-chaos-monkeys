@@ -8,7 +8,6 @@ import type { UpdateLostReportRequestStatus } from './updateLostReportRequestSta
 import type { ItemAttributesDto } from './itemAttributesDto';
 
 export interface UpdateLostReportRequest {
-  photoKey?: string;
   /** @minLength 1 */
   description: string;
   lostAt: string;

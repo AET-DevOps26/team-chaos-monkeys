@@ -1,0 +1,91 @@
+plugins {
+    id 'java-library'
+    id 'org.openapi.generator' version '7.10.0'
+}
+
+group = 'com.foundflow'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api 'com.foundflow:common-domain:0.0.1-SNAPSHOT'
+    // photo-storage is optional: only AttributeExtractionService uses it.
+    // Consumers that need that service (lost/found-item) declare photo-storage
+    // directly; consumers that only need GenaiClient (matching-service) skip it.
+    compileOnly 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
+    testImplementation 'com.foundflow:photo-storage:0.0.1-SNAPSHOT'
+
+    api 'org.springframework:spring-web:7.0.0'
+    api 'org.springframework:spring-context:7.0.0'
+
+    // Generated DTOs and the @ConfigurationProperties record need these at runtime.
+    api 'io.swagger.core.v3:swagger-annotations-jakarta:2.2.47'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
+    api 'jakarta.annotation:jakarta.annotation-api:3.0.0'
+
+    compileOnly 'org.springframework.boot:spring-boot-autoconfigure:4.0.6'
+    compileOnly 'org.slf4j:slf4j-api:2.0.16'
+
+    testImplementation 'org.springframework.boot:spring-boot-autoconfigure:4.0.6'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.14.2'
+    testImplementation 'org.slf4j:slf4j-api:2.0.16'
+    testImplementation 'org.wiremock:wiremock-standalone:3.10.0'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// --- GenAI client models: generated from /api/openapi.yaml (issue #128) ---
+//
+// Only the model classes (DTOs) are generated. The HTTP plumbing is
+// hand-rolled in `GenaiClient` using Spring's RestClient because
+// openapi-generator 7.10's `ApiClient` invoker references Spring Framework
+// 6 APIs that were removed in Spring Framework 7 (Spring Boot 4). The
+// "no hand-rolled DTOs" rule is preserved either way.
+//
+// Generated sources live under build/generated/genai-client and are
+// regenerated on every compile. Not committed.
+def genaiClientDir = layout.buildDirectory.dir('generated/genai-client').get().asFile
+
+openApiGenerate {
+    generatorName = 'java'
+    library = 'webclient'
+    inputSpec = "${rootDir}/../../api/openapi.yaml"
+    outputDir = genaiClientDir.absolutePath
+    modelPackage = 'com.foundflow.genai.client.model'
+    generateApiTests = false
+    generateApiDocumentation = false
+    generateModelTests = false
+    generateModelDocumentation = false
+    validateSpec = false
+    globalProperties = [
+        models   : '',
+        apis     : 'false',
+        supportingFiles: 'false',
+    ]
+    configOptions = [
+        useJakartaEe : 'true',
+        useSpringBoot3: 'true',
+        dateLibrary  : 'java8',
+        openApiNullable: 'false',
+        serializationLibrary: 'jackson',
+        hideGenerationTimestamp: 'true',
+    ]
+}
+
+sourceSets.main.java.srcDirs += "${genaiClientDir}/src/main/java"
+compileJava.dependsOn tasks.named('openApiGenerate')

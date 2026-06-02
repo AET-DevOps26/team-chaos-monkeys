@@ -1,0 +1,58 @@
+{{/*
+Single Ingress for the whole stack:
+  /         → client
+  /api      → gateway-service
+  /grafana  → grafana
+TLS via cert-manager when ingress.tls.enabled (on for AET, off locally).
+*/}}
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foundflow
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+  annotations:
+    {{- if and .Values.ingress.tls.enabled .Values.ingress.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ default "foundflow-tls" .Values.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          {{- if and .Values.grafana.enabled .Values.grafana.ingressPath }}
+          - path: {{ .Values.grafana.ingressPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+          {{- end }}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-service
+                port:
+                  number: {{ (index .Values.services "gateway-service").port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: client
+                port:
+                  number: {{ (index .Values.services "client").port }}
+{{- end }}

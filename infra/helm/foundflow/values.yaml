@@ -1,0 +1,278 @@
+# =============================================================================
+# values.yaml — chart-wide defaults
+# =============================================================================
+# This is the base layer. Every install reads it; the env-specific files
+# merge on top:
+#   - values-local.yaml         → local Kubernetes (Docker Desktop / OrbStack)
+#   - values-local.yaml.local   → gitignored, per-developer secrets (optional)
+#   - values-aet.yaml           → AET production cluster (used by CD)
+#
+# Defaults here target the AET cluster shape (TLS via cert-manager, csi-rbd-sc
+# storage, GHCR images). Local installs override what doesn't apply.
+#
+# IMPORTANT: service keys MUST exactly equal docker-compose service names. Gateway
+# routes (services/gateway-service/src/main/resources/application.yml) hardcode
+# URIs like http://auth-service:8081 — the Kubernetes Service objects we create
+# get the same names so service-to-service calls work identically in compose,
+# local k8s, and AET. Don't rename a service key without also updating gateway
+# routes.
+
+global:
+  imageRegistry: ghcr.io/aet-devops26/team-chaos-monkeys
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  storageClassName: csi-rbd-sc
+
+namespace:
+  # Team Chaos Monkeys deploys exclusively into this namespace.
+  # Locally we mirror the same name to minimise drift.
+  name: team-chaos-monkeys
+  create: false
+
+ingress:
+  enabled: true
+  className: nginx
+  host: team-chaos-monkeys.stud.k8s.aet.cit.tum.de
+  tls:
+    enabled: true
+    clusterIssuer: letsencrypt-prod
+    secretName: foundflow-tls
+  annotations: {}
+
+# Per-app config consumed by the _app library template.
+# kind: spring | python | static — controls default probe/metrics paths.
+# imageName: container image name (relative to global.imageRegistry). Defaults to the key.
+services:
+  gateway-service:
+    kind: spring
+    port: 8080
+    metrics: true
+    public: true
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+    env:
+      - { name: SERVER_PORT, value: "8080" }
+
+  auth-service:
+    kind: spring
+    port: 8081
+    metrics: true
+    dbRef: auth-db
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 384Mi }
+      limits:   { cpu: 500m, memory: 768Mi }
+    env:
+      - { name: SERVER_PORT, value: "8081" }
+      - { name: SPRING_PROFILES_ACTIVE, value: "dev" }
+    secretEnv:
+      - { name: DEV_ADMIN_EMAIL,    secret: foundflow-app-secrets, key: devAdminEmail }
+      - { name: DEV_ADMIN_PASSWORD, secret: foundflow-app-secrets, key: devAdminPassword }
+      - { name: JWT_RSA_PRIVATE_KEY, secret: foundflow-app-secrets, key: jwtRsaPrivateKey, optional: true }
+
+  lost-item-service:
+    kind: spring
+    port: 8082
+    metrics: true
+    dbRef: lost-item-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8082" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PHOTO_STORAGE_PROVIDER, value: "minio" }
+      - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-lost-photos" }
+      # GenAI extraction wiring (issue #128). Failures are best-effort and
+      # never block intake; see AttributeExtractionService.
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
+      - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
+
+  found-item-service:
+    kind: spring
+    port: 8083
+    metrics: true
+    dbRef: found-item-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8083" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PHOTO_STORAGE_PROVIDER, value: "minio" }
+      - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-found-photos" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
+      - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
+
+  matching-service:
+    kind: spring
+    port: 8084
+    metrics: true
+    dbRef: matching-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8084" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
+
+  notification-service:
+    kind: spring
+    port: 8085
+    metrics: true
+    dbRef: notification-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8085" }
+
+  operations-service:
+    kind: spring
+    port: 8086
+    metrics: true
+    dbRef: operations-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8086" }
+
+  genai-service:
+    kind: python
+    port: 8000
+    metrics: true
+    metricsPath: /metrics
+    healthPath: /health
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 768Mi }
+    env:
+      - { name: GENAI_PROVIDER, value: openai }
+      - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
+      - { name: OPENAI_EMBED_MODEL, value: "text-embedding-3-small" }
+      - { name: GENAI_TIMEOUT_SECONDS, value: "30" }
+    secretEnv:
+      - { name: OPENAI_API_KEY, secret: foundflow-app-secrets, key: openaiApiKey, optional: true }
+
+  client:
+    kind: static
+    port: 80          # nginx in the client image listens on 80
+    metrics: false
+    public: true
+    replicas: 1
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi }
+      limits:   { cpu: 200m, memory: 128Mi }
+
+# One in-namespace Postgres instance per Spring service. Each gets:
+#   - StatefulSet with one replica (postgres:17, same image as docker-compose)
+#   - PVC of the requested size on global.storageClassName
+#   - Headless ClusterIP Service named exactly as the key (so `auth-db:5432` works)
+#   - Secret <key> with key `password` (random on first install, stable after)
+# initScript is rendered into the StatefulSet's POSTGRES_INITDB_ARGS path as a
+# pre-init SQL file. Used by matching-db to enable pgvector.
+databases:
+  auth-db:        { username: auth,         database: authdb,         storageSize: 1Gi }
+  lost-item-db:   { username: lostitem,     database: lostitemdb,     storageSize: 1Gi }
+  found-item-db:  { username: founditem,    database: founditemdb,    storageSize: 1Gi }
+  matching-db:
+    username: matching
+    database: matchingdb
+    storageSize: 2Gi
+    image: pgvector/pgvector:pg17    # bundles pgvector extension
+    initScript: |
+      CREATE EXTENSION IF NOT EXISTS vector;
+  notification-db: { username: notification, database: notificationdb, storageSize: 1Gi }
+  operations-db:  { username: operations,   database: operationsdb,   storageSize: 1Gi }
+
+postgresDefaults:
+  image: postgres:17
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+# In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
+# Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
+# compose, local k8s, and AET. Credentials live in the foundflow-rabbitmq
+# Secret: a literal `password` here is used as-is; if left empty, a random
+# password is generated on first install and held stable via lookup() (same
+# pattern as templates/databases.yaml).
+rabbitmq:
+  enabled: true
+  image: rabbitmq:4.0-management
+  username: foundflow
+  password: ""
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  # Persistence is off by default: RabbitMQ here carries transient domain events
+  # only — losing the queue contents on pod restart is acceptable. Flip to true
+  # and set storageSize if/when durable queues are introduced.
+  persistence:
+    enabled: false
+    storageSize: 1Gi
+
+# In-namespace MinIO for photo storage. Service "minio" exposes the S3 API on
+# 9000 and the console on 9001 (cluster-internal only; not on the ingress).
+# shared/photo-storage's MinioPhotoStorage calls ensureBucketExists() on
+# startup, so the chart does not need a bucket-bootstrap Job — lost-item and
+# found-item services create their own buckets on first use.
+minio:
+  enabled: true
+  image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+  accessKey: foundflow
+  secretKey: ""    # generated and held stable via lookup() when empty
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 1Gi }
+  persistence:
+    storageSize: 5Gi
+
+# Application Secret (foundflow-app-secrets). Values populated at install time:
+#   helm upgrade --install foundflow ./infra/helm/foundflow \
+#     --set secrets.openaiApiKey=$OPENAI_API_KEY ...
+# Or supplied via a gitignored values-local.yaml.local file.
+secrets:
+  openaiApiKey: ""
+  devAdminEmail: ""
+  devAdminPassword: ""
+  jwtRsaPrivateKey: ""
+
+grafana:
+  enabled: true
+  image: grafana/grafana:11.3.0
+  adminUser: admin
+  adminPassword: ""   # if empty, admin is generated into a Secret as password
+  # Prometheus the Grafana datasource talks to. In-cluster, this is the
+  # operator-managed Prometheus shipped by kube-prometheus-stack.
+  prometheusUrl: http://prometheus-operated.monitoring.svc.cluster.local:9090
+  ingressPath: /grafana
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 300m, memory: 384Mi }
+
+# Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
+# Disable if the cluster lacks the operator (vanilla minikube without it installed).
+monitoring:
+  enabled: true
+  prometheusReleaseLabel: kube-prometheus-stack
+

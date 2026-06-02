@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record UpdateFoundItemRequest(
-        String photoKey,
         String description,
 
         @NotNull

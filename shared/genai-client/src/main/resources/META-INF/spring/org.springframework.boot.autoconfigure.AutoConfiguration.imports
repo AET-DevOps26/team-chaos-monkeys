@@ -1,0 +1,2 @@
+com.foundflow.genai.client.GenaiClientAutoConfiguration
+com.foundflow.genai.client.AttributeExtractionAutoConfiguration

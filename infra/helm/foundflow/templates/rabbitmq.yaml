@@ -1,0 +1,156 @@
+{{/*
+In-namespace RabbitMQ broker. Renders:
+  - Secret  foundflow-rabbitmq   (keys: username, password — username from
+    values, password fixed if set or randomised on first install and held
+    stable across upgrades via lookup() — same pattern as databases.yaml)
+  - Service rabbitmq             (ClusterIP, AMQP on 5672, management UI on 15672)
+  - Deployment rabbitmq          (single replica; emptyDir or PVC depending on
+    rabbitmq.persistence.enabled)
+
+Service name "rabbitmq" deliberately matches docker-compose so Spring services
+consume the same SPRING_RABBITMQ_HOST=rabbitmq value everywhere.
+
+Persistence is opt-in. With persistence off, queue contents are lost on pod
+restart — acceptable for the transient domain events we publish; flip on if
+durable queues are introduced.
+*/}}
+{{- if .Values.rabbitmq.enabled -}}
+{{- $existing := lookup "v1" "Secret" .Values.namespace.name "foundflow-rabbitmq" -}}
+{{- $password := "" -}}
+{{- if .Values.rabbitmq.password -}}
+{{- $password = .Values.rabbitmq.password -}}
+{{- else if and $existing $existing.data $existing.data.password -}}
+{{- $password = index $existing.data "password" | b64dec -}}
+{{- else -}}
+{{- $password = randAlphaNum 24 -}}
+{{- end -}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: foundflow-rabbitmq
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/component: broker
+type: Opaque
+stringData:
+  username: {{ .Values.rabbitmq.username | quote }}
+  password: {{ $password | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/component: broker
+spec:
+  type: ClusterIP
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+      protocol: TCP
+    - name: management
+      port: 15672
+      targetPort: management
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.rabbitmq.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.global.storageClassName }}
+  storageClassName: {{ .Values.global.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.rabbitmq.persistence.storageSize | quote }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/component: broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "foundflow.labels" . | nindent 8 }}
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/component: broker
+    spec:
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.rabbitmq.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: foundflow-rabbitmq
+                  key: username
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: foundflow-rabbitmq
+                  key: password
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+          {{- with .Values.rabbitmq.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.rabbitmq.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: rabbitmq
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

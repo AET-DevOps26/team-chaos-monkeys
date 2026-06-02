@@ -23,3 +23,54 @@ groups:
         annotations:
           summary: "{{ $labels.job }}: server error rate > 1%"
           description: "5xx rate has exceeded 1% over the last 5 minutes."
+
+  - name: foundflow-genai
+    rules:
+      - alert: GenAIProviderFailureRate
+        expr: |
+          sum by (provider, endpoint) (
+            rate(genai_provider_requests_total{outcome!="ok"}[5m])
+          )
+            /
+          sum by (provider, endpoint) (
+            rate(genai_provider_requests_total[5m])
+          )
+            > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GenAI provider {{ $labels.provider }} failing on {{ $labels.endpoint }}"
+          description: "Non-ok provider outcomes exceed 5% of calls over the last 5 minutes."
+
+      - alert: GenAIProviderSlow
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (provider, endpoint, le) (
+              rate(genai_provider_request_duration_seconds_bucket[5m])
+            )
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GenAI provider {{ $labels.provider }} slow on {{ $labels.endpoint }}"
+          description: "p95 provider-call latency > 5s over the last 10 minutes."
+
+      - alert: GenAIValidationErrorSpike
+        expr: |
+          sum by (endpoint) (
+            rate(genai_validation_errors_total[5m])
+          )
+            /
+          sum by (endpoint) (
+            rate(genai_provider_requests_total{outcome="ok"}[5m])
+          )
+            > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model output failing validation on {{ $labels.endpoint }}"
+          description: "Validation failures exceed 10% of successful provider calls over the last 5 minutes."

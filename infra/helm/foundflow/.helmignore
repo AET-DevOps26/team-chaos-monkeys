@@ -1,0 +1,13 @@
+.DS_Store
+.git/
+.gitignore
+.idea/
+.vscode/
+*.tmproj
+*.swp
+*.bak
+*.tmp
+*.orig
+*.tgz
+.helmignore
+values-local.yaml.local

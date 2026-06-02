@@ -1,0 +1,51 @@
+{{/*
+Provisioning for Grafana:
+  - provisioning CM: Prometheus datasource (pinned `uid: prometheus`) +
+    dashboard provider config.
+  - dashboards CM: dashboard JSON read from the chart's dashboards/ folder
+    (symlinked to infra/grafana/dashboards/ so compose and Helm match).
+*/}}
+{{- if .Values.grafana.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundflow-grafana-provisioning
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: {{ .Values.grafana.prometheusUrl | quote }}
+        isDefault: true
+        editable: false
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: foundflow
+        orgId: 1
+        folder: FoundFlow
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundflow-grafana-dashboards
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: grafana
+data:
+  services-red.json: |
+{{ .Files.Get "dashboards/services-red.json" | indent 4 }}
+{{- end }}

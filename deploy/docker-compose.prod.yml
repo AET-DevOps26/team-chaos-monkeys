@@ -1,0 +1,64 @@
+# Production override applied on the Azure VM.
+#
+# Usage on the VM:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#
+# Two things this file does differently from local dev:
+#   1. Each app service gets an `image:` from a container registry so the VM
+#      never builds. The registry prefix is parameterised via IMAGE_REGISTRY,
+#      defaulting to ghcr.io/aet-devops26/team-chaos-monkeys — i.e. packages
+#      attached to *this* repo. GHCR maps push permission by repo: anyone with
+#      write/maintain on team-chaos-monkeys can push under that namespace
+#      without an admin granting org-level package rights. Override to point
+#      at a different registry (ACR, ECR, …) when needed.
+#      (The `build:` directive in docker-compose.yml stays inert: when an image
+#      is already present locally or pullable from the registry, Compose uses
+#      it and skips the build.)
+#   2. Ollama + ollama-init are excluded via an unused profile — the 4 GB VM
+#      cannot run the local LLM. genai-service is forced onto GENAI_PROVIDER=openai.
+
+services:
+  gateway-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/gateway-service:${IMAGE_TAG:-latest}
+
+  auth-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/auth-service:${IMAGE_TAG:-latest}
+
+  lost-item-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/lost-item-service:${IMAGE_TAG:-latest}
+
+  found-item-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/found-item-service:${IMAGE_TAG:-latest}
+
+  matching-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/matching-service:${IMAGE_TAG:-latest}
+
+  notification-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/notification-service:${IMAGE_TAG:-latest}
+
+  operations-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/operations-service:${IMAGE_TAG:-latest}
+
+  client:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/client:${IMAGE_TAG:-latest}
+    # Expose the frontend on host port 80 so the VM's public IP serves the app directly.
+    ports: !override
+      - "80:80"
+
+  genai-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/genai-service:${IMAGE_TAG:-latest}
+    # Ollama isn't running on the VM, so drop the wait-for-ollama-init dependency.
+    depends_on: !reset null
+    environment:
+      GENAI_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required on the VM}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+      GENAI_TIMEOUT_SECONDS: ${GENAI_TIMEOUT_SECONDS:-30}
+
+  # Park Ollama + its init sidecar behind a profile nothing activates → they never start.
+  ollama:
+    profiles: ["never"]
+  ollama-init:
+    profiles: ["never"]

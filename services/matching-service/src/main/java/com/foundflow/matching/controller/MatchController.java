@@ -1,9 +1,12 @@
 package com.foundflow.matching.controller;
 
 import com.foundflow.matching.dto.CreateMatchRequest;
+import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CountResponse;
 import com.foundflow.matching.dto.HistogramResponse;
+import com.foundflow.matching.dto.MatchEmailLogResponse;
 import com.foundflow.matching.dto.MatchResponse;
+import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.service.MatchService;
@@ -105,6 +108,46 @@ public class MatchController {
             JwtAuthenticationToken authentication
     ) {
         return matchService.updateMatch(id, request, authentication.getToken())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/public-link")
+    public ResponseEntity<PublicMatchLinkResponse> createPublicMatchLink(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreatePublicMatchLinkRequest request,
+            JwtAuthenticationToken authentication
+    ) {
+        return matchService.createPublicMatchLink(id, request, authentication.getToken())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/public-link-email-log")
+    public ResponseEntity<List<MatchEmailLogResponse>> getPublicMatchEmailLog(
+            @RequestParam(required = false) String recipient,
+            JwtAuthenticationToken authentication
+    ) {
+        return ResponseEntity.ok(matchService.getPublicMatchEmailLog(recipient, authentication.getToken()));
+    }
+
+    @GetMapping("/public/{token}")
+    public ResponseEntity<MatchResponse> getPublicMatch(@PathVariable String token) {
+        return matchService.getPublicMatch(token)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/public/match-links/{token}/confirm")
+    public ResponseEntity<MatchResponse> confirmPublicMatch(@PathVariable String token) {
+        return matchService.confirmPublicMatch(token)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/public/match-links/{token}/reject")
+    public ResponseEntity<MatchResponse> rejectPublicMatch(@PathVariable String token) {
+        return matchService.rejectPublicMatch(token)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

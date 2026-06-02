@@ -7,9 +7,17 @@ import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.service.FoundItemService;
+import com.foundflow.photo.storage.PhotoData;
+import com.foundflow.photo.storage.PhotoUrlResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,12 +34,19 @@ public class FoundItemController {
         this.foundItemService = foundItemService;
     }
 
-    @PostMapping
-    public ResponseEntity<FoundItemResponse> createFoundItem(
-            @Valid @RequestBody CreateFoundItemRequest request,
+    @Operation(requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
+            )
+    ))
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<FoundItemResponse> createFoundItemWithPhoto(
+            @Valid @RequestPart("request") CreateFoundItemRequest request,
+            @RequestPart("photo") MultipartFile photo,
             JwtAuthenticationToken authentication
     ) {
-        FoundItemResponse response = foundItemService.createFoundItem(request, authentication.getToken());
+        FoundItemResponse response = foundItemService.createFoundItem(request, photo, authentication.getToken());
         return ResponseEntity
                 .created(URI.create("/api/found-items/" + response.id()))
                 .body(response);
@@ -90,6 +105,37 @@ public class FoundItemController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PutMapping(path = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<FoundItemResponse> updateFoundItemPhoto(
+            @PathVariable UUID id,
+            @RequestPart("photo") MultipartFile photo,
+            JwtAuthenticationToken authentication
+    ) {
+        return foundItemService.updateFoundItemPhoto(id, photo, authentication.getToken())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<InputStreamResource> getFoundItemPhoto(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return foundItemService.getFoundItemPhoto(id, authentication.getToken())
+                .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/photo-url")
+    public ResponseEntity<PhotoUrlResponse> getFoundItemPhotoUrl(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        return foundItemService.getFoundItemPhotoUrl(id, authentication.getToken())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFoundItem(
             @PathVariable UUID id,
@@ -100,5 +146,12 @@ public class FoundItemController {
         }
 
         return ResponseEntity.notFound().build();
+    }
+
+    private ResponseEntity<InputStreamResource> photoResponse(PhotoData photo) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .contentLength(photo.sizeBytes())
+                .body(new InputStreamResource(photo.content()));
     }
 }

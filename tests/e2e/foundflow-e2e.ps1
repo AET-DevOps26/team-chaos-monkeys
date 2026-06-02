@@ -539,9 +539,21 @@ Assert-Status $crossVenueMatch 403 "Cross-venue match is rejected"
 $matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
 Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
 
+# Pickup slots are only generated from today onward (PickupService.weeklyDates clamps
+# the start to LocalDate.now()), so anchor the schedule on a Monday computed at run time.
+# Absolute dates rot: once "today" passes the hardcoded date the slot is no longer emitted.
+$today = (Get-Date).Date
+$daysUntilMonday = (1 - [int]$today.DayOfWeek + 7) % 7
+if ($daysUntilMonday -eq 0) { $daysUntilMonday = 7 }  # always a strictly-future Monday
+$pickupMonday = $today.AddDays($daysUntilMonday)
+$pickupStartDate = $pickupMonday.ToString("yyyy-MM-dd")
+$pickupEndDate = $pickupMonday.AddDays(7).ToString("yyyy-MM-dd")
+$pickupSlot0900 = "$($pickupMonday.ToString('yyyy-MM-dd'))T09:00:00"
+$pickupSlot0930 = "$($pickupMonday.ToString('yyyy-MM-dd'))T09:30:00"
+
 $pickupScheduleResponse = Post-Json $opsClient "$GatewayBaseUrl/api/pickups/schedule" @{
-    startDate = "2026-06-01"
-    endDate = "2026-06-08"
+    startDate = $pickupStartDate
+    endDate = $pickupEndDate
     recurrenceType = "WEEKLY"
     dayOfWeek = "MONDAY"
     startTime = "09:00:00"
@@ -589,12 +601,12 @@ Assert-Status $publicConfirmResponse 200 "Public match link can confirm match"
 $publicSlotsResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/pickups/public/$($publicMatchLink.token)").Result
 Assert-Status $publicSlotsResponse 200 "Public pickup link can list pickup slots"
 $publicSlots = @(Read-Json $publicSlotsResponse)
-if (@($publicSlots | Where-Object { $_.startsAt -eq "2026-06-01T09:00:00" -and $_.available -eq $true }).Count -ne 1) {
+if (@($publicSlots | Where-Object { $_.startsAt -eq $pickupSlot0900 -and $_.available -eq $true }).Count -ne 1) {
     throw "Public pickup slots should contain the available 09:00 slot."
 }
 
 $publicPickupResponse = Post-Json $publicClient "$GatewayBaseUrl/api/pickups/public/$($publicMatchLink.token)" @{
-    pickupAt = "2026-06-01T09:00:00"
+    pickupAt = $pickupSlot0900
     email = $lostItem.contactEmail
 }
 Assert-Status $publicPickupResponse 201 "Public pickup link can schedule pickup"
@@ -617,7 +629,7 @@ if ($pickupEmailLogs.Count -lt 1 -or [string]::IsNullOrWhiteSpace($pickupEmailLo
 
 $manageLink = $pickupEmailLogs[0].magicLink
 $publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
-    pickupAt = "2026-06-01T09:30:00"
+    pickupAt = $pickupSlot0930
     email = $lostItem.contactEmail
 })).Result
 Assert-Status $publicPickupUpdateResponse 200 "Public pickup manage link can reschedule pickup"

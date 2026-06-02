@@ -14,11 +14,11 @@
 | Layer | Technology | Notes |
 |---|---|---|
 | Client | **React** (Vite, TypeScript) | Single-page app, served statically; consumes generated TypeScript SDK from OpenAPI |
-| Backend services | **Spring Boot 3 (Java 21)** | Six microservices: `lost-item-service`, `found-item-service`, `matching-service`, `notification-service`, `auth-service`, `operations-service` |
+| Backend services | **Spring Boot 3 (Java 21)** | Seven microservices: `lost-item-service`, `found-item-service`, `matching-service`, `pickup-service`, `notification-service`, `auth-service`, `operations-service` |
 | GenAI service | **Python 3.12 + FastAPI** | Stateless; model adapter for OpenAI cloud API and local LLaMA via Ollama (config-switched) |
-| Database | **PostgreSQL 16** | One service-owned database per Spring service. `pgvector` extension in the matching database for embedding storage |
+| Database | **PostgreSQL 16/17** | One service-owned database per Spring service. `pgvector` extension in the matching database for embedding storage |
 | Object storage | **MinIO** locally; Azure Blob in cloud | Used for found-item and lost-report photos |
-| Notifications | **Mailpit** locally; Azure Communication Services in cloud | For guest pickup notifications |
+| Notifications | Local database-backed mail logs; Azure Communication Services in cloud | Magic-link emails are persisted locally for test retrieval; production can swap in a real delivery adapter |
 | Message broker | **RabbitMQ** | Domain events between services, e.g. item intake, match candidates, notifications, and case status changes |
 | Inter-service comms | REST/JSON over HTTP + RabbitMQ events | REST for direct reads/commands and GenAI calls; RabbitMQ for asynchronous domain workflows |
 | API contract | **OpenAPI 3.1** | Single `api/openapi.yaml`; Spring stubs, Python client, and TS SDK generated from it |
@@ -29,13 +29,14 @@
 | Infrastructure | **Ansible + Terraform** | Terraform for infrastructure provisioning and Ansible for Configuration Management. |
 ### 1.2 Microservice Decomposition
 
-The backend is split into six Spring Boot services with narrow responsibilities and a single owned data domain each. The GenAI service runs as a peer. RabbitMQ carries domain events so intake, matching, notification, and operations workflows are not coupled through synchronous call chains.
+The backend is split into seven Spring Boot services with narrow responsibilities and a single owned data domain each. The GenAI service runs as a peer. RabbitMQ carries domain events so intake, matching, notification, and operations workflows are not coupled through synchronous call chains. Pickup is the one service that stays purely REST/JWT today — its public magic-link flow and staff schedule APIs do not produce or consume domain events.
 
 | Service | Owns | Talks to |
 |---|---|---|
 | `lost-item-service` | `lost_reports`, guest contact reference, optional lost-report photo references | `genai-service` (sync, for attribute extraction and embeddings); publishes lost-report events to RabbitMQ |
 | `found-item-service` | `found_items`, found-item photo references, item custody status | `genai-service` (sync, for embeddings); publishes found-item events to RabbitMQ |
 | `matching-service` | `matches` (candidate pairs, scores, status), vector search index | RabbitMQ (consumes lost/found item events, publishes match events); `genai-service` (sync, for embeddings and match verification); lost/found services (REST reads when details are needed) |
+| `pickup-service` | `pickups`, `pickup_schedules`, local pickup-email outbox log | Gateway public magic-link endpoints for scheduling/rescheduling/canceling pickups; staff APIs for schedule and pickup management |
 | `notification-service` | `notifications` (sent log), delivery state, rendered outbound messages | RabbitMQ (consumes match/claim events); SMTP |
 | `auth-service` | staff/ops/admin credentials, sessions or refresh tokens, JWT issuance, auth subjects | Frontend and ingress-protected APIs; `operations-service` for profile lookup by auth subject |
 | `operations-service` | staff/ops user profiles, venue configuration, KPI read models, audit timeline | RabbitMQ (consumes domain events to build operational views); `auth-service` (identity); other services through REST for drill-down details |
@@ -47,6 +48,7 @@ RabbitMQ is the broker for durable domain events. The core event stream includes
 
 - **PostgreSQL** with database-level service ownership: each Spring service uses its own database and database user. Services do not share schemas or read each other's tables directly.
 - **pgvector** extension in the `matching-service` database, used for embedding similarity. The `matching-service` is the sole owner of this database: when it consumes a `LostReportCreated` or `FoundItemLogged` event, it calls `genai-service` synchronously to obtain the embedding vector, then persists the vector alongside the match/search index referenced to intake records by ID. `genai-service` never touches the database directly.
+- **Magic-link pickup state** is split by ownership: `matching-service` owns matches and the first public match-link email log; `pickup-service` owns pickup schedules, booked pickups, and the follow-up pickup-management email log. Tokens are opaque, HMAC-signed, scoped by type (`match_view` or `pickup_manage`), and expire after seven days.
 - **Object storage** (MinIO/Azure Blob) holds photos. Services store only the object key, not the photo bytes.
 - **RabbitMQ** stores transient event queues and dead-letter queues. It is not the system of record; PostgreSQL remains authoritative for service state.
 - **Database migrations** managed with Flyway, one migration history per service-owned database.
@@ -100,6 +102,8 @@ Domain entities and their relationships. `ItemAttributes` is a value object embe
 
 Match scoring keeps the two matching signals separate: `attributeScore` comes from structured `ItemAttributes`, `semanticScore` comes from vector similarity over descriptions, and `combinedScore` is the ranking score shown to staff. `combinedScore` is not a calibrated probability; it is a service-level score derived from the matching weights.
 
+Pickup scheduling is deliberately modeled as its own bounded context. `PickupSchedule` defines the venue's available slot windows, `Pickup` books one concrete slot for a confirmed match and guest email, and `PickupEmailLog` / `MatchEmailLog` keep locally retrievable records of magic-link emails for tests and demos.
+
 The model omits UML access modifiers and methods because it is an analysis object model focused on domain concepts and relationships, not an implementation-level Java class design.
 
 ![Analysis object model](./assets/class_diagram.png)
@@ -139,6 +143,11 @@ graph TB
             NotifDB[(notification-db PostgreSQL)]
         end
 
+        subgraph "Pickup Module"
+            Pickup[pickup-service Spring Boot]
+            PickupDB[(pickup-db PostgreSQL)]
+        end
+
         subgraph "Auth Module"
             Auth[auth-service Spring Boot]
             AuthDB[(auth-db PostgreSQL)]
@@ -169,6 +178,8 @@ graph TB
     Ingress --> Auth
     Ingress --> Lost
     Ingress --> Found
+    Ingress --> Match
+    Ingress --> Pickup
     Ingress --> Ops
 
     %% Internal Service Logic
@@ -178,6 +189,7 @@ graph TB
     Found --> Obj
     Match --> MatchDB
     Notif --> NotifDB
+    Pickup --> PickupDB
     Auth --> AuthDB
     Ops --> OpsDB
 
@@ -199,6 +211,8 @@ graph TB
     GenAI --> LLMCloud
     GenAI -.alt.-> LLMLocal
     Notif --> ACS
+    Match -.->|local match-link email log| MatchDB
+    Pickup -.->|local pickup email log| PickupDB
 
     %% Simplified Monitoring
     Graf --> Prom

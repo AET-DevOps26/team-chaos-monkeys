@@ -35,6 +35,9 @@ public class SecurityConfig {
                                 "/notifications/actuator/health",
                                 "/notifications/actuator/info",
                                 "/notifications/actuator/prometheus",
+                                "/pickups/actuator/health",
+                                "/pickups/actuator/info",
+                                "/pickups/actuator/prometheus",
                                 "/venues/actuator/health",
                                 "/venues/actuator/info",
                                 "/venues/actuator/prometheus"
@@ -46,6 +49,10 @@ public class SecurityConfig {
                         ).permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/lost-items", "/api/lost-reports").permitAll()
                         .pathMatchers(
+                                "/api/matches/public/**",
+                                "/api/pickups/public/**"
+                        ).permitAll()
+                        .pathMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
@@ -56,6 +63,7 @@ public class SecurityConfig {
                                 "/found-items/v3/api-docs",
                                 "/matches/v3/api-docs",
                                 "/notifications/v3/api-docs",
+                                "/pickups/v3/api-docs",
                                 "/venues/v3/api-docs"
                         ).permitAll()
                         .anyExchange().authenticated()

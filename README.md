@@ -7,14 +7,14 @@ Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. Fo
 | Name | Subsystem | Owns |
 |---|---|---|
 | Arthur Gersbacher | Frontend | `client/` |
-| Johannes Kirchner | Backend Spring services | `services/{gateway,auth,lost-item,found-item,matching,notification,operations}-service/` |
+| Johannes Kirchner | Backend Spring services | `services/{gateway,auth,lost-item,found-item,matching,pickup,notification,operations}-service/` |
 | Luca Kollmer | GenAI service | `services/genai-service/` |
 
 Subsystem ownership defines who is primarily responsible for design, implementation, and the individual oral examination at the end of the term. Cross-subsystem collaboration on integration, CI/CD, and observability is expected and tracked through pull requests.
 
 ## Run locally
 
-The full stack — frontend, gateway, six Spring services, GenAI service, six isolated Postgres databases, and an Ollama LLM runtime — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
+The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, and an Ollama LLM runtime — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
 
 ```bash
 cp .env.example .env          # one-time, gitignored
@@ -34,7 +34,7 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 | http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
 | http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
 
-`auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `notification`, `operations`), so their ports stay inside the Compose network.
+`auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 
 To stop and clean up volumes: `docker compose down -v`.
 
@@ -46,10 +46,10 @@ To stop and clean up volumes: `docker compose down -v`.
 
 The system is **event-driven with synchronous edges**:
 
-- **REST/JSON** carries user-facing commands and queries from the frontend and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
+- **REST/JSON** carries user-facing commands and queries from the frontend, public magic-link flows for match confirmation and pickup scheduling, and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
 - **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ (planned — wired in a later milestone; see [`docs/architecture.md`](docs/architecture.md)).
 
-Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`.
+Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules, booked pickups, and local pickup-email logs.
 
 Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/api-security.md`](docs/api-security.md).
 
@@ -69,6 +69,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 │   ├── lost-item-service/      — guest lost-item reports
 │   ├── found-item-service/     — staff found-item intake
 │   ├── matching-service/       — pgvector-backed match candidates
+│   ├── pickup-service/         — pickup schedules, public pickup booking, local email logs
 │   ├── notification-service/   — guest pickup notifications
 │   ├── operations-service/     — staff profiles + venue KPIs
 │   └── genai-service/          — Python 3.12 + FastAPI; extraction, embedding, verification

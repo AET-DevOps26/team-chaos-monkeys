@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -44,6 +45,24 @@ public class Match {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "verify_verdict")
+    private String verifyVerdict;
+
+    @Column(name = "verify_confidence")
+    private Float verifyConfidence;
+
+    @Column(name = "verify_rationale", columnDefinition = "TEXT")
+    private String verifyRationale;
+
+    @Column(name = "verify_model_provider")
+    private String verifyModelProvider;
+
+    @Column(name = "verify_model_name")
+    private String verifyModelName;
+
+    @Column(name = "verify_completed_at")
+    private OffsetDateTime verifyCompletedAt;
 
     public Match() {
     }
@@ -134,5 +153,53 @@ public class Match {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getVerifyVerdict() {
+        return verifyVerdict;
+    }
+
+    public void setVerifyVerdict(String verifyVerdict) {
+        this.verifyVerdict = verifyVerdict;
+    }
+
+    public Float getVerifyConfidence() {
+        return verifyConfidence;
+    }
+
+    public void setVerifyConfidence(Float verifyConfidence) {
+        this.verifyConfidence = verifyConfidence;
+    }
+
+    public String getVerifyRationale() {
+        return verifyRationale;
+    }
+
+    public void setVerifyRationale(String verifyRationale) {
+        this.verifyRationale = verifyRationale;
+    }
+
+    public String getVerifyModelProvider() {
+        return verifyModelProvider;
+    }
+
+    public void setVerifyModelProvider(String verifyModelProvider) {
+        this.verifyModelProvider = verifyModelProvider;
+    }
+
+    public String getVerifyModelName() {
+        return verifyModelName;
+    }
+
+    public void setVerifyModelName(String verifyModelName) {
+        this.verifyModelName = verifyModelName;
+    }
+
+    public OffsetDateTime getVerifyCompletedAt() {
+        return verifyCompletedAt;
+    }
+
+    public void setVerifyCompletedAt(OffsetDateTime verifyCompletedAt) {
+        this.verifyCompletedAt = verifyCompletedAt;
     }
 }

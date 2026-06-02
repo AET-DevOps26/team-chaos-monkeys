@@ -130,9 +130,12 @@ services:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
       - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
     kind: spring

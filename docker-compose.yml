@@ -109,6 +109,9 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      GENAI_BASE_URL: ${GENAI_BASE_URL:-http://genai-service:8000}
+      GENAI_API_KEY: ${GENAI_INTERNAL_TOKEN:-}
+      GENAI_ENABLED: ${GENAI_ENABLED:-true}
     depends_on:
       matching-db:
         condition: service_healthy

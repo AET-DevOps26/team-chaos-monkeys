@@ -34,12 +34,21 @@ Open endpoints in the business services:
 | `GET /swagger-ui.html` | Public |
 | `GET /v3/api-docs/**` | Public |
 
+Public magic-link endpoints are also unauthenticated. They authorize by validating an HMAC-signed token with a seven-day expiry and a scoped token type.
+
 All `api/**` endpoints in the business services require an authenticated JWT with one of the roles below, except for the public lost-item report creation endpoint:
 
 | Method | Endpoint | Access |
 | --- | --- | --- |
 | `POST` | `/api/lost-items` | Public |
 | `POST` | `/api/lost-reports` | Public compatibility path |
+| `GET` | `/api/matches/public/{token}` | Public magic link; view one match |
+| `PUT` | `/api/matches/public/match-links/{token}/confirm` | Public magic link; confirm one match |
+| `PUT` | `/api/matches/public/match-links/{token}/reject` | Public magic link; reject one match |
+| `GET` | `/api/pickups/public/{token}` | Public magic link; list available pickup slots |
+| `POST` | `/api/pickups/public/{token}` | Public magic link; schedule pickup and create a pickup-management link |
+| `PUT` | `/api/pickups/public/{token}` | Public pickup-management magic link; reschedule pickup |
+| `DELETE` | `/api/pickups/public/{token}` | Public pickup-management magic link; cancel pickup |
 
 Protected endpoints require one of:
 
@@ -248,6 +257,11 @@ Match statuses:
 | `GET` | `/api/matches/histogram` | optional `foundItem`, `lostItem`, `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/matches/{id}` | - | Resource venue check |
 | `PUT` | `/api/matches/{id}` | - | Resource venue check |
+| `POST` | `/api/matches/{id}/public-link` | - | Resource venue check; creates a seven-day public match magic link and stores a local email-log entry |
+| `GET` | `/api/matches/public-link-email-log` | optional `recipient` | Staff/ops see own venue only; admins see all; local/test outbox for the first magic-link email |
+| `GET` | `/api/matches/public/{token}` | - | Public magic link scoped to one match |
+| `PUT` | `/api/matches/public/match-links/{token}/confirm` | - | Public magic link scoped to one match; sets status to `CONFIRMED` |
+| `PUT` | `/api/matches/public/match-links/{token}/reject` | - | Public magic link scoped to one match; sets status to `REJECTED` |
 
 Matching filters can be combined freely. Examples:
 
@@ -268,6 +282,38 @@ Create/update validation:
 Count and histogram responses use the same shape as the Found Item Service.
 
 Histogram buckets include only buckets that exist in the filtered data. Empty dates/weeks/months are not zero-filled.
+
+## Pickup Service
+
+Base path: `/api/pickups`
+
+The pickup workflow uses two token scopes:
+
+| Token type | Created by | Allows |
+| --- | --- | --- |
+| `match_view` | Staff/ops/admin via `POST /api/matches/{id}/public-link` | View, confirm, or reject a match; list pickup slots; create the first pickup |
+| `pickup_manage` | `POST /api/pickups/public/{token}` | Reschedule or cancel an existing pickup |
+
+Tokens are opaque, HMAC-signed, include the relevant `matchId`, `venueId`, optional `pickupId`, recipient email, token type, and expiry timestamp, and expire after seven days.
+
+| Method | Endpoint | Query params | Access |
+| --- | --- | --- | --- |
+| `GET` | `/api/pickups/public/{token}` | - | Public magic link; returns available slots for the token venue |
+| `POST` | `/api/pickups/public/{token}` | - | Public `match_view` token; books a pickup for the token match and recipient email |
+| `PUT` | `/api/pickups/public/{token}` | - | Public `pickup_manage` token; reschedules an existing pickup |
+| `DELETE` | `/api/pickups/public/{token}` | - | Public `pickup_manage` token; cancels an existing pickup |
+| `GET` | `/api/pickups` | optional `venueId` | `ADMIN` sees all or requested venue; staff/ops own venue only |
+| `PUT` | `/api/pickups/matches/{matchId}` | - | Upserts the pickup for a match; venue rules apply |
+| `PUT` | `/api/pickups/{pickupId}` | - | Updates one pickup; venue rules apply |
+| `DELETE` | `/api/pickups/matches/{matchId}` | - | Deletes the pickup for a match; venue rules apply |
+| `DELETE` | `/api/pickups/{pickupId}` | - | Deletes one pickup; venue rules apply |
+| `GET` | `/api/pickups/schedule` | optional `venueId` | Lists pickup schedules; venue rules apply |
+| `POST` | `/api/pickups/schedule` | - | Creates a pickup schedule; venue rules apply |
+| `PUT` | `/api/pickups/schedule/{scheduleId}` | - | Updates a pickup schedule; venue rules apply |
+| `DELETE` | `/api/pickups/schedule/{scheduleId}` | - | Deletes a pickup schedule; venue rules apply |
+| `GET` | `/api/pickups/email-log` | optional `recipient` | Staff/ops see own venue only; admins see all; local/test outbox for pickup-management emails |
+
+`PickupSchedule` defines slot windows by `date`, `startTime`, `endTime`, `slotLengthInMinutes`, and `venueId`. Public slot responses are derived from these schedules and existing booked pickups.
 
 ## Notification Service
 

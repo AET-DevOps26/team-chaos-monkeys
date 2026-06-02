@@ -28,7 +28,7 @@ dependencies {
     api 'org.springframework:spring-context:7.0.0'
 
     // Generated DTOs and the @ConfigurationProperties record need these at runtime.
-    api 'io.swagger.core.v3:swagger-annotations:2.2.25'
+    api 'io.swagger.core.v3:swagger-annotations-jakarta:2.2.47'
     api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2'
     api 'jakarta.annotation:jakarta.annotation-api:3.0.0'
 
@@ -40,8 +40,8 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.14.2'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.14.2'
     testImplementation 'org.slf4j:slf4j-api:2.0.16'
+    testImplementation 'org.wiremock:wiremock-standalone:3.10.0'
     testImplementation 'org.assertj:assertj-core:3.26.3'
-    testImplementation 'org.wiremock:wiremock:3.10.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
 }
 

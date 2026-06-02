@@ -13,6 +13,7 @@ services:
       - found-item-service
       - matching-service
       - notification-service
+      - pickup-service
       - operations-service
 
   auth-service:
@@ -109,6 +110,9 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+      GENAI_BASE_URL: ${GENAI_BASE_URL:-http://genai-service:8000}
+      GENAI_API_KEY: ${GENAI_INTERNAL_TOKEN:-}
+      GENAI_ENABLED: ${GENAI_ENABLED:-true}
     depends_on:
       matching-db:
         condition: service_healthy
@@ -127,6 +131,22 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
     depends_on:
       notification-db:
+        condition: service_healthy
+
+  pickup-service:
+    build:
+      context: .
+      dockerfile: services/pickup-service/Dockerfile
+    container_name: foundflow-pickup-service
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://pickup-db:5432/${PICKUP_DB_NAME:?PICKUP_DB_NAME is required}
+      SPRING_DATASOURCE_USERNAME: ${PICKUP_DB_USER:?PICKUP_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${PICKUP_DB_PASSWORD:?PICKUP_DB_PASSWORD is required}
+      MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+    depends_on:
+      pickup-db:
         condition: service_healthy
 
   operations-service:
@@ -354,6 +374,21 @@ services:
       timeout: 5s
       retries: 20
 
+  pickup-db:
+    image: postgres:17
+    container_name: foundflow-pickup-db
+    environment:
+      POSTGRES_DB: ${PICKUP_DB_NAME:?PICKUP_DB_NAME is required}
+      POSTGRES_USER: ${PICKUP_DB_USER:?PICKUP_DB_USER is required}
+      POSTGRES_PASSWORD: ${PICKUP_DB_PASSWORD:?PICKUP_DB_PASSWORD is required}
+    volumes:
+      - pickup-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PICKUP_DB_USER:?PICKUP_DB_USER is required} -d ${PICKUP_DB_NAME:?PICKUP_DB_NAME is required}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   operations-db:
     image: postgres:17
     container_name: foundflow-operations-db
@@ -378,6 +413,7 @@ volumes:
   lost-item-db-data:
   matching-db-data:
   notification-db-data:
+  pickup-db-data:
   operations-db-data:
   prometheus-data:
   grafana-data:

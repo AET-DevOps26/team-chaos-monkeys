@@ -2,6 +2,7 @@ FROM gradle:9-jdk21 AS build
 
 WORKDIR /workspace
 
+COPY shared/magic-link ./shared/magic-link
 COPY services/pickup-service ./services/pickup-service
 
 WORKDIR /workspace/services/pickup-service

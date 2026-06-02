@@ -3,12 +3,10 @@ package com.foundflow.pickup.service;
 import com.foundflow.magiclink.MagicLinkClaims;
 import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.pickup.domain.Pickup;
-import com.foundflow.pickup.domain.PickupEmailLog;
 import com.foundflow.pickup.domain.PickupSchedule;
 import com.foundflow.pickup.domain.ScheduleRecurrenceType;
 import com.foundflow.pickup.dto.CreatePickupRequest;
 import com.foundflow.pickup.dto.CreatePickupScheduleRequest;
-import com.foundflow.pickup.dto.PickupEmailLogResponse;
 import com.foundflow.pickup.dto.PickupResponse;
 import com.foundflow.pickup.dto.PickupScheduleResponse;
 import com.foundflow.pickup.dto.PickupSlotResponse;
@@ -16,7 +14,7 @@ import com.foundflow.pickup.dto.PublicPickupResponse;
 import com.foundflow.pickup.dto.StaffPickupRequest;
 import com.foundflow.pickup.dto.UpdatePickupRequest;
 import com.foundflow.pickup.dto.UpdatePickupScheduleRequest;
-import com.foundflow.pickup.repository.PickupEmailLogRepository;
+import com.foundflow.pickup.messaging.PickupConfirmationEventPublisher;
 import com.foundflow.pickup.repository.PickupRepository;
 import com.foundflow.pickup.repository.PickupScheduleRepository;
 import com.foundflow.pickup.security.VenueAccessService;
@@ -46,27 +44,24 @@ public class PickupService {
 
     private final PickupRepository pickupRepository;
     private final PickupScheduleRepository scheduleRepository;
-    private final PickupEmailLogRepository emailLogRepository;
     private final VenueAccessService venueAccessService;
     private final MagicLinkService magicLinkService;
-    private final PickupEmailSender emailSender;
+    private final PickupConfirmationEventPublisher confirmationEventPublisher;
     private final String publicBaseUrl;
 
     public PickupService(
             PickupRepository pickupRepository,
             PickupScheduleRepository scheduleRepository,
-            PickupEmailLogRepository emailLogRepository,
             VenueAccessService venueAccessService,
             MagicLinkService magicLinkService,
-            PickupEmailSender emailSender,
+            PickupConfirmationEventPublisher confirmationEventPublisher,
             @Value("${foundflow.public.base-url}") String publicBaseUrl
     ) {
         this.pickupRepository = pickupRepository;
         this.scheduleRepository = scheduleRepository;
-        this.emailLogRepository = emailLogRepository;
         this.venueAccessService = venueAccessService;
         this.magicLinkService = magicLinkService;
-        this.emailSender = emailSender;
+        this.confirmationEventPublisher = confirmationEventPublisher;
         this.publicBaseUrl = publicBaseUrl;
     }
 
@@ -98,7 +93,12 @@ public class PickupService {
                 pickup.getEmail()
         );
         String manageUrl = publicBaseUrl + "/api/pickups/public/" + manageToken;
-        emailSender.sendPickupScheduled(email, pickup.getVenueId(), manageUrl);
+        confirmationEventPublisher.publishPickupConfirmationRequested(
+                pickup.getId(),
+                pickup.getMatchId(),
+                email,
+                pickup.getVenueId()
+        );
 
         return toPublicResponse(pickup, manageUrl);
     }
@@ -265,26 +265,6 @@ public class PickupService {
                     return true;
                 })
                 .orElse(false);
-    }
-
-    public List<PickupEmailLogResponse> getEmailLog(String recipient, Jwt jwt) {
-        List<PickupEmailLog> emailLogs;
-        if (venueAccessService.isAdmin(jwt)) {
-            emailLogs = recipient == null || recipient.isBlank()
-                    ? emailLogRepository.findAll()
-                    : emailLogRepository.findByRecipientOrderBySentAtDesc(normalizeEmail(recipient));
-        } else {
-            UUID venueId = venueAccessService.getVenueId(jwt);
-            emailLogs = recipient == null || recipient.isBlank()
-                    ? emailLogRepository.findByVenueIdOrderBySentAtDesc(venueId)
-                    : emailLogRepository.findByVenueIdAndRecipientOrderBySentAtDesc(
-                            venueId,
-                            normalizeEmail(recipient)
-                    );
-        }
-        return emailLogs.stream()
-                .map(this::toEmailLogResponse)
-                .toList();
     }
 
     private List<PickupSlotResponse> slotsForVenue(UUID venueId) {
@@ -519,18 +499,6 @@ public class PickupService {
                 schedule.getEndTime(),
                 schedule.getSlotLengthInMinutes(),
                 schedule.getVenueId()
-        );
-    }
-
-    private PickupEmailLogResponse toEmailLogResponse(PickupEmailLog emailLog) {
-        return new PickupEmailLogResponse(
-                emailLog.getId(),
-                emailLog.getRecipient(),
-                emailLog.getVenueId(),
-                emailLog.getSubject(),
-                emailLog.getBody(),
-                emailLog.getMagicLink(),
-                emailLog.getSentAt()
         );
     }
 

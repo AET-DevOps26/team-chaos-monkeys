@@ -8,7 +8,7 @@ import com.foundflow.pickup.domain.ScheduleRecurrenceType;
 import com.foundflow.pickup.dto.CreatePickupRequest;
 import com.foundflow.pickup.dto.CreatePickupScheduleRequest;
 import com.foundflow.pickup.dto.PickupSlotResponse;
-import com.foundflow.pickup.repository.PickupEmailLogRepository;
+import com.foundflow.pickup.messaging.PickupConfirmationEventPublisher;
 import com.foundflow.pickup.repository.PickupRepository;
 import com.foundflow.pickup.repository.PickupScheduleRepository;
 import com.foundflow.pickup.security.VenueAccessService;
@@ -43,13 +43,10 @@ class PickupServiceTest {
     private PickupScheduleRepository scheduleRepository;
 
     @Mock
-    private PickupEmailLogRepository emailLogRepository;
-
-    @Mock
     private MagicLinkService magicLinkService;
 
     @Mock
-    private PickupEmailSender emailSender;
+    private PickupConfirmationEventPublisher confirmationEventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -83,7 +80,7 @@ class PickupServiceTest {
     }
 
     @Test
-    void createPublicPickup_shouldPersistPickupAndSendManageLink() {
+    void createPublicPickup_shouldPersistPickupAndPublishConfirmation() {
         UUID venueId = UUID.randomUUID();
         UUID matchId = UUID.randomUUID();
         String token = "match-token";
@@ -105,10 +102,11 @@ class PickupServiceTest {
         assertEquals(matchId, response.matchId());
         assertEquals("lost@example.com", response.email());
         assertTrue(response.manageUrl().endsWith("/api/pickups/public/manage-token"));
-        verify(emailSender).sendPickupScheduled(
+        verify(confirmationEventPublisher).publishPickupConfirmationRequested(
+                null,
+                matchId,
                 "lost@example.com",
-                venueId,
-                "http://localhost:8080/api/pickups/public/manage-token"
+                venueId
         );
     }
 
@@ -170,10 +168,9 @@ class PickupServiceTest {
         return new PickupService(
                 pickupRepository,
                 scheduleRepository,
-                emailLogRepository,
                 venueAccessService,
                 magicLinkService,
-                emailSender,
+                confirmationEventPublisher,
                 "http://localhost:8080"
         );
     }

@@ -336,17 +336,10 @@ $opsSelfDelete = $opsClient.DeleteAsync("$GatewayBaseUrl/api/users/$($opsUser.id
 Assert-Status $opsSelfDelete 403 "OPS_MANAGER cannot delete itself"
 
 $foundRequest = @{
-    description = "E2E found item"
+    intakeText = "E2E found item near the desk"
     foundAt = "2026-05-19T15:45:00"
-    locationHint = "Desk"
     venueId = "33333333-3333-3333-3333-333333333333"
     reporterId = "44444444-4444-4444-4444-444444444444"
-    attributes = @{
-        category = "Bag"
-        brand = "Test"
-        color = "Black"
-        marks = @("E2E")
-    }
 }
 $foundResponse = $opsClient.PostAsync(
     "$GatewayBaseUrl/api/found-items",

@@ -32,5 +32,5 @@ meeting-notes.*
 # from pyproject.toml). Promote to tracked when wiring `uv sync --frozen`.
 services/genai-service/uv.lock
 
-# Local-only helm secrets (see docs/local-k8s.md)
+# Local-only helm secrets (see docs/deployment/local-kubernetes.md)
 infra/helm/foundflow/values-local.yaml.local

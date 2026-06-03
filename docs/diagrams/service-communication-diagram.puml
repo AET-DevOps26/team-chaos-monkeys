@@ -1,0 +1,58 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+left to right direction
+
+[Gateway Service] as Gateway
+[Auth Service] as Auth
+[Lost Item Service] as Lost
+[Found Item Service] as Found
+[Matching Service] as Matching
+[Notification Service] as Notification
+[Operations Service] as Operations
+[Pickup Service] as Pickup
+[GenAI Service] as GenAIService
+
+queue "RabbitMQ\nfoundflow.domain-events" as Rabbit
+queue "RabbitMQ\nfoundflow.notifications\n(planned)" as NotificationRabbit
+database "Photo Storage\nMinIO / Azure Blob" as Photos
+
+Gateway --> Auth : /api/auth\n/api/users
+Gateway --> Lost : /api/lost-items
+Gateway --> Found : /api/found-items
+Gateway --> Matching : /api/matches
+Gateway --> Notification : /api/notifications
+Gateway --> Operations : /api/venues
+Gateway --> Pickup : /api/pickups
+
+Lost --> Photos : lost photos
+Found --> Photos : found photos
+
+Lost --> GenAIService : REST extract attributes
+Found --> GenAIService : REST extract attributes
+Matching --> GenAIService : REST embed\nverify-match
+
+Lost --> Rabbit : lost-report.*.v1
+Found --> Rabbit : found-item.*.v1
+Rabbit --> Matching : intake events
+Matching --> Rabbit : match-candidate.created.v1
+
+Matching --> Lost : REST read lost report
+Matching --> Found : REST read found item
+
+Operations --> Lost : count KPIs
+Operations --> Found : count KPIs
+Operations --> Matching : count KPIs
+
+Matching ..> NotificationRabbit : planned notification requests
+Pickup ..> NotificationRabbit : planned pickup notifications
+NotificationRabbit ..> Notification : planned delivery queue
+
+Gateway ..> Auth : validate JWT via JWKs
+Lost ..> Auth : validate JWT via JWKs
+Found ..> Auth : validate JWT via JWKs
+Matching ..> Auth : validate JWT via JWKs
+Notification ..> Auth : validate JWT via JWKs
+Operations ..> Auth : validate JWT via JWKs
+Pickup ..> Auth : validate JWT via JWKs
+@enduml

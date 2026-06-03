@@ -16,6 +16,7 @@ import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
 import com.foundflow.genai.client.AttributeExtractionService;
+import com.foundflow.genai.client.ExtractionResult;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoUrlResponse;
@@ -129,6 +130,85 @@ class FoundItemServiceTest {
 
         assertEquals("found-items/2026/05/generated.jpg", captor.getValue().getPhotoKey());
         assertEquals("found-items/2026/05/generated.jpg", response.photoKey());
+    }
+
+    @Test
+    void shouldPopulateLocationFromGenAiWhenAvailable() {
+        FoundItemService service = service();
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID requestVenueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        // No staff-supplied attributes and no operator location hint, so the
+        // best-effort GenAI extraction branch runs and fills the gap.
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack neben Buehne 2",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                null,
+                requestVenueId,
+                reporterId,
+                null
+        );
+
+        ItemAttributes extractedAttrs = new ItemAttributes("Bag", null, "Black", List.of());
+
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extractWithLocation(any(), any()))
+                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, "neben Buehne 2")));
+
+        service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository, times(2)).save(captor.capture());
+        FoundItem persisted = captor.getValue();
+        assertEquals("neben Buehne 2", persisted.getLocationHint());
+        assertEquals("Bag", persisted.getAttributes().getCategory());
+    }
+
+    @Test
+    void shouldLeaveLocationNullWhenGenAiFindsNone() {
+        FoundItemService service = service();
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID requestVenueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "wallet.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Found a wallet",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                null,
+                requestVenueId,
+                reporterId,
+                null
+        );
+
+        // Extraction succeeds but carries no location -> locationHint stays null.
+        ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, "Brown", List.of());
+
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extractWithLocation(any(), any()))
+                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, null)));
+
+        service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository, times(2)).save(captor.capture());
+        assertNull(captor.getValue().getLocationHint());
     }
 
     @Test

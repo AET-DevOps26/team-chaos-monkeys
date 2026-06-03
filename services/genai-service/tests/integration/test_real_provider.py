@@ -38,6 +38,7 @@ def provider() -> OllamaProvider:
         # so the fixture doesn't depend on a separate vision model being pulled.
         vision_model=os.getenv("OLLAMA_VISION_MODEL", chat_model),
         embed_model=os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
+        embedding_dimensions=int(os.getenv("EMBEDDING_DIMENSIONS", "768")),
         timeout_seconds=int(os.getenv("GENAI_TIMEOUT_SECONDS", "60")),
     )
 

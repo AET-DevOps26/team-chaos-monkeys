@@ -31,6 +31,7 @@ def _isolate_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
+        "EMBEDDING_DIMENSIONS",
         "GENAI_PROVIDER",
         "OPENAI_API_KEY",
         "OPENAI_CHAT_MODEL",

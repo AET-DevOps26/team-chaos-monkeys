@@ -31,6 +31,8 @@ class DiagnosticResponse(BaseModel):
     embed_latency_ms: int
     chat_model: str
     embed_model: str
+    embed_dimensions_configured: int
+    embed_dimensions_actual: int
 
 
 @router.get(
@@ -68,4 +70,6 @@ async def diagnostic(
         embed_latency_ms=embed_latency_ms,
         chat_model=chat_model,
         embed_model=embed_model,
+        embed_dimensions_configured=settings.embedding_dimensions,
+        embed_dimensions_actual=request.app.state.embed_dimensions_actual,
     )

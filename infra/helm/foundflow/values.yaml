@@ -130,6 +130,7 @@ services:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
       - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
       - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
@@ -195,6 +196,7 @@ services:
       - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
       - { name: OPENAI_EMBED_MODEL, value: "text-embedding-3-small" }
       - { name: GENAI_TIMEOUT_SECONDS, value: "30" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
     secretEnv:
       - { name: OPENAI_API_KEY, secret: foundflow-app-secrets, key: openaiApiKey, optional: true }
 

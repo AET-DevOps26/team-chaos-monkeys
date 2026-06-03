@@ -10,8 +10,8 @@ import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
+import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.BucketCountView;
-import com.foundflow.matching.repository.MatchEmailLogRepository;
 import com.foundflow.matching.repository.MatchRepository;
 import com.foundflow.matching.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
@@ -46,10 +46,7 @@ class MatchServiceTest {
     private MagicLinkService magicLinkService;
 
     @Mock
-    private MatchEmailSender matchEmailSender;
-
-    @Mock
-    private MatchEmailLogRepository matchEmailLogRepository;
+    private MatchInviteEventPublisher matchInviteEventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -332,7 +329,7 @@ class MatchServiceTest {
     }
 
     @Test
-    void createPublicMatchLink_shouldReturnMatchAndPickupUrls() {
+    void createPublicMatchLink_shouldPublishInviteAndReturnMatchAndPickupUrls() {
         MatchService matchService = matchService();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -352,10 +349,10 @@ class MatchServiceTest {
         assertEquals("public-token", response.get().token());
         assertEquals("http://localhost:8080/api/matches/public/public-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/public-token", response.get().pickupUrl());
-        verify(matchEmailSender).sendPublicMatchLink(
+        verify(matchInviteEventPublisher).publishMatchInviteRequested(
+                matchId,
                 "lost@example.com",
                 venueId,
-                matchId,
                 "http://localhost:8080/api/matches/public/public-token"
         );
     }
@@ -385,8 +382,7 @@ class MatchServiceTest {
                 foundItemClient,
                 lostItemClient,
                 magicLinkService,
-                matchEmailSender,
-                matchEmailLogRepository,
+                matchInviteEventPublisher,
                 "http://localhost:8080"
         );
     }

@@ -4,7 +4,6 @@ import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CountResponse;
 import com.foundflow.matching.dto.HistogramResponse;
-import com.foundflow.matching.dto.MatchEmailLogResponse;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
@@ -121,14 +120,6 @@ public class MatchController {
         return matchService.createPublicMatchLink(id, request, authentication.getToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    @GetMapping("/public-link-email-log")
-    public ResponseEntity<List<MatchEmailLogResponse>> getPublicMatchEmailLog(
-            @RequestParam(required = false) String recipient,
-            JwtAuthenticationToken authentication
-    ) {
-        return ResponseEntity.ok(matchService.getPublicMatchEmailLog(recipient, authentication.getToken()));
     }
 
     @GetMapping("/public/{token}")

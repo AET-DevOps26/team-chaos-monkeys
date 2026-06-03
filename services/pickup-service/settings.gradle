@@ -1,4 +1,5 @@
 rootProject.name = 'pickup-service'
+includeBuild('../../shared/domain-events')
 includeBuild('../../shared/magic-link')
 def sharedTestArchitectureSettings = new File(settingsDir, '../../shared/test-architecture/service-settings.gradle').canonicalFile
 if (sharedTestArchitectureSettings.isFile()) {

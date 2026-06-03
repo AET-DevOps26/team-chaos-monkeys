@@ -2,6 +2,8 @@ FROM gradle:9-jdk21 AS build
 
 WORKDIR /workspace
 
+COPY shared/domain-events ./shared/domain-events
+COPY shared/magic-link ./shared/magic-link
 COPY services/notification-service ./services/notification-service
 
 WORKDIR /workspace/services/notification-service

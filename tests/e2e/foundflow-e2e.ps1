@@ -219,6 +219,53 @@ function Assert-SignedPhotoUrl {
     }
 }
 
+# notification-service consumes match-invite / pickup-confirmation events
+# asynchronously from RabbitMQ; the persist happens on the first attempt of
+# the listener, *before* SMTP is touched, so the row shows up shortly after
+# the staff-side action returns. Poll until one matching the URL marker
+# arrives, then return its body so the caller can regex out the URL.
+function Wait-ForNotification {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$Email,
+        [string]$UrlMarker,
+        [int]$TimeoutSeconds = 15
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $response = $Client.GetAsync(
+            "$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($Email))"
+        ).Result
+        if ($response.IsSuccessStatusCode) {
+            $notifications = @(Read-Json $response)
+            $matching = $notifications | Where-Object {
+                $_.body -and $_.body.Contains($UrlMarker)
+            } | Select-Object -First 1
+            if ($matching) {
+                return $matching
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'."
+}
+
+function Extract-MagicLinkUrl {
+    param(
+        [string]$Body,
+        [string]$UrlMarker
+    )
+
+    $regex = "https?://\S+$([regex]::Escape($UrlMarker))\S+"
+    $match = [regex]::Match($Body, $regex)
+    if (-not $match.Success) {
+        throw "Could not extract magic-link URL with marker '$UrlMarker' from body: $Body"
+    }
+    return $match.Value
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
@@ -576,13 +623,16 @@ if ([string]::IsNullOrWhiteSpace($publicMatchLink.token)) {
     throw "Public match link should contain a token."
 }
 
-$matchEmailLogResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/matches/public-link-email-log?recipient=$([System.Uri]::EscapeDataString($lostItem.contactEmail))"
-).Result
-Assert-Status $matchEmailLogResponse 200 "OPS_MANAGER can read public match email log"
-$matchEmailLogs = @(Read-Json $matchEmailLogResponse)
-if ($matchEmailLogs.Count -lt 1 -or [string]::IsNullOrWhiteSpace($matchEmailLogs[0].magicLink)) {
-    throw "Public match email log should expose the first magic link for tests."
+# notification-service writes a row with the match magic link in body when it
+# consumes the MatchInviteRequested event. Poll until it appears so we can
+# verify the URL embedded in body matches the token returned by /public-link.
+$matchInviteNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/matches/public/"
+$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/api/matches/public/"
+if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
+    throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
 }
 
 $publicMatchResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)").Result
@@ -618,16 +668,15 @@ if ([string]::IsNullOrWhiteSpace($publicPickup.manageUrl)) {
     throw "Public pickup response should include a manageUrl."
 }
 
-$pickupEmailLogResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/pickups/email-log?recipient=$([System.Uri]::EscapeDataString($lostItem.contactEmail))"
-).Result
-Assert-Status $pickupEmailLogResponse 200 "OPS_MANAGER can read pickup email log"
-$pickupEmailLogs = @(Read-Json $pickupEmailLogResponse)
-if ($pickupEmailLogs.Count -lt 1 -or [string]::IsNullOrWhiteSpace($pickupEmailLogs[0].magicLink)) {
-    throw "Pickup email log should expose the manage magic link for tests."
-}
-
-$manageLink = $pickupEmailLogs[0].magicLink
+# Same poll-then-regex pattern for the pickup-confirmation notification. The
+# extracted URL is the manage link the public client uses to update/cancel.
+$pickupConfirmationNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/pickups/public/"
+$manageLink = Extract-MagicLinkUrl `
+    -Body $pickupConfirmationNotification.body `
+    -UrlMarker "/api/pickups/public/"
 $publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
     pickupAt = $pickupSlot0930
     email = $lostItem.contactEmail

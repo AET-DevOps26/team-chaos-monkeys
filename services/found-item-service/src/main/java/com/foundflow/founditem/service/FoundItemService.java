@@ -95,14 +95,13 @@ public class FoundItemService {
 
         FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
 
-        // Best-effort GenAI extraction (issue #128). Only runs when the
-        // staff member did not supply attributes — staff input wins because
-        // a human on-site has more context than the model.
-        // Failures are swallowed inside AttributeExtractionService.
         if (attributes == null) {
-            attributeExtractionService.extract(request.description(), photoKey)
+            attributeExtractionService.extractWithLocation(request.description(), photoKey)
                     .ifPresent(extracted -> {
-                        savedFoundItem.setAttributes(extracted);
+                        savedFoundItem.setAttributes(extracted.attributes());
+                        if (extracted.location() != null) {
+                            savedFoundItem.setLocationHint(extracted.location());
+                        }
                         foundItemRepository.save(savedFoundItem);
                     });
         }

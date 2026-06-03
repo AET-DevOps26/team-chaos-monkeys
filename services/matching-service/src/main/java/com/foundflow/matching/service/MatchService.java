@@ -81,6 +81,21 @@ public class MatchService {
                 jwt
         );
 
+        Optional<Match> existing = matchRepository.findFirstByLostReportIdAndFoundItemId(
+                request.lostReportId(),
+                request.foundItemId()
+        );
+        if (existing.isPresent()) {
+            Match match = existing.get();
+            if (match.getStatus() != MatchStatus.PENDING) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Match already exists for this pair with status " + match.getStatus()
+                );
+            }
+            return toResponse(match);
+        }
+
         Match match = new Match(
                 request.foundItemId(),
                 request.lostReportId(),

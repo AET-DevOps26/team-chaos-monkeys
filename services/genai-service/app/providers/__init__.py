@@ -103,16 +103,28 @@ def build_provider(settings: Settings) -> LLMProvider:
     if settings.provider == "fake":
         from app.providers.fake import FakeProvider
 
-        # Canned JSON shaped like `ItemAttributes`. Lets docker-compose E2E
-        # and downstream Spring service integration tests exercise the full
-        # /extract-attributes path without OpenAI or Ollama.
+        _EXTRACTION_RESPONSE = (
+            '{"category":"jacket","brand":null,"color":"black",'
+            '"distinguishingMarks":[],"approximateTime":null,'
+            '"location":null}'
+        )
+        _VERIFY_RESPONSE = (
+            '{"verdict":"uncertain","confidence":0.5,'
+            '"rationale":"fake provider deterministic response"}'
+        )
+
+        def _fake_chat_response(messages: list[Message], json_mode: bool) -> str:
+            system = next(
+                (m["content"] for m in messages if m["role"] == "system"),
+                "",
+            )
+            if isinstance(system, str) and "compare a guest's lost-item report" in system:
+                return _VERIFY_RESPONSE
+            return _EXTRACTION_RESPONSE
+
         return FakeProvider(
             name="fake",
-            chat_response=(
-                '{"category":"jacket","brand":null,"color":"black",'
-                '"distinguishingMarks":[],"approximateTime":null,'
-                '"location":null}'
-            ),
+            chat_response=_fake_chat_response,
             embedding_dimensions=settings.embedding_dimensions,
         )
     raise ValueError(f"unknown provider: {settings.provider!r}")

@@ -129,6 +129,8 @@ The system is **event-driven with synchronous edges**. The intake → matching s
 
 **Provider switch for the LLM.** `GENAI_PROVIDER=openai|local|fake` selects the OpenAI API, a local Ollama backend, or the deterministic `fake` provider used in tests/E2E. Implementations live in `app/providers/{openai,ollama,fake}.py` and share the same provider interface — same code path, no separate implementations. A nightly `genai-integration.yml` workflow runs the service against a real Ollama backend (`qwen2.5:0.5b` + `nomic-embed-text`) and is non-blocking (`continue-on-error: true`).
 
+The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (default `768`). It drives the `item_embeddings.embedding` column type via a Flyway placeholder (`spring.flyway.placeholders.embedding_dim`), the OpenAI `dimensions=` parameter, and a startup probe in both services. When changing `OPENAI_EMBED_MODEL` or `OLLAMA_EMBED_MODEL`, also update `EMBEDDING_DIMENSIONS` to match the new model's output — both services refuse to start otherwise. The matching-service migrations under `db/migration/*.sql` are now the first in the repo to use Flyway placeholders; editing one of them requires `flyway repair` or `docker compose down -v` on any local dev DB once.
+
 **Object storage abstraction.** Implemented in `shared/photo-storage/` as a single `PhotoStorage` interface with three adapters — `MinioPhotoStorage` (compose default), `AzurePhotoStorage` (cloud), and `FileSystemPhotoStorage` (test/fallback) — selected via `PHOTO_STORAGE_PROVIDER`. Both `lost-item-service` and `found-item-service` inject the interface; signed-URL TTL is configurable via `photo-storage.signed-url-ttl` (default `PT10M`). Detailed in `docs/architecture/photo-storage.md`.
 
 ## CI Workflows

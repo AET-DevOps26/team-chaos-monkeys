@@ -6,7 +6,7 @@ CREATE TABLE item_embeddings (
     item_id UUID NOT NULL,
     venue_id UUID NOT NULL,
     category VARCHAR(255),
-    embedding vector(768) NOT NULL,
+    embedding vector(${embedding_dim}) NOT NULL,
     text_source TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,

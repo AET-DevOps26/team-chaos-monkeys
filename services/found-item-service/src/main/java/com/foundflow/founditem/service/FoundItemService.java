@@ -96,9 +96,12 @@ public class FoundItemService {
         // Best-effort GenAI extraction. Create requests no longer accept
         // operator-provided attributes; the model owns the initial enrichment.
         // Failures are swallowed inside AttributeExtractionService.
-        attributeExtractionService.extract(request.intakeText(), photoKey)
+        attributeExtractionService.extractWithLocation(request.intakeText(), photoKey)
                 .ifPresent(extracted -> {
-                    savedFoundItem.setAttributes(extracted);
+                    savedFoundItem.setAttributes(extracted.attributes());
+                    if (extracted.location() != null) {
+                        savedFoundItem.setLocationHint(extracted.location());
+                    }
                     foundItemRepository.save(savedFoundItem);
                 });
 

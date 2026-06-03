@@ -10,8 +10,8 @@ import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
+import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.BucketCountView;
-import com.foundflow.matching.repository.MatchEmailLogRepository;
 import com.foundflow.matching.repository.MatchRepository;
 import com.foundflow.matching.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
@@ -19,8 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,10 +48,7 @@ class MatchServiceTest {
     private MagicLinkService magicLinkService;
 
     @Mock
-    private MatchEmailSender matchEmailSender;
-
-    @Mock
-    private MatchEmailLogRepository matchEmailLogRepository;
+    private MatchInviteEventPublisher matchInviteEventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -99,6 +98,78 @@ class MatchServiceTest {
         assertEquals(MatchStatus.PENDING, response.status());
         assertEquals(0.84f, response.combinedScore());
         assertNotNull(response.createdAt());
+    }
+
+    @Test
+    void createMatch_shouldReturnExistingPendingMatch_whenAutoPipelineAlreadyCreatedOne() {
+        // When CandidateMatchingService auto-creates a PENDING match for a
+        // (foundItemId, lostReportId) pair via the intake-event pipeline, a
+        // subsequent manual POST /api/matches for the same pair must dedupe
+        // and return the existing match — not create a duplicate. Otherwise
+        // public confirmation of the manual match leaves the auto-match in
+        // PENDING (which the E2E filtered-PENDING check catches).
+        MatchService matchService = matchService();
+
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID existingId = UUID.randomUUID();
+
+        Match existing = new Match(
+                foundItemId, lostReportId, venueId, MatchStatus.PENDING,
+                0.70f, 0.80f, 0.75f, LocalDateTime.now()
+        );
+        ReflectionTestUtils.setField(existing, "id", existingId);
+
+        when(foundItemClient.getFoundItem(eq(foundItemId), any(Jwt.class)))
+                .thenReturn(new ItemVenueReference(foundItemId, venueId));
+        when(lostItemClient.getLostItem(eq(lostReportId), any(Jwt.class)))
+                .thenReturn(new ItemVenueReference(lostReportId, venueId));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
+                .thenReturn(Optional.of(existing));
+
+        CreateMatchRequest request = new CreateMatchRequest(
+                foundItemId, lostReportId, UUID.randomUUID(),
+                0.75f, 0.90f, 0.84f
+        );
+        MatchResponse response = matchService.createMatch(request, staffJwt(venueId));
+
+        assertEquals(existingId, response.id());
+        assertEquals(MatchStatus.PENDING, response.status());
+        verify(matchRepository, never()).save(any(Match.class));
+    }
+
+    @Test
+    void createMatch_shouldReject409_whenExistingMatchIsNotPending() {
+        MatchService matchService = matchService();
+
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        Match existing = new Match(
+                foundItemId, lostReportId, venueId, MatchStatus.CONFIRMED,
+                0.70f, 0.80f, 0.75f, LocalDateTime.now()
+        );
+
+        when(foundItemClient.getFoundItem(eq(foundItemId), any(Jwt.class)))
+                .thenReturn(new ItemVenueReference(foundItemId, venueId));
+        when(lostItemClient.getLostItem(eq(lostReportId), any(Jwt.class)))
+                .thenReturn(new ItemVenueReference(lostReportId, venueId));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
+                .thenReturn(Optional.of(existing));
+
+        CreateMatchRequest request = new CreateMatchRequest(
+                foundItemId, lostReportId, UUID.randomUUID(),
+                0.75f, 0.90f, 0.84f
+        );
+
+        ResponseStatusException ex = assertThrows(
+                ResponseStatusException.class,
+                () -> matchService.createMatch(request, staffJwt(venueId))
+        );
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+        verify(matchRepository, never()).save(any(Match.class));
     }
 
     @Test
@@ -332,7 +403,7 @@ class MatchServiceTest {
     }
 
     @Test
-    void createPublicMatchLink_shouldReturnMatchAndPickupUrls() {
+    void createPublicMatchLink_shouldPublishInviteAndReturnMatchAndPickupUrls() {
         MatchService matchService = matchService();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -352,10 +423,10 @@ class MatchServiceTest {
         assertEquals("public-token", response.get().token());
         assertEquals("http://localhost:8080/api/matches/public/public-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/public-token", response.get().pickupUrl());
-        verify(matchEmailSender).sendPublicMatchLink(
+        verify(matchInviteEventPublisher).publishMatchInviteRequested(
+                matchId,
                 "lost@example.com",
                 venueId,
-                matchId,
                 "http://localhost:8080/api/matches/public/public-token"
         );
     }
@@ -385,8 +456,7 @@ class MatchServiceTest {
                 foundItemClient,
                 lostItemClient,
                 magicLinkService,
-                matchEmailSender,
-                matchEmailLogRepository,
+                matchInviteEventPublisher,
                 "http://localhost:8080"
         );
     }

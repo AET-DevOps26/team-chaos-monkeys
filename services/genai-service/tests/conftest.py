@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
 from app.dependencies import get_llm
 from app.main import app
 from app.providers.fake import FakeProvider
+
+# FakeProvider's default embed vector is [0.1, 0.2, 0.3] — 3 dimensions.
+# All fixtures that start the lifespan must set EMBEDDING_DIMENSIONS=3 so the
+# startup probe sees a matching dim (configured == actual == 3).
+_FAKE_EMBED_DIM = 3
 
 
 @pytest.fixture
@@ -24,23 +29,17 @@ def client_with_fake(
 ) -> Iterator[TestClient]:
     """A TestClient where the provider is replaced with FakeProvider.
 
-    We still need `Settings` to construct successfully during lifespan, so
-    set a minimal valid env first, then override the LLM dependency.
+    We patch build_provider to return the fake so the lifespan startup probe
+    runs against the in-process FakeProvider (no real Ollama/OpenAI needed).
+    EMBEDDING_DIMENSIONS is set to match FakeProvider's default 3-dim vector.
     """
     monkeypatch.setenv("GENAI_PROVIDER", "local")
+    monkeypatch.setenv("EMBEDDING_DIMENSIONS", str(_FAKE_EMBED_DIM))
 
-    # Bypass real provider construction in lifespan by pre-installing the fake.
-    app.state.settings = Settings()
-    app.state.llm = fake_provider
-    app.dependency_overrides[get_llm] = lambda: fake_provider
-
-    # Skip lifespan to avoid build_provider running again; FastAPI's TestClient
-    # runs lifespan by default — disable it here.
-    with TestClient(app) as client:  # lifespan runs but build_provider returns a real instance...
-        # ...so override state again after lifespan ran.
-        app.state.llm = fake_provider
-        app.dependency_overrides[get_llm] = lambda: fake_provider
-        yield client
+    with patch("app.main.build_provider", return_value=fake_provider):
+        with TestClient(app) as client:
+            app.dependency_overrides[get_llm] = lambda: fake_provider
+            yield client
 
     app.dependency_overrides.clear()
 
@@ -54,7 +53,9 @@ def client_no_raise(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     (500) handler can be asserted on.
     """
     monkeypatch.setenv("GENAI_PROVIDER", "local")
-    app.state.settings = Settings()
-    with TestClient(app, raise_server_exceptions=False) as client:
-        yield client
+    monkeypatch.setenv("EMBEDDING_DIMENSIONS", str(_FAKE_EMBED_DIM))
+    fake = FakeProvider()
+    with patch("app.main.build_provider", return_value=fake):
+        with TestClient(app, raise_server_exceptions=False) as client:
+            yield client
     app.dependency_overrides.clear()

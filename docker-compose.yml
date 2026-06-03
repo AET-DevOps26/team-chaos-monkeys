@@ -109,6 +109,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
       GENAI_BASE_URL: ${GENAI_BASE_URL:-http://genai-service:8000}
       GENAI_API_KEY: ${GENAI_INTERNAL_TOKEN:-}
       GENAI_ENABLED: ${GENAI_ENABLED:-true}
@@ -128,8 +129,25 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/${NOTIFICATION_DB_NAME:?NOTIFICATION_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${NOTIFICATION_DB_USER:?NOTIFICATION_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      # Brevo SMTP — optional locally. Without creds the consumer persists the
+      # notifications row, the first send attempt fails authenticating with
+      # smtp-relay.brevo.com, the retry interceptor drops after three attempts,
+      # and notifications_send_failures_total tracks the drop.
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp-relay.brevo.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      FOUNDFLOW_MAIL_FROM: ${FOUNDFLOW_MAIL_FROM:-no-reply@foundflow.app}
     depends_on:
       notification-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   pickup-service:
@@ -142,10 +160,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://pickup-db:5432/${PICKUP_DB_NAME:?PICKUP_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${PICKUP_DB_USER:?PICKUP_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${PICKUP_DB_PASSWORD:?PICKUP_DB_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
     depends_on:
       pickup-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   operations-service:
@@ -255,6 +279,7 @@ services:
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llava:7b}
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
       GENAI_TIMEOUT_SECONDS: ${GENAI_TIMEOUT_SECONDS:-30}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
 
   prometheus:
     image: prom/prometheus:v2.55.1

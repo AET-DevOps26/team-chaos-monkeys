@@ -86,6 +86,23 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   by the `helm-install` make target when present) or `helm --set`; nothing
   secret is committed.
 
+  Recognised keys (all optional unless flagged):
+  | values key             | env var consumed by                      | purpose |
+  |------------------------|------------------------------------------|---------|
+  | `openaiApiKey`         | `OPENAI_API_KEY` (genai-service)         | OpenAI provider key when `GENAI_PROVIDER=openai`. |
+  | `devAdminEmail`        | `DEV_ADMIN_EMAIL` (auth-service)         | Bootstrap admin email seeded on first start. |
+  | `devAdminPassword`     | `DEV_ADMIN_PASSWORD` (auth-service)      | Bootstrap admin password. |
+  | `jwtRsaPrivateKey`     | `JWT_RSA_PRIVATE_KEY` (auth-service)     | Override the auto-generated JWT signing key. |
+  | `magicLinkSecret`      | `MAGIC_LINK_SECRET` (matching, pickup, notification) | HMAC secret for public match/pickup magic-link tokens. Falls back to the dev default when empty. |
+  | `brevoSmtpUsername`    | `SPRING_MAIL_USERNAME` (notification-service) | Brevo SMTP login (the verified Foundflow Gmail). |
+  | `brevoSmtpPassword`    | `SPRING_MAIL_PASSWORD` (notification-service) | Brevo SMTP password (issued in the Brevo dashboard). |
+  | `brevoMailFromAddress` | `FOUNDFLOW_MAIL_FROM` (notification-service)  | From: header for outbound email. Falls back to `foundflow.notifications.from-address`. |
+
+  Without `brevoSmtp*` set the notification-service consumer still persists
+  every notifications row (URL in `body`), but each SMTP attempt fails
+  authentication and the message is dropped after the bounded retry —
+  visible on the `notifications_send_failures_total` Prometheus counter.
+
 - **Monitoring resources are labelled `release: <prometheusReleaseLabel>`** so
   the cluster Prometheus Operator picks them up. Default in `values.yaml` is
   `kube-prometheus-stack`; `values-local.yaml` overrides to `kps` (matches the

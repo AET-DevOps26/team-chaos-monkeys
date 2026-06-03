@@ -41,6 +41,7 @@ class ProcessIntakeAsyncSliceIT {
 
     private static final int TOP_K = 20;
     private static final float THRESHOLD = 0.55f;
+    private static final int EMBEDDING_DIM = 2;
     private static final long SLOW_VERIFY_MS = 3_000L;
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
@@ -104,7 +105,8 @@ class ProcessIntakeAsyncSliceIT {
                 verificationService,
                 new SimpleMeterRegistry(),
                 TOP_K,
-                THRESHOLD
+                THRESHOLD,
+                EMBEDDING_DIM
         );
     }
 

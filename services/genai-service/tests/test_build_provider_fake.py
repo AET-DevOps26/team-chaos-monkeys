@@ -40,3 +40,30 @@ async def test_fake_provider_chat_returns_valid_item_attributes_json(monkeypatch
     assert parsed["category"] == "jacket"
     assert "color" in parsed
     assert isinstance(parsed["distinguishingMarks"], list)
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_chat_returns_verification_shape_for_verify_prompt(
+    monkeypatch,
+):
+    """When the system prompt is the verify-match prompt, FakeProvider must
+    return a JSON object shaped like VerificationOutput — otherwise
+    matching-service's async verifyAsync path 422s under GENAI_PROVIDER=fake."""
+    from app.verification import SYSTEM_PROMPT as VERIFY_SYSTEM_PROMPT
+
+    monkeypatch.setenv("GENAI_PROVIDER", "fake")
+    settings = Settings()
+    provider = build_provider(settings)
+
+    response = await provider.chat(
+        [
+            {"role": "system", "content": VERIFY_SYSTEM_PROMPT},
+            {"role": "user", "content": "lost: jacket. found: jacket."},
+        ],
+        json_mode=True,
+    )
+
+    parsed = json.loads(response)
+    assert parsed["verdict"] in {"match", "no_match", "uncertain"}
+    assert 0.0 <= parsed["confidence"] <= 1.0
+    assert isinstance(parsed["rationale"], str)

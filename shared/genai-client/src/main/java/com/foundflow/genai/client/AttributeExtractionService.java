@@ -50,6 +50,10 @@ public class AttributeExtractionService {
     }
 
     public Optional<ItemAttributes> extract(String description, String photoKey) {
+        return extractWithLocation(description, photoKey).map(ExtractionResult::attributes);
+    }
+
+    public Optional<ExtractionResult> extractWithLocation(String description, String photoKey) {
         if (!enabled) {
             return Optional.empty();
         }
@@ -63,7 +67,7 @@ public class AttributeExtractionService {
             ExtractAttributesResponse response = genaiClient.extractAttributes(request);
             return Optional.ofNullable(response)
                     .map(ExtractAttributesResponse::getAttributes)
-                    .map(AttributeExtractionService::toDomain);
+                    .map(AttributeExtractionService::toResult);
         } catch (RuntimeException exception) {
             LOGGER.warn(
                     "GenAI attribute extraction failed for photoKey={} — persisting report without attributes",
@@ -132,6 +136,12 @@ public class AttributeExtractionService {
             stream.close();
         } catch (IOException ignored) {
         }
+    }
+
+    private static ExtractionResult toResult(
+            com.foundflow.genai.client.model.ItemAttributes attrs
+    ) {
+        return new ExtractionResult(toDomain(attrs), attrs.getLocation());
     }
 
     private static ItemAttributes toDomain(

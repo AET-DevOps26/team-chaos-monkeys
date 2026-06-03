@@ -18,10 +18,10 @@ public class PickupConfirmationEventListener {
     @RabbitListener(queues = FoundFlowEventRouting.NOTIFICATION_PICKUP_CONFIRMATIONS_QUEUE)
     public void onPickupConfirmationRequested(PickupConfirmationRequestedEvent event) {
         dispatcher.dispatchPickupConfirmation(
-                event.pickupId(),
                 event.matchId(),
                 event.recipient(),
-                event.venueId()
+                event.venueId(),
+                event.manageUrl()
         );
     }
 }

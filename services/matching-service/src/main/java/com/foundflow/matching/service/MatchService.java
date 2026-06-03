@@ -239,7 +239,8 @@ public class MatchService {
                     matchInviteEventPublisher.publishMatchInviteRequested(
                             match.getId(),
                             normalizeEmail(request.email()),
-                            match.getVenueId()
+                            match.getVenueId(),
+                            matchUrl
                     );
                     return new PublicMatchLinkResponse(
                             token,

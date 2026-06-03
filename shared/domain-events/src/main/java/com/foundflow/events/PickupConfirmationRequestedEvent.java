@@ -9,6 +9,7 @@ public record PickupConfirmationRequestedEvent(
         UUID pickupId,
         UUID matchId,
         String recipient,
-        UUID venueId
+        UUID venueId,
+        String manageUrl
 ) {
 }

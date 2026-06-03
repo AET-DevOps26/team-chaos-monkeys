@@ -24,16 +24,18 @@ class NotificationListenerTest {
         MatchInviteEventListener listener = new MatchInviteEventListener(dispatcher);
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
+        String matchUrl = "http://localhost:8080/api/matches/public/public-token";
 
         listener.onMatchInviteRequested(new MatchInviteRequestedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
                 matchId,
                 "lost@example.com",
-                venueId
+                venueId,
+                matchUrl
         ));
 
-        verify(dispatcher).dispatchMatchInvite(matchId, "lost@example.com", venueId);
+        verify(dispatcher).dispatchMatchInvite(matchId, "lost@example.com", venueId, matchUrl);
     }
 
     @Test
@@ -42,6 +44,7 @@ class NotificationListenerTest {
         UUID pickupId = UUID.randomUUID();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
+        String manageUrl = "http://localhost:8080/api/pickups/public/manage-token";
 
         listener.onPickupConfirmationRequested(new PickupConfirmationRequestedEvent(
                 UUID.randomUUID(),
@@ -49,9 +52,10 @@ class NotificationListenerTest {
                 pickupId,
                 matchId,
                 "lost@example.com",
-                venueId
+                venueId,
+                manageUrl
         ));
 
-        verify(dispatcher).dispatchPickupConfirmation(pickupId, matchId, "lost@example.com", venueId);
+        verify(dispatcher).dispatchPickupConfirmation(matchId, "lost@example.com", venueId, manageUrl);
     }
 }

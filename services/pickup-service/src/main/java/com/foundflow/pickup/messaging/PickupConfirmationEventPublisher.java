@@ -17,7 +17,7 @@ public class PickupConfirmationEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publishPickupConfirmationRequested(UUID pickupId, UUID matchId, String recipient, UUID venueId) {
+    public void publishPickupConfirmationRequested(UUID pickupId, UUID matchId, String recipient, UUID venueId, String manageUrl) {
         rabbitTemplate.convertAndSend(
                 FoundFlowEventRouting.EXCHANGE,
                 FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED,
@@ -27,7 +27,8 @@ public class PickupConfirmationEventPublisher {
                         pickupId,
                         matchId,
                         recipient,
-                        venueId
+                        venueId,
+                        manageUrl
                 )
         );
     }

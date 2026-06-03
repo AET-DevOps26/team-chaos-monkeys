@@ -97,7 +97,8 @@ public class PickupService {
                 pickup.getId(),
                 pickup.getMatchId(),
                 email,
-                pickup.getVenueId()
+                pickup.getVenueId(),
+                manageUrl
         );
 
         return toPublicResponse(pickup, manageUrl);

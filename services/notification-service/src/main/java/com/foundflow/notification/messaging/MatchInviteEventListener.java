@@ -17,6 +17,11 @@ public class MatchInviteEventListener {
 
     @RabbitListener(queues = FoundFlowEventRouting.NOTIFICATION_MATCH_INVITES_QUEUE)
     public void onMatchInviteRequested(MatchInviteRequestedEvent event) {
-        dispatcher.dispatchMatchInvite(event.matchId(), event.recipient(), event.venueId());
+        dispatcher.dispatchMatchInvite(
+                event.matchId(),
+                event.recipient(),
+                event.venueId(),
+                event.matchUrl()
+        );
     }
 }

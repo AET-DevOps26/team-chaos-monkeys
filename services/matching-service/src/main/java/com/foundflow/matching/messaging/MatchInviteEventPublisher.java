@@ -17,7 +17,7 @@ public class MatchInviteEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publishMatchInviteRequested(UUID matchId, String recipient, UUID venueId) {
+    public void publishMatchInviteRequested(UUID matchId, String recipient, UUID venueId, String matchUrl) {
         rabbitTemplate.convertAndSend(
                 FoundFlowEventRouting.EXCHANGE,
                 FoundFlowEventRouting.MATCH_INVITE_REQUESTED,
@@ -26,7 +26,8 @@ public class MatchInviteEventPublisher {
                         Instant.now(),
                         matchId,
                         recipient,
-                        venueId
+                        venueId,
+                        matchUrl
                 )
         );
     }

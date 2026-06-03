@@ -1,6 +1,5 @@
 package com.foundflow.notification.service;
 
-import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.notification.domain.Notification;
 import com.foundflow.notification.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,47 +25,40 @@ public class NotificationDispatcher {
             "Use this link to change or cancel your pickup: ";
 
     private final NotificationRepository notificationRepository;
-    private final MagicLinkService magicLinkService;
     private final JavaMailSender mailSender;
-    private final String publicBaseUrl;
     private final String fromAddress;
 
     public NotificationDispatcher(
             NotificationRepository notificationRepository,
-            MagicLinkService magicLinkService,
             JavaMailSender mailSender,
-            @Value("${foundflow.public.base-url}") String publicBaseUrl,
             @Value("${foundflow.notifications.from-address}") String fromAddress
     ) {
         this.notificationRepository = notificationRepository;
-        this.magicLinkService = magicLinkService;
         this.mailSender = mailSender;
-        this.publicBaseUrl = publicBaseUrl;
         this.fromAddress = fromAddress;
     }
 
-    public void dispatchMatchInvite(UUID matchId, String recipient, UUID venueId) {
-        String token = magicLinkService.createMatchViewToken(matchId, venueId, recipient);
-        String url = publicBaseUrl + "/api/matches/public/" + token;
+    // The owning service (matching / pickup) mints the magic-link token and ships
+    // the rendered URL in the event so the link a user clicks is byte-identical to
+    // the one returned by the API that triggered the notification.
+    public void dispatchMatchInvite(UUID matchId, String recipient, UUID venueId, String matchUrl) {
         Notification notification = persist(
                 matchId,
                 venueId,
                 recipient,
                 MATCH_INVITE_SUBJECT,
-                MATCH_INVITE_BODY_PREFIX + url
+                MATCH_INVITE_BODY_PREFIX + matchUrl
         );
         sendAndMarkSent(notification);
     }
 
-    public void dispatchPickupConfirmation(UUID pickupId, UUID matchId, String recipient, UUID venueId) {
-        String token = magicLinkService.createPickupManageToken(pickupId, matchId, venueId, recipient);
-        String url = publicBaseUrl + "/api/pickups/public/" + token;
+    public void dispatchPickupConfirmation(UUID matchId, String recipient, UUID venueId, String manageUrl) {
         Notification notification = persist(
                 matchId,
                 venueId,
                 recipient,
                 PICKUP_CONFIRMATION_SUBJECT,
-                PICKUP_CONFIRMATION_BODY_PREFIX + url
+                PICKUP_CONFIRMATION_BODY_PREFIX + manageUrl
         );
         sendAndMarkSent(notification);
     }

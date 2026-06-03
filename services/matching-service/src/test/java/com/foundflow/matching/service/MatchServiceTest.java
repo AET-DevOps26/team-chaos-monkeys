@@ -352,7 +352,8 @@ class MatchServiceTest {
         verify(matchInviteEventPublisher).publishMatchInviteRequested(
                 matchId,
                 "lost@example.com",
-                venueId
+                venueId,
+                "http://localhost:8080/api/matches/public/public-token"
         );
     }
 

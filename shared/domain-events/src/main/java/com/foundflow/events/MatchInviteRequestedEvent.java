@@ -8,6 +8,7 @@ public record MatchInviteRequestedEvent(
         Instant occurredAt,
         UUID matchId,
         String recipient,
-        UUID venueId
+        UUID venueId,
+        String matchUrl
 ) {
 }

@@ -106,7 +106,8 @@ class PickupServiceTest {
                 null,
                 matchId,
                 "lost@example.com",
-                venueId
+                venueId,
+                "http://localhost:8080/api/pickups/public/manage-token"
         );
     }
 

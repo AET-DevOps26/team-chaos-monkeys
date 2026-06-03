@@ -1,6 +1,6 @@
 # FoundFlow local-k8s workflow.
 # Targets run against your current kubectl context, which should point at the
-# built-in Kubernetes of OrbStack or Docker Desktop. See docs/local-k8s.md.
+# built-in Kubernetes of OrbStack or Docker Desktop. See docs/deployment/local-kubernetes.md.
 #
 # Common flow:
 #   make cluster-bootstrap   # one-time: ingress-nginx + kube-prom-stack + ns

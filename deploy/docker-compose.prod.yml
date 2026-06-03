@@ -40,6 +40,9 @@ services:
   operations-service:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/operations-service:${IMAGE_TAG:-latest}
 
+  pickup-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/pickup-service:${IMAGE_TAG:-latest}
+
   client:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/client:${IMAGE_TAG:-latest}
     # Expose the frontend on host port 80 so the VM's public IP serves the app directly.

@@ -96,6 +96,36 @@ class FoundItemControllerTest {
     }
 
     @Test
+    void createFoundItemWithPhoto_shouldRejectBlankIntakeText() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "   ",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                venueId,
+                reporterId
+        );
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/found-items")
+                        .file(requestPart)
+                        .file(photo)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createFoundItemWithPhoto_shouldRejectMissingPhotoPart() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();

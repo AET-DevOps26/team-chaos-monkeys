@@ -29,10 +29,14 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def provider() -> OllamaProvider:
+    chat_model = os.getenv("OLLAMA_CHAT_MODEL", "llama3.2:1b")
     return OllamaProvider(
         base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        chat_model=os.getenv("OLLAMA_CHAT_MODEL", "llama3.2:1b"),
-        vision_model=os.getenv("OLLAMA_VISION_MODEL", "llava:7b"),
+        chat_model=chat_model,
+        # None of these tests send image content, so chat() never routes to the
+        # vision model and embed() doesn't use it — default it to the chat model
+        # so the fixture doesn't depend on a separate vision model being pulled.
+        vision_model=os.getenv("OLLAMA_VISION_MODEL", chat_model),
         embed_model=os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text"),
         embedding_dimensions=int(os.getenv("EMBEDDING_DIMENSIONS", "768")),
         timeout_seconds=int(os.getenv("GENAI_TIMEOUT_SECONDS", "60")),

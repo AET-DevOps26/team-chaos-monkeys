@@ -96,11 +96,11 @@ class FoundItemControllerTest {
     }
 
     @Test
-    void createFoundItemWithPhoto_shouldRejectBlankIntakeText() throws Exception {
+    void createFoundItemWithPhoto_shouldRejectIntakeTextLongerThan2000Chars() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = new CreateFoundItemRequest(
-                "   ",
+                "a".repeat(2001),
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 venueId,
                 reporterId
@@ -123,6 +123,40 @@ class FoundItemControllerTest {
                         .file(photo)
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createFoundItemWithPhoto_shouldAcceptPhotoOnlyIntakeWithoutIntakeText() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                null,
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                venueId,
+                reporterId
+        );
+        FoundItemResponse response = response(id, venueId, reporterId, ItemStatus.STORED);
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(foundItemService.createFoundItem(eq(request), any(), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/found-items")
+                        .file(requestPart)
+                        .file(photo)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isCreated());
     }
 
     @Test

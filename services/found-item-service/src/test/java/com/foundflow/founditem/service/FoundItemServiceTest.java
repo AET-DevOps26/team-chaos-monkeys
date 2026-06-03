@@ -75,13 +75,13 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 foundAt,
-                "Neben Buehne 2",
                 requestVenueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extract(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -92,6 +92,8 @@ class FoundItemServiceTest {
 
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
+        assertNull(captor.getValue().getLocationHint());
+        assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
         verify(eventPublisher).publishFoundItemLogged(captor.getValue());
     }
@@ -112,13 +114,13 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 requestVenueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extract(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -129,6 +131,43 @@ class FoundItemServiceTest {
 
         assertEquals("found-items/2026/05/generated.jpg", captor.getValue().getPhotoKey());
         assertEquals("found-items/2026/05/generated.jpg", response.photoKey());
+    }
+
+    @Test
+    void createFoundItemWithPhoto_shouldPopulateAttributesFromGenAiWhenAvailable() {
+        FoundItemService service = service();
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID requestVenueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                requestVenueId,
+                reporterId
+        );
+        ItemAttributes extracted = new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"));
+
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extract(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.of(extracted));
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+
+        verify(foundItemRepository, times(2)).save(any(FoundItem.class));
+        assertEquals("Bag", response.attributes().category());
+        assertEquals("Nike", response.attributes().brand());
+        assertEquals("Black", response.attributes().color());
+        assertEquals(List.of("Roter Anhaenger"), response.attributes().marks());
+        verify(eventPublisher).publishFoundItemLogged(argThat(item -> item.getAttributes() == extracted));
     }
 
     @Test
@@ -344,10 +383,8 @@ class FoundItemServiceTest {
         return new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 venueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
     }
 

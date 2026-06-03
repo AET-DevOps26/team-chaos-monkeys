@@ -167,6 +167,19 @@ services:
     env:
       - { name: SERVER_PORT, value: "8086" }
 
+  pickup-service:
+    kind: spring
+    port: 8087
+    metrics: true
+    dbRef: pickup-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8087" }
+      # Public base URL used to build pickup magic links — point at the public ingress.
+      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
+    secretEnv:
+      - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
+
   genai-service:
     kind: python
     port: 8000
@@ -215,6 +228,7 @@ databases:
       CREATE EXTENSION IF NOT EXISTS vector;
   notification-db: { username: notification, database: notificationdb, storageSize: 1Gi }
   operations-db:  { username: operations,   database: operationsdb,   storageSize: 1Gi }
+  pickup-db:      { username: pickup,        database: pickupdb,        storageSize: 1Gi }
 
 postgresDefaults:
   image: postgres:17

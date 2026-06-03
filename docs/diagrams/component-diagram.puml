@@ -1,0 +1,44 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+left to right direction
+
+actor "Guest / Staff Browser" as Browser
+
+package "External Entry" {
+  [React Client] as Client
+  [Gateway Service\nSpring Cloud Gateway] as Gateway
+}
+
+package "Backend Services" {
+  [Spring Boot Services\nAuth, Lost, Found, Matching,\nNotification, Operations, Pickup] as SpringServices
+  [GenAI Service\nFastAPI] as GenAIService
+}
+
+package "Platform Services" {
+  database "PostgreSQL\none database per Spring service" as Postgres
+  queue "RabbitMQ\ndomain events" as Rabbit
+  database "MinIO / Azure Blob\nphoto storage" as Photos
+  [OpenAI API / Ollama] as LLM
+}
+
+package "Observability" {
+  [Prometheus] as Prometheus
+  [Grafana] as Grafana
+}
+
+Browser --> Client : uses app
+Client --> Gateway : HTTP /api/**
+Gateway --> SpringServices : routes API requests
+
+SpringServices --> Postgres : own data
+SpringServices --> Rabbit : publish/consume events
+SpringServices --> Photos : store/retrieve photos
+SpringServices --> GenAIService : REST extraction,\nembedding, verification
+GenAIService --> LLM : provider call
+
+Prometheus ..> Gateway : scrape metrics
+Prometheus ..> SpringServices : scrape metrics
+Prometheus ..> GenAIService : scrape metrics
+Grafana --> Prometheus
+@enduml

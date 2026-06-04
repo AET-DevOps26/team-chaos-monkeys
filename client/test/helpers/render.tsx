@@ -31,7 +31,12 @@ function SeedAuth({ token, children }: { token: string | null; children: ReactNo
   const [seeded, setSeeded] = useState(token === null)
   useEffect(() => {
     if (token && accessToken !== token) {
-      login(token)
+      login({
+        accessToken: token,
+        refreshToken: 'seed-refresh-token',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+      })
     }
     if (token) setSeeded(true)
   }, [token, accessToken, login])

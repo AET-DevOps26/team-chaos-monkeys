@@ -72,3 +72,17 @@ def test_diagnostic_not_in_openapi_schema(client_with_fake: TestClient) -> None:
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert "/_diagnostic" not in paths
+
+
+def test_diagnostic_advertises_configured_and_actual_dim(
+    client_with_fake: TestClient,
+) -> None:
+    """/_diagnostic must surface both embed_dimensions fields.
+
+    Uses the standard client_with_fake fixture (EMBEDDING_DIMENSIONS=3,
+    FakeProvider returning a 3-dim vector) so the startup probe passes and
+    app.state.embed_dimensions_actual is set to 3.
+    """
+    body = client_with_fake.get("/_diagnostic").json()
+    assert body["embed_dimensions_configured"] == 3
+    assert body["embed_dimensions_actual"] == 3

@@ -36,7 +36,7 @@ describe('<Navbar />', () => {
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument()
   })
 
-  it('renders Dashboard, New Intake and Found Items as links; remaining entries are non-navigating placeholders', () => {
+  it('renders Dashboard, New Intake, Found Items and Lost Items as links', () => {
     renderWithProviders(harness(), { route: '/', authToken: FAKE_JWT })
 
     expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute('href', '/')
@@ -48,8 +48,10 @@ describe('<Navbar />', () => {
       'href',
       '/found-items',
     )
-
-    expect(screen.queryByRole('link', { name: /lost items/i })).toBeNull()
+    expect(screen.getByRole('link', { name: /lost items/i })).toHaveAttribute(
+      'href',
+      '/lost-items',
+    )
   })
 
   it('marks the active route on Dashboard via aria-current', () => {
@@ -58,11 +60,6 @@ describe('<Navbar />', () => {
       'aria-current',
       'page',
     )
-  })
-
-  it('exposes placeholders as aria-disabled', () => {
-    renderWithProviders(harness(), { route: '/', authToken: FAKE_JWT })
-    expect(screen.getByText(/lost items/i)).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('logs the user out and redirects to /login when Log out is clicked', async () => {

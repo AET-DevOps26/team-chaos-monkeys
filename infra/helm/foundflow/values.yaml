@@ -80,11 +80,21 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8082" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PHOTO_STORAGE_PROVIDER, value: "minio" }
+      - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-lost-photos" }
       # GenAI extraction wiring (issue #128). Failures are best-effort and
       # never block intake; see AttributeExtractionService.
       - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
+      - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   found-item-service:
@@ -95,9 +105,19 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8083" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PHOTO_STORAGE_PROVIDER, value: "minio" }
+      - { name: PHOTO_STORAGE_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_PUBLIC_ENDPOINT, value: "http://minio:9000" }
+      - { name: PHOTO_STORAGE_BUCKET, value: "foundflow-found-photos" }
       - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
+      - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   matching-service:
@@ -108,6 +128,15 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8084" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
     kind: spring
@@ -117,6 +146,18 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8085" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
+      - { name: SPRING_MAIL_HOST, value: "smtp-relay.brevo.com" }
+      - { name: SPRING_MAIL_PORT, value: "587" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq,    key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq,    key: password }
+      - { name: MAGIC_LINK_SECRET,        secret: foundflow-app-secrets, key: magicLinkSecret,       optional: true }
+      - { name: SPRING_MAIL_USERNAME,     secret: foundflow-app-secrets, key: brevoSmtpUsername,     optional: true }
+      - { name: SPRING_MAIL_PASSWORD,     secret: foundflow-app-secrets, key: brevoSmtpPassword,     optional: true }
+      - { name: FOUNDFLOW_MAIL_FROM,      secret: foundflow-app-secrets, key: brevoMailFromAddress,  optional: true }
 
   operations-service:
     kind: spring
@@ -126,6 +167,19 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8086" }
+
+  pickup-service:
+    kind: spring
+    port: 8087
+    metrics: true
+    dbRef: pickup-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8087" }
+      # Public base URL used to build pickup magic links — point at the public ingress.
+      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
+    secretEnv:
+      - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
 
   genai-service:
     kind: python
@@ -142,6 +196,7 @@ services:
       - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
       - { name: OPENAI_EMBED_MODEL, value: "text-embedding-3-small" }
       - { name: GENAI_TIMEOUT_SECONDS, value: "30" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
     secretEnv:
       - { name: OPENAI_API_KEY, secret: foundflow-app-secrets, key: openaiApiKey, optional: true }
 
@@ -175,12 +230,50 @@ databases:
       CREATE EXTENSION IF NOT EXISTS vector;
   notification-db: { username: notification, database: notificationdb, storageSize: 1Gi }
   operations-db:  { username: operations,   database: operationsdb,   storageSize: 1Gi }
+  pickup-db:      { username: pickup,        database: pickupdb,        storageSize: 1Gi }
 
 postgresDefaults:
   image: postgres:17
   resources:
     requests: { cpu: 50m,  memory: 128Mi }
     limits:   { cpu: 500m, memory: 512Mi }
+
+# In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
+# Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
+# compose, local k8s, and AET. Credentials live in the foundflow-rabbitmq
+# Secret: a literal `password` here is used as-is; if left empty, a random
+# password is generated on first install and held stable via lookup() (same
+# pattern as templates/databases.yaml).
+rabbitmq:
+  enabled: true
+  image: rabbitmq:4.0-management
+  username: foundflow
+  password: ""
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  # Persistence is off by default: RabbitMQ here carries transient domain events
+  # only — losing the queue contents on pod restart is acceptable. Flip to true
+  # and set storageSize if/when durable queues are introduced.
+  persistence:
+    enabled: false
+    storageSize: 1Gi
+
+# In-namespace MinIO for photo storage. Service "minio" exposes the S3 API on
+# 9000 and the console on 9001 (cluster-internal only; not on the ingress).
+# shared/photo-storage's MinioPhotoStorage calls ensureBucketExists() on
+# startup, so the chart does not need a bucket-bootstrap Job — lost-item and
+# found-item services create their own buckets on first use.
+minio:
+  enabled: true
+  image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+  accessKey: foundflow
+  secretKey: ""    # generated and held stable via lookup() when empty
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 1Gi }
+  persistence:
+    storageSize: 5Gi
 
 # Application Secret (foundflow-app-secrets). Values populated at install time:
 #   helm upgrade --install foundflow ./infra/helm/foundflow \
@@ -191,6 +284,18 @@ secrets:
   devAdminEmail: ""
   devAdminPassword: ""
   jwtRsaPrivateKey: ""
+  # Magic-link HMAC signing secret. When empty the app falls back to the dev
+  # default baked into application.properties — fine for demo, never for prod.
+  magicLinkSecret: ""
+  # Brevo SMTP credentials for notification-service. When empty the consumer
+  # still persists notifications rows (with the magic-link URL in body) but
+  # every SMTP attempt fails and is dropped after the bounded retry; the
+  # notifications_send_failures_total counter tracks the drops.
+  brevoSmtpUsername: ""
+  brevoSmtpPassword: ""
+  # Optional From: header override. When empty, notification-service falls back
+  # to the `foundflow.notifications.from-address` default in application.properties.
+  brevoMailFromAddress: ""
 
 grafana:
   enabled: true

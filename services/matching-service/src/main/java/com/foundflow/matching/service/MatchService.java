@@ -1,22 +1,29 @@
 package com.foundflow.matching.service;
 
+import com.foundflow.magiclink.MagicLinkClaims;
+import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
+import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.HistogramResponse;
 import com.foundflow.matching.dto.MatchResponse;
+import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.TimeBucketCount;
 import com.foundflow.matching.dto.UpdateMatchRequest;
+import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.BucketCountView;
 import com.foundflow.matching.repository.MatchRepository;
 import com.foundflow.matching.security.VenueAccessService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DayOfWeek;
@@ -37,17 +44,26 @@ public class MatchService {
     private final VenueAccessService venueAccessService;
     private final FoundItemClient foundItemClient;
     private final LostItemClient lostItemClient;
+    private final MagicLinkService magicLinkService;
+    private final MatchInviteEventPublisher matchInviteEventPublisher;
+    private final String publicBaseUrl;
 
     public MatchService(
             MatchRepository matchRepository,
             VenueAccessService venueAccessService,
             FoundItemClient foundItemClient,
-            LostItemClient lostItemClient
+            LostItemClient lostItemClient,
+            MagicLinkService magicLinkService,
+            MatchInviteEventPublisher matchInviteEventPublisher,
+            @Value("${foundflow.public.base-url}") String publicBaseUrl
     ) {
         this.matchRepository = matchRepository;
         this.venueAccessService = venueAccessService;
         this.foundItemClient = foundItemClient;
         this.lostItemClient = lostItemClient;
+        this.magicLinkService = magicLinkService;
+        this.matchInviteEventPublisher = matchInviteEventPublisher;
+        this.publicBaseUrl = publicBaseUrl;
     }
 
     public MatchResponse createMatch(
@@ -60,6 +76,21 @@ public class MatchService {
                 request.venueId(),
                 jwt
         );
+
+        Optional<Match> existing = matchRepository.findFirstByLostReportIdAndFoundItemId(
+                request.lostReportId(),
+                request.foundItemId()
+        );
+        if (existing.isPresent()) {
+            Match match = existing.get();
+            if (match.getStatus() != MatchStatus.PENDING) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Match already exists for this pair with status " + match.getStatus()
+                );
+            }
+            return toResponse(match);
+        }
 
         Match match = new Match(
                 request.foundItemId(),
@@ -189,8 +220,63 @@ public class MatchService {
                 });
     }
 
+    public Optional<MatchResponse> getPublicMatch(String token) {
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
+        return matchRepository.findById(claims.matchId())
+                .filter(match -> match.getVenueId().equals(claims.venueId()))
+                .map(this::toResponse);
+    }
+
+    public Optional<MatchResponse> confirmPublicMatch(String token) {
+        return updatePublicMatchStatus(token, MatchStatus.CONFIRMED);
+    }
+
+    public Optional<MatchResponse> rejectPublicMatch(String token) {
+        return updatePublicMatchStatus(token, MatchStatus.REJECTED);
+    }
+
+    @Transactional
+    public Optional<PublicMatchLinkResponse> createPublicMatchLink(
+            UUID id,
+            CreatePublicMatchLinkRequest request,
+            Jwt jwt
+    ) {
+        return matchRepository.findById(id)
+                .map(match -> {
+                    verifyVenueAccess(jwt, match.getVenueId());
+                    String token = magicLinkService.createMatchViewToken(
+                            match.getId(),
+                            match.getVenueId(),
+                            request.email()
+                    );
+                    String matchUrl = publicBaseUrl + "/api/matches/public/" + token;
+                    String pickupUrl = publicBaseUrl + "/api/pickups/public/" + token;
+                    matchInviteEventPublisher.publishMatchInviteRequested(
+                            match.getId(),
+                            normalizeEmail(request.email()),
+                            match.getVenueId(),
+                            matchUrl
+                    );
+                    return new PublicMatchLinkResponse(
+                            token,
+                            matchUrl,
+                            pickupUrl
+                    );
+                });
+    }
+
     private UUID venueFilter(Jwt jwt) {
         return resolveVenueFilter(null, jwt);
+    }
+
+    private Optional<MatchResponse> updatePublicMatchStatus(String token, MatchStatus status) {
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
+        return matchRepository.findById(claims.matchId())
+                .filter(match -> match.getVenueId().equals(claims.venueId()))
+                .map(match -> {
+                    match.setStatus(status);
+                    return toResponse(matchRepository.save(match));
+                });
     }
 
     private UUID resolveVenueFilter(UUID requestedVenueId, Jwt jwt) {
@@ -208,6 +294,10 @@ public class MatchService {
 
     private String statusName(MatchStatus status) {
         return status == null ? null : status.name();
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     private UUID validateAndResolveMatchVenue(

@@ -37,6 +37,11 @@ spring:
               predicates:
                 - Path=/api/matches/**
 
+            - id: pickup-service
+              uri: http://pickup-service:8087
+              predicates:
+                - Path=/api/pickups/**
+
             - id: notification-service
               uri: http://notification-service:8085
               predicates:
@@ -152,6 +157,27 @@ spring:
               filters:
                 - SetPath=/actuator/info
 
+            - id: pickup-service-health
+              uri: http://pickup-service:8087
+              predicates:
+                - Path=/pickups/actuator/health
+              filters:
+                - SetPath=/actuator/health
+
+            - id: pickup-service-prometheus
+              uri: http://pickup-service:8087
+              predicates:
+                - Path=/pickups/actuator/prometheus
+              filters:
+                - SetPath=/actuator/prometheus
+
+            - id: pickup-service-info
+              uri: http://pickup-service:8087
+              predicates:
+                - Path=/pickups/actuator/info
+              filters:
+                - SetPath=/actuator/info
+
             - id: operations-service-health
               uri: http://operations-service:8086
               predicates:
@@ -208,6 +234,13 @@ spring:
               filters:
                 - RewritePath=/notifications/v3/api-docs, /v3/api-docs
 
+            - id: pickup-service-docs
+              uri: http://pickup-service:8087
+              predicates:
+                - Path=/pickups/v3/api-docs
+              filters:
+                - RewritePath=/pickups/v3/api-docs, /v3/api-docs
+
             - id: operations-service-docs
               uri: http://operations-service:8086
               predicates:
@@ -234,5 +267,7 @@ springdoc:
         url: /matches/v3/api-docs
       - name: notification-service
         url: /notifications/v3/api-docs
+      - name: pickup-service
+        url: /pickups/v3/api-docs
       - name: operations-service
         url: /venues/v3/api-docs

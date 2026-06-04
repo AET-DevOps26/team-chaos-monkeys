@@ -1,6 +1,6 @@
 package com.foundflow.notification.architecture;
 
-import com.foundflow.archtest.CrudServiceArchitectureSuite;
+import com.foundflow.archtest.EventDrivenServiceArchitectureSuite;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 
@@ -8,5 +8,5 @@ import com.tngtech.archunit.core.importer.ImportOption;
         packages = "com.foundflow.notification",
         importOptions = ImportOption.DoNotIncludeTests.class
 )
-class NotificationArchitectureTest extends CrudServiceArchitectureSuite {
+class NotificationArchitectureTest extends EventDrivenServiceArchitectureSuite {
 }

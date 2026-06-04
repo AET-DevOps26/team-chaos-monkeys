@@ -219,6 +219,53 @@ function Assert-SignedPhotoUrl {
     }
 }
 
+# notification-service consumes match-invite / pickup-confirmation events
+# asynchronously from RabbitMQ; the persist happens on the first attempt of
+# the listener, *before* SMTP is touched, so the row shows up shortly after
+# the staff-side action returns. Poll until one matching the URL marker
+# arrives, then return its body so the caller can regex out the URL.
+function Wait-ForNotification {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$Email,
+        [string]$UrlMarker,
+        [int]$TimeoutSeconds = 15
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $response = $Client.GetAsync(
+            "$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($Email))"
+        ).Result
+        if ($response.IsSuccessStatusCode) {
+            $notifications = @(Read-Json $response)
+            $matching = $notifications | Where-Object {
+                $_.body -and $_.body.Contains($UrlMarker)
+            } | Select-Object -First 1
+            if ($matching) {
+                return $matching
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'."
+}
+
+function Extract-MagicLinkUrl {
+    param(
+        [string]$Body,
+        [string]$UrlMarker
+    )
+
+    $regex = "https?://\S+$([regex]::Escape($UrlMarker))\S+"
+    $match = [regex]::Match($Body, $regex)
+    if (-not $match.Success) {
+        throw "Could not extract magic-link URL with marker '$UrlMarker' from body: $Body"
+    }
+    return $match.Value
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
@@ -539,23 +586,130 @@ Assert-Status $crossVenueMatch 403 "Cross-venue match is rejected"
 $matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
 Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
 
+# Pickup slots are only generated from today onward (PickupService.weeklyDates clamps
+# the start to LocalDate.now()), so anchor the schedule on a Monday computed at run time.
+# Absolute dates rot: once "today" passes the hardcoded date the slot is no longer emitted.
+$today = (Get-Date).Date
+$daysUntilMonday = (1 - [int]$today.DayOfWeek + 7) % 7
+if ($daysUntilMonday -eq 0) { $daysUntilMonday = 7 }  # always a strictly-future Monday
+$pickupMonday = $today.AddDays($daysUntilMonday)
+$pickupStartDate = $pickupMonday.ToString("yyyy-MM-dd")
+$pickupEndDate = $pickupMonday.AddDays(7).ToString("yyyy-MM-dd")
+$pickupSlot0900 = "$($pickupMonday.ToString('yyyy-MM-dd'))T09:00:00"
+$pickupSlot0930 = "$($pickupMonday.ToString('yyyy-MM-dd'))T09:30:00"
+
+$pickupScheduleResponse = Post-Json $opsClient "$GatewayBaseUrl/api/pickups/schedule" @{
+    startDate = $pickupStartDate
+    endDate = $pickupEndDate
+    recurrenceType = "WEEKLY"
+    dayOfWeek = "MONDAY"
+    startTime = "09:00:00"
+    endTime = "10:00:00"
+    slotLengthInMinutes = 30
+    venueId = "55555555-5555-5555-5555-555555555555"
+}
+Assert-Status $pickupScheduleResponse 201 "OPS_MANAGER can create pickup schedule"
+$pickupSchedule = Read-Json $pickupScheduleResponse
+if ($pickupSchedule.venueId -ne $venueId) {
+    throw "Pickup schedule should use OPS_MANAGER venueId. Expected $venueId but got $($pickupSchedule.venueId)."
+}
+
+$publicMatchLinkResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches/$($match.id)/public-link" @{
+    email = $lostItem.contactEmail
+}
+Assert-Status $publicMatchLinkResponse 200 "OPS_MANAGER can create public match link"
+$publicMatchLink = Read-Json $publicMatchLinkResponse
+if ([string]::IsNullOrWhiteSpace($publicMatchLink.token)) {
+    throw "Public match link should contain a token."
+}
+
+# notification-service writes a row with the match magic link in body when it
+# consumes the MatchInviteRequested event. Poll until it appears so we can
+# verify the URL embedded in body matches the token returned by /public-link.
+$matchInviteNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/matches/public/"
+$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/api/matches/public/"
+if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
+    throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
+}
+
+$publicMatchResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)").Result
+Assert-Status $publicMatchResponse 200 "Public match link can load match"
+$publicMatch = Read-Json $publicMatchResponse
+if ($publicMatch.id -ne $match.id) {
+    throw "Public match response should return the linked match."
+}
+
+$publicConfirmResponse = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/matches/public/match-links/$($publicMatchLink.token)/confirm",
+    (EmptyContent)
+).Result
+Assert-Status $publicConfirmResponse 200 "Public match link can confirm match"
+
+$publicSlotsResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/pickups/public/$($publicMatchLink.token)").Result
+Assert-Status $publicSlotsResponse 200 "Public pickup link can list pickup slots"
+$publicSlots = @(Read-Json $publicSlotsResponse)
+if (@($publicSlots | Where-Object { $_.startsAt -eq $pickupSlot0900 -and $_.available -eq $true }).Count -ne 1) {
+    throw "Public pickup slots should contain the available 09:00 slot."
+}
+
+$publicPickupResponse = Post-Json $publicClient "$GatewayBaseUrl/api/pickups/public/$($publicMatchLink.token)" @{
+    pickupAt = $pickupSlot0900
+    email = $lostItem.contactEmail
+}
+Assert-Status $publicPickupResponse 201 "Public pickup link can schedule pickup"
+$publicPickup = Read-Json $publicPickupResponse
+if ($publicPickup.matchId -ne $match.id -or $publicPickup.venueId -ne $venueId) {
+    throw "Public pickup should be linked to the confirmed match and venue."
+}
+if ([string]::IsNullOrWhiteSpace($publicPickup.manageUrl)) {
+    throw "Public pickup response should include a manageUrl."
+}
+
+# Same poll-then-regex pattern for the pickup-confirmation notification. The
+# extracted URL is the manage link the public client uses to update/cancel.
+$pickupConfirmationNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/pickups/public/"
+$manageLink = Extract-MagicLinkUrl `
+    -Body $pickupConfirmationNotification.body `
+    -UrlMarker "/api/pickups/public/"
+$publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
+    pickupAt = $pickupSlot0930
+    email = $lostItem.contactEmail
+})).Result
+Assert-Status $publicPickupUpdateResponse 200 "Public pickup manage link can reschedule pickup"
+
+$staffPickupListResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/pickups?venueId=$venueId").Result
+Assert-Status $staffPickupListResponse 200 "OPS_MANAGER can list venue pickups"
+$staffPickups = @(Read-Json $staffPickupListResponse)
+if (@($staffPickups | Where-Object { $_.id -eq $publicPickup.id }).Count -ne 1) {
+    throw "Staff pickup list should include the public pickup."
+}
+
+$publicPickupDeleteResponse = $publicClient.DeleteAsync($manageLink).Result
+Assert-Status $publicPickupDeleteResponse 204 "Public pickup manage link can cancel pickup"
+
 $matchListResponse = $opsClient.GetAsync(
     "$GatewayBaseUrl/api/matches?foundItem=$($foundItem.id)&lostItem=$($lostItem.id)&status=PENDING"
 ).Result
 Assert-Status $matchListResponse 200 "OPS_MANAGER can list filtered matches"
 $matchListBody = Read-Json $matchListResponse
-if (@($matchListBody).Count -lt 1) {
-    throw "Filtered match list should include the created match."
+if (@($matchListBody).Count -ne 0) {
+    throw "Pending match list should be empty after public confirmation."
 }
 
-$matchCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/count?status=PENDING").Result
+$matchCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/count?status=CONFIRMED").Result
 Assert-Status $matchCountResponse 200 "OPS_MANAGER can read match count"
 $matchCountBody = Read-Json $matchCountResponse
 if ($matchCountBody.count -lt 1) {
-    throw "Match count should include the created pending match."
+    throw "Match count should include the confirmed match."
 }
 
-$matchHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/histogram?status=PENDING").Result
+$matchHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/histogram?status=CONFIRMED").Result
 Assert-Status $matchHistogramResponse 200 "OPS_MANAGER can read match histogram"
 $matchHistogramBody = Read-Json $matchHistogramResponse
 if (@($matchHistogramBody.perDay).Count -lt 1) {
@@ -624,7 +778,7 @@ Assert-Status $opsBlueprintUpdate 202 "OPS_MANAGER can update notification bluep
 $kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis/$venueId").Result
 Assert-Status $kpis 200 "Admin can read venue KPIs"
 $kpiBody = Read-Json $kpis
-if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1 -or $kpiBody.pendingMatches -lt 1) {
+if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1) {
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
 

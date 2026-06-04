@@ -1,16 +1,29 @@
 # FoundFlow Helm chart
 
-Single umbrella chart that deploys all FoundFlow services (gateway + 6 Spring
-microservices + Python GenAI service + React client), six per-service Bitnami
-PostgreSQL releases, and an in-namespace Grafana preloaded with the
-`Services — RED` dashboard.
+Current umbrella chart for the cluster deployment. It deploys the gateway, six
+Spring backend services (`auth`, `lost-item`, `found-item`, `matching`,
+`notification`, `operations`), the Python GenAI service, the React client, six
+per-service PostgreSQL StatefulSets, RabbitMQ, MinIO, and an in-namespace
+Grafana preloaded with the `Services — RED` dashboard.
+
+`pickup-service` is implemented in the repo and wired in Docker Compose, but it
+is not wired into this Helm chart yet.
 
 Deploys exclusively into the namespace `team-chaos-monkeys`.
 
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/local-k8s.md` for runtime-specific setup; from there:
+OrbStack. See `docs/deployment/local-kubernetes.md` for runtime-specific setup. One-command path:
+
+```sh
+make -C infra/helm kube-quickstart \
+  ADMIN_EMAIL=admin@foundflow.local \
+  ADMIN_PASSWORD=admin12345 \
+  OPENAI_API_KEY=sk-...
+```
+
+Step-by-step (manual) path:
 
 ```sh
 make -C infra/helm cluster-bootstrap   # one-time: ingress-nginx + kube-prom-stack + namespace
@@ -38,7 +51,7 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 
 | Path | Purpose |
 |------|---------|
-| `Chart.yaml` | Declares 6 Bitnami `postgresql` dependencies (one per Spring service). |
+| `Chart.yaml` | Declares chart metadata; service and database resources are rendered from `values.yaml`. |
 | `values.yaml` | Defaults targeting AET (cert-manager, csi-rbd-sc, GHCR images). |
 | `values-local.yaml` | Local-cluster overrides: no TLS, `*.localtest.me`, `hostpath` storage (override to `local-path` on OrbStack), `IfNotPresent` pull policy so the shared docker daemon's images are used. |
 | `values-aet.yaml` | AET-specific pins. Not applied in CICD-59; consumed by the future CD ticket. |
@@ -50,6 +63,8 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 | `templates/servicemonitor.yaml` | One `ServiceMonitor` per scrape-enabled service. |
 | `templates/prometheusrule.yaml` | `ServiceDown`, `HighErrorRate`, GenAI alerts. |
 | `templates/grafana/*.yaml` | Grafana Deployment + Service + provisioning ConfigMaps + admin Secret. |
+| `templates/rabbitmq.yaml` | In-namespace RabbitMQ broker (Deployment + Service + Secret). |
+| `templates/minio.yaml` | In-namespace MinIO object store for photos (StatefulSet + Service + Secret). |
 | `dashboards/services-red.json` | Symlink to `infra/grafana/dashboards/services-red.json` (the docker-compose Grafana reads the same file). |
 
 ## Conventions
@@ -59,10 +74,11 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   `http://auth-service:8081`, so changing a service key here will break in-cluster
   routing — keep them in sync.
 
-- **Bitnami Postgres releases use `fullnameOverride`** so their Service DNS is
-  `auth-db`, `lost-item-db`, … exactly like docker-compose. Spring services
-  consume `SPRING_DATASOURCE_URL=jdbc:postgresql://<db>:5432/<dbname>` and pull
-  the password from the Bitnami-managed Secret (key `password`).
+- **Per-service Postgres resources keep compose-compatible DNS names.** The
+  chart renders one StatefulSet, Service, PVC, and Secret per entry in
+  `.Values.databases`, so Spring services consume
+  `SPRING_DATASOURCE_URL=jdbc:postgresql://<db>:5432/<dbname>` and pull the
+  password from the matching database Secret (key `password`).
 
 - **All app secrets live in one Secret** (`foundflow-app-secrets`) keyed by
   `.Values.secrets.<name>`. Real values are passed at install time via a
@@ -70,18 +86,45 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   by the `helm-install` make target when present) or `helm --set`; nothing
   secret is committed.
 
+  Recognised keys (all optional unless flagged):
+  | values key             | env var consumed by                      | purpose |
+  |------------------------|------------------------------------------|---------|
+  | `openaiApiKey`         | `OPENAI_API_KEY` (genai-service)         | OpenAI provider key when `GENAI_PROVIDER=openai`. |
+  | `devAdminEmail`        | `DEV_ADMIN_EMAIL` (auth-service)         | Bootstrap admin email seeded on first start. |
+  | `devAdminPassword`     | `DEV_ADMIN_PASSWORD` (auth-service)      | Bootstrap admin password. |
+  | `jwtRsaPrivateKey`     | `JWT_RSA_PRIVATE_KEY` (auth-service)     | Override the auto-generated JWT signing key. |
+  | `magicLinkSecret`      | `MAGIC_LINK_SECRET` (matching, pickup, notification) | HMAC secret for public match/pickup magic-link tokens. Falls back to the dev default when empty. |
+  | `brevoSmtpUsername`    | `SPRING_MAIL_USERNAME` (notification-service) | Brevo SMTP login (the verified Foundflow Gmail). |
+  | `brevoSmtpPassword`    | `SPRING_MAIL_PASSWORD` (notification-service) | Brevo SMTP password (issued in the Brevo dashboard). |
+  | `brevoMailFromAddress` | `FOUNDFLOW_MAIL_FROM` (notification-service)  | From: header for outbound email. Falls back to `foundflow.notifications.from-address`. |
+
+  Without `brevoSmtp*` set the notification-service consumer still persists
+  every notifications row (URL in `body`), but each SMTP attempt fails
+  authentication and the message is dropped after the bounded retry —
+  visible on the `notifications_send_failures_total` Prometheus counter.
+
 - **Monitoring resources are labelled `release: <prometheusReleaseLabel>`** so
   the cluster Prometheus Operator picks them up. Default in `values.yaml` is
   `kube-prometheus-stack`; `values-local.yaml` overrides to `kps` (matches the
   `make cluster-bootstrap` install); AET overrides to `rancher-monitoring`.
+
+- **RabbitMQ and MinIO are in-cluster siblings of the apps.** Service names
+  match compose (`rabbitmq`, `minio`), so `SPRING_RABBITMQ_HOST=rabbitmq` and
+  `PHOTO_STORAGE_ENDPOINT=http://minio:9000` are the same env values used in
+  compose. MinIO is **cluster-internal only** — not exposed on the ingress.
+  `PHOTO_STORAGE_PUBLIC_ENDPOINT` is also set to `http://minio:9000`, so signed
+  URLs are not browser-reachable from the cluster install today; browser-facing
+  photo fetches need to go through the gateway, or a follow-up adding a MinIO
+  ingress subpath. The shared `MinioPhotoStorage` calls `ensureBucketExists()`
+  on startup, so no bucket-bootstrap Job is needed.
 
 ## Adding a new service
 
 1. Add a Dockerfile under `services/<name>/`.
 2. Add an entry under `services.<name>` in `values.yaml` (and override pieces
    in `values-local.yaml` / `values-aet.yaml` if needed). Pick a unique port.
-3. If it needs a database, declare it under `databases.<alias>`, add a Bitnami
-   dependency to `Chart.yaml`, and set `dbRef: <alias>` on the service.
+3. If it needs a database, add an entry under `.Values.databases` and set
+   `dbRef: <alias>` on the service.
 4. If it talks to another service, use the bare service name as hostname
    (e.g. `http://auth-service:8081`).
 5. `make -C infra/helm build helm-install`.
@@ -105,7 +148,9 @@ No service-code changes required — the provider switch already exists.
 - GitHub Actions workflow that runs `helm upgrade --install` against AET on
   merge to `main` (follow-up CICD ticket).
 - Image-publish-to-GHCR step in CI (prerequisite for the CD ticket).
-- RabbitMQ subchart wiring (not yet a build dependency of any service).
+- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO
+  is cluster-internal in this PR; an ingress subpath or gateway proxy is a
+  follow-up.
 
 ## Dashboard sync
 

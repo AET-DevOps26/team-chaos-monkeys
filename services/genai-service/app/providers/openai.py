@@ -56,6 +56,7 @@ class OpenAIProvider:
         api_key: str,
         chat_model: str,
         embed_model: str,
+        embedding_dimensions: int,
         timeout_seconds: int,
     ) -> None:
         self._client = AsyncOpenAI(
@@ -65,6 +66,7 @@ class OpenAIProvider:
         )
         self._chat_model = chat_model
         self._embed_model = embed_model
+        self._embedding_dimensions = embedding_dimensions
 
     async def chat(
         self, messages: list[Message], *, json_mode: bool = False
@@ -106,6 +108,7 @@ class OpenAIProvider:
             response = await self._client.embeddings.create(
                 model=self._embed_model,
                 input=text,
+                dimensions=self._embedding_dimensions,
             )
         except openai.RateLimitError as e:
             raise LLMRateLimitError(str(e)) from e
@@ -124,7 +127,14 @@ class OpenAIProvider:
         except openai.APIError as e:
             raise LLMError(str(e)) from e
 
-        return list(response.data[0].embedding)
+        embedding = list(response.data[0].embedding)
+        if len(embedding) != self._embedding_dimensions:
+            raise ValueError(
+                f"Expected {self._embedding_dimensions} dims but OpenAI returned "
+                f"{len(embedding)} (model={self._embed_model}). "
+                f"Pick a model that honours the dimensions= parameter."
+            )
+        return embedding
 
     async def aclose(self) -> None:
         await self._client.close()

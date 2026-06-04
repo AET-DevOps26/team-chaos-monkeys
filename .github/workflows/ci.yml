@@ -33,6 +33,7 @@ jobs:
           - found-item-service
           - gateway-service
           - matching-service
+          - pickup-service
           - notification-service
           - operations-service
 
@@ -206,23 +207,24 @@ jobs:
 
       - name: Build and start backend stack
         run: |
-          docker compose up --build -d --no-deps \
+          # genai-service has no depends_on (it reaches Ollama by URL, and
+          # Ollama is profile-gated), so start it on its own with --no-deps.
+          docker compose up --build -d --no-deps genai-service
+
+          # Backend services declare their datastores (db + minio/rabbitmq,
+          # condition: service_healthy) via depends_on, so let compose resolve
+          # and health-gate them rather than hand-listing every dependency.
+          docker compose up --build -d \
             auth-service \
             lost-item-service \
             found-item-service \
             matching-service \
+            pickup-service \
             notification-service \
-            operations-service \
-            gateway-service \
-            genai-service \
-            auth-db \
-            lost-item-db \
-            found-item-db \
-            matching-db \
-            notification-db \
-            operations-db \
-            minio \
-            rabbitmq
+            operations-service
+
+          # gateway-service depends_on the backends; bring it up last.
+          docker compose up --build -d gateway-service
 
       - name: Show running containers
         run: docker compose ps
@@ -238,8 +240,10 @@ jobs:
             "lost-item-service|http://localhost:8080/lost-items/actuator/health"
             "found-item-service|http://localhost:8080/found-items/actuator/health"
             "matching-service|http://localhost:8080/matches/actuator/health"
+            "pickup-service|http://localhost:8080/pickups/actuator/health"
             "notification-service|http://localhost:8080/notifications/actuator/health"
             "operations-service|http://localhost:8080/venues/actuator/health"
+            "genai-service|http://localhost:8000/health"
           )
 
           check_service() {

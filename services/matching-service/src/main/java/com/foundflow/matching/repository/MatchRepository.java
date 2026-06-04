@@ -1,9 +1,12 @@
 package com.foundflow.matching.repository;
 
 import com.foundflow.matching.domain.Match;
+import com.foundflow.matching.domain.MatchVerification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +15,20 @@ import java.util.UUID;
 public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     List<Match> findByVenueId(UUID venueId);
+
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE Match m
+           SET m.verifyVerdict = :#{#v.verdict()},
+               m.verifyConfidence = :#{#v.confidence()},
+               m.verifyRationale = :#{#v.rationale()},
+               m.verifyModelProvider = :#{#v.modelProvider()},
+               m.verifyModelName = :#{#v.modelName()},
+               m.verifyCompletedAt = :#{#v.completedAt()}
+         WHERE m.id = :matchId
+        """)
+    int applyVerification(@Param("matchId") UUID matchId, @Param("v") MatchVerification v);
 
     Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
 

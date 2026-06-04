@@ -785,7 +785,11 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
 # Issue #128 — GenAI attribute extraction wires through to persistence.
 # CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
 # ItemAttributes JSON ({"category":"jacket",...}) so we can assert
-# extraction actually ran end-to-end.
+# extraction actually ran end-to-end. Under a real provider
+# (GENAI_PROVIDER=openai|local) the category value depends on the model,
+# so we relax to a presence check — the contract is "extraction ran and
+# populated a non-empty category", not the specific value.
+$genaiProvider = if ($env:GENAI_PROVIDER) { $env:GENAI_PROVIDER } else { 'fake' }
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"
@@ -803,10 +807,17 @@ $extractionLostItem = Read-Json $extractionLostResponse
 # GenAI extraction happens after the response is sent in the current
 # implementation? No - it's inline. The fake provider is synchronous and
 # returns immediately, so the response body already carries attributes.
-if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
-    throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on lost-item (fake provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionLostItem.attributes -or [string]::IsNullOrWhiteSpace($extractionLostItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on lost-item ($genaiProvider provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='$($extractionLostItem.attributes.category)' ($genaiProvider provider)"
 }
-Write-Host "[OK] Lost-item GenAI extraction populated category='jacket'"
 
 $extractionFoundRequest = @{
     description = "E2E found item without attributes"
@@ -821,10 +832,17 @@ $extractionFoundResponse = $opsClient.PostAsync(
 ).Result
 Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
 $extractionFoundItem = Read-Json $extractionFoundResponse
-if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
-    throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on found-item (fake provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionFoundItem.attributes -or [string]::IsNullOrWhiteSpace($extractionFoundItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on found-item ($genaiProvider provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='$($extractionFoundItem.attributes.category)' ($genaiProvider provider)"
 }
-Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
 
 Logout-RefreshToken $opsTokens.refreshToken
 Logout-RefreshToken $adminTokens.refreshToken

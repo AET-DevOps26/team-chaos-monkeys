@@ -1,7 +1,8 @@
 services:
   gateway-service:
     build:
-      context: ./services/gateway-service
+      context: .
+      dockerfile: services/gateway-service/Dockerfile
     container_name: foundflow-gateway-service
     ports:
       - "8080:8080"

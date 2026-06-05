@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/lost-items", "/api/lost-reports"})
+@RequestMapping("/api/lost-items")
 public class LostReportController {
 
     private final LostReportService lostReportService;

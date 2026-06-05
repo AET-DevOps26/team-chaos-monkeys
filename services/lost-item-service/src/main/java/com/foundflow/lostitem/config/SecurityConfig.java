@@ -29,8 +29,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/lost-items",
-                                "/api/lost-reports"
+                                "/api/lost-items"
                         ).permitAll()
                         .requestMatchers("/api/**")
                         .hasAnyRole("ADMIN", "STAFF", "OPS_MANAGER")

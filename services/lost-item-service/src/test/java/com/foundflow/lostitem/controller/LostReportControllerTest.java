@@ -79,6 +79,17 @@ class LostReportControllerTest {
     }
 
     @Test
+    void legacyLostReportsAlias_shouldNotBeMapped() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        CreateLostReportRequest request = createRequest(venueId);
+
+        mockMvc.perform(post("/api/lost-reports")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void createLostReportWithPhoto_shouldAllowPublicRequestAndReturnGeneratedPhotoKey() throws Exception {
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();

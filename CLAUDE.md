@@ -100,7 +100,7 @@ All Spring backend services (8081–8087) and the seven Postgres DBs are interna
 | Path prefix                            | Upstream                |
 |----------------------------------------|-------------------------|
 | `/api/auth/**`, `/api/users/**`        | auth-service:8081       |
-| `/api/lost-items/**`, `/api/lost-reports/**` | lost-item-service:8082  |
+| `/api/lost-items/**` | lost-item-service:8082  |
 | `/api/found-items/**`                  | found-item-service:8083 |
 | `/api/matches/**`                      | matching-service:8084   |
 | `/api/notifications/**`                | notification-service:8085 |

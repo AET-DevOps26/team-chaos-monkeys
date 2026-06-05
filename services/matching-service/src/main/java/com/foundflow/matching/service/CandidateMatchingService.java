@@ -40,27 +40,33 @@ public class CandidateMatchingService {
     private final MatchRepository matchRepository;
     private final GenaiClient genaiClient;
     private final MatchCandidateEventPublisher eventPublisher;
+    private final MatchVerificationService verificationService;
     private final MeterRegistry meterRegistry;
 
     private final int topK;
     private final float threshold;
+    private final int embeddingDim;
 
     public CandidateMatchingService(
             ItemEmbeddingRepository itemEmbeddingRepository,
             MatchRepository matchRepository,
             GenaiClient genaiClient,
             MatchCandidateEventPublisher eventPublisher,
+            MatchVerificationService verificationService,
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
-            @Value("${foundflow.matching.threshold:0.55}") float threshold
+            @Value("${foundflow.matching.threshold:0.55}") float threshold,
+            @Value("${foundflow.matching.embedding-dim}") int embeddingDim
     ) {
         this.itemEmbeddingRepository = itemEmbeddingRepository;
         this.matchRepository = matchRepository;
         this.genaiClient = genaiClient;
         this.eventPublisher = eventPublisher;
+        this.verificationService = verificationService;
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
+        this.embeddingDim = embeddingDim;
     }
 
     public void findCandidatesForLostReport(LostReportCreatedEvent event) {
@@ -133,6 +139,16 @@ public class CandidateMatchingService {
                 .register(meterRegistry)
                 .record(() -> toFloatArray(genaiClient.embed(embedRequest)));
 
+        if (embedding.length != embeddingDim) {
+            meterRegistry.counter("matching.embedding.dim_mismatch_total",
+                    "expected", String.valueOf(embeddingDim),
+                    "actual", String.valueOf(embedding.length)).increment();
+            throw new EmbeddingDimensionMismatchException(
+                    "Embedding from genai-service has " + embedding.length
+                            + " dims, expected " + embeddingDim
+                            + " for item " + itemType + " " + itemId);
+        }
+
         itemEmbeddingRepository.upsert(new ItemEmbedding(
                 UUID.randomUUID(),
                 itemType,
@@ -180,6 +196,11 @@ public class CandidateMatchingService {
 
             if (persisted != null) {
                 eventPublisher.publishMatchCandidateCreated(persisted);
+                String ownText = embeddingText;
+                String otherText = candidate.textSource();
+                String lostText = itemType == ItemType.LOST ? ownText : otherText;
+                String foundText = itemType == ItemType.LOST ? otherText : ownText;
+                verificationService.verifyAsync(persisted.getId(), lostText, foundText);
             }
         }
     }

@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +42,8 @@ class ItemEmbeddingRepositoryIT {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
+                .placeholders(Map.of("embedding_dim", "768"))
+                .cleanDisabled(false)
                 .load();
         flyway.migrate();
 
@@ -137,6 +140,8 @@ class ItemEmbeddingRepositoryIT {
         assertThat(results).extracting(SimilarItemEmbedding::itemId)
                 .containsExactly(nearFoundId, farFoundId);
         assertThat(results.get(0).cosineDistance()).isLessThan(results.get(1).cosineDistance());
+        assertThat(results.get(0).textSource()).isEqualTo("near");
+        assertThat(results.get(1).textSource()).isEqualTo("far");
     }
 
     private static float[] randomUnitVector() {

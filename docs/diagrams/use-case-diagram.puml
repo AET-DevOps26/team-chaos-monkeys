@@ -1,0 +1,64 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+
+actor Guest
+actor "Venue Staff" as Staff
+actor "Operations Manager" as Ops
+actor Admin
+
+rectangle "FoundFlow" {
+  package "Guest self-service" {
+    usecase "Report lost item" as UC_ReportLost
+    usecase "View match link" as UC_ViewMatch
+    usecase "Confirm or reject match" as UC_ConfirmMatch
+    usecase "Schedule pickup" as UC_SchedulePickup
+    usecase "Reschedule or cancel pickup" as UC_ManagePickup
+  }
+
+  package "Staff operations" {
+    usecase "Log found item" as UC_LogFound
+    usecase "Review found items" as UC_ReviewFound
+    usecase "Review lost reports" as UC_ReviewLost
+    usecase "Review candidate matches" as UC_ReviewMatches
+    usecase "Create public match link" as UC_PublicLink
+    usecase "Manage pickup schedules" as UC_PickupSchedules
+  }
+
+  package "Administration" {
+    usecase "Manage venues" as UC_Venues
+    usecase "View venue KPIs" as UC_Kpis
+    usecase "Manage users" as UC_Users
+  }
+}
+
+Guest --> UC_ReportLost
+Guest --> UC_ViewMatch
+Guest --> UC_ConfirmMatch
+Guest --> UC_SchedulePickup
+Guest --> UC_ManagePickup
+
+Staff --> UC_LogFound
+Staff --> UC_ReviewFound
+Staff --> UC_ReviewLost
+Staff --> UC_ReviewMatches
+Staff --> UC_PublicLink
+Staff --> UC_PickupSchedules
+
+Ops --> UC_ReviewFound
+Ops --> UC_ReviewLost
+Ops --> UC_ReviewMatches
+Ops --> UC_PickupSchedules
+Ops --> UC_Kpis
+Ops --> UC_Users
+
+Admin --> UC_Venues
+Admin --> UC_Kpis
+Admin --> UC_Users
+
+UC_ConfirmMatch .> UC_ViewMatch : <<extend>>
+UC_SchedulePickup .> UC_ConfirmMatch : <<extend>>
+UC_ManagePickup .> UC_SchedulePickup : <<extend>>
+UC_PublicLink .> UC_ReviewMatches : <<extend>>
+@enduml

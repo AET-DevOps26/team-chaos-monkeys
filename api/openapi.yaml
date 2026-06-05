@@ -216,6 +216,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /_diagnostic:
+    get:
+      tags: [ops]
+      operationId: getDiagnostic
+      summary: Internal provider health and configuration diagnostic
+      description: |
+        Exercises both `chat` and `embed` against the currently configured
+        provider, returning latency, model names, and embedding dimension
+        metadata. Not included in the FastAPI-generated OpenAPI schema
+        (`include_in_schema=False`) — this spec entry is for documentation
+        purposes only. Requires `X-Internal-Token`.
+      responses:
+        '200':
+          description: Diagnostic completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosticResponse'
+        '429': { $ref: '#/components/responses/ProviderRateLimited' }
+        '502': { $ref: '#/components/responses/ProviderUnavailable' }
+
 components:
   securitySchemes:
     InternalApiKey:
@@ -529,6 +550,29 @@ components:
           enum: [openai, local, fake]
         providerReachable:
           type: boolean
+
+    DiagnosticResponse:
+      type: object
+      required:
+        - provider
+        - chat_ok
+        - embed_ok
+        - chat_latency_ms
+        - embed_latency_ms
+        - chat_model
+        - embed_model
+        - embed_dimensions_configured
+        - embed_dimensions_actual
+      properties:
+        provider: { type: string, enum: [openai, local, fake] }
+        chat_ok: { type: boolean }
+        embed_ok: { type: boolean }
+        chat_latency_ms: { type: integer }
+        embed_latency_ms: { type: integer }
+        chat_model: { type: string }
+        embed_model: { type: string }
+        embed_dimensions_configured: { type: integer, minimum: 1 }
+        embed_dimensions_actual: { type: integer, minimum: 1 }
 
     ErrorResponse:
       type: object

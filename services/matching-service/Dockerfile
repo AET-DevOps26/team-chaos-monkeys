@@ -2,10 +2,11 @@ FROM gradle:9-jdk21 AS build
 
 WORKDIR /workspace
 
-COPY shared/domain-events ./shared/domain-events
 COPY shared/common-domain ./shared/common-domain
 COPY shared/photo-storage ./shared/photo-storage
+COPY shared/domain-events ./shared/domain-events
 COPY shared/genai-client ./shared/genai-client
+COPY shared/magic-link ./shared/magic-link
 COPY api ./api
 COPY services/matching-service ./services/matching-service
 

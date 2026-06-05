@@ -130,9 +130,13 @@ services:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
       - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
+      - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
+      - { name: GENAI_ENABLED,  value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
     kind: spring
@@ -142,6 +146,18 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8085" }
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
+      - { name: SPRING_MAIL_HOST, value: "smtp-relay.brevo.com" }
+      - { name: SPRING_MAIL_PORT, value: "587" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq,    key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq,    key: password }
+      - { name: MAGIC_LINK_SECRET,        secret: foundflow-app-secrets, key: magicLinkSecret,       optional: true }
+      - { name: SPRING_MAIL_USERNAME,     secret: foundflow-app-secrets, key: brevoSmtpUsername,     optional: true }
+      - { name: SPRING_MAIL_PASSWORD,     secret: foundflow-app-secrets, key: brevoSmtpPassword,     optional: true }
+      - { name: FOUNDFLOW_MAIL_FROM,      secret: foundflow-app-secrets, key: brevoMailFromAddress,  optional: true }
 
   operations-service:
     kind: spring
@@ -151,6 +167,19 @@ services:
     replicas: 1
     env:
       - { name: SERVER_PORT, value: "8086" }
+
+  pickup-service:
+    kind: spring
+    port: 8087
+    metrics: true
+    dbRef: pickup-db
+    replicas: 1
+    env:
+      - { name: SERVER_PORT, value: "8087" }
+      # Public base URL used to build pickup magic links — point at the public ingress.
+      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
+    secretEnv:
+      - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
 
   genai-service:
     kind: python
@@ -167,6 +196,7 @@ services:
       - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
       - { name: OPENAI_EMBED_MODEL, value: "text-embedding-3-small" }
       - { name: GENAI_TIMEOUT_SECONDS, value: "30" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
     secretEnv:
       - { name: OPENAI_API_KEY, secret: foundflow-app-secrets, key: openaiApiKey, optional: true }
 
@@ -200,6 +230,7 @@ databases:
       CREATE EXTENSION IF NOT EXISTS vector;
   notification-db: { username: notification, database: notificationdb, storageSize: 1Gi }
   operations-db:  { username: operations,   database: operationsdb,   storageSize: 1Gi }
+  pickup-db:      { username: pickup,        database: pickupdb,        storageSize: 1Gi }
 
 postgresDefaults:
   image: postgres:17
@@ -253,6 +284,18 @@ secrets:
   devAdminEmail: ""
   devAdminPassword: ""
   jwtRsaPrivateKey: ""
+  # Magic-link HMAC signing secret. When empty the app falls back to the dev
+  # default baked into application.properties — fine for demo, never for prod.
+  magicLinkSecret: ""
+  # Brevo SMTP credentials for notification-service. When empty the consumer
+  # still persists notifications rows (with the magic-link URL in body) but
+  # every SMTP attempt fails and is dropped after the bounded retry; the
+  # notifications_send_failures_total counter tracks the drops.
+  brevoSmtpUsername: ""
+  brevoSmtpPassword: ""
+  # Optional From: header override. When empty, notification-service falls back
+  # to the `foundflow.notifications.from-address` default in application.properties.
+  brevoMailFromAddress: ""
 
 grafana:
   enabled: true

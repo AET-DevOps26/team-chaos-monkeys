@@ -86,3 +86,28 @@ def test_verify_system_prompt_contains_fake_dispatch_marker():
     # _canned() uses '"verdict"' to route /verify-match calls. Keep in sync
     # with app/providers/__init__.py.
     assert '"verdict"' in VERIFY_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_chat_returns_verification_shape_for_verify_prompt(
+    monkeypatch,
+):
+    """When the system prompt is the real verify-match prompt, FakeProvider must
+    return a JSON object shaped like VerificationOutput — otherwise
+    matching-service's async verifyAsync path 422s under GENAI_PROVIDER=fake."""
+    monkeypatch.setenv("GENAI_PROVIDER", "fake")
+    settings = Settings()
+    provider = build_provider(settings)
+
+    response = await provider.chat(
+        [
+            {"role": "system", "content": VERIFY_SYSTEM_PROMPT},
+            {"role": "user", "content": "lost: jacket. found: jacket."},
+        ],
+        json_mode=True,
+    )
+
+    parsed = json.loads(response)
+    assert parsed["verdict"] in {"match", "no_match", "uncertain"}
+    assert 0.0 <= parsed["confidence"] <= 1.0
+    assert isinstance(parsed["rationale"], str)

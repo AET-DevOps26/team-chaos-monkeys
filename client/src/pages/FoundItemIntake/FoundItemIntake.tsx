@@ -90,7 +90,7 @@ export default function FoundItemIntake() {
     const payload: CreateFoundItemRequest = {
       // Operators only supply free-text notes; the GenAI enrichment job derives
       // attributes and location asynchronously after the item is created.
-      intakeText: data.intakeText || undefined,
+      intakeText: data.intakeText?.trim() || undefined,
       // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
       // send it as-is so it binds to the backend LocalDateTime (no trailing Z).
       foundAt: data.foundAt,

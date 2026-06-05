@@ -100,7 +100,7 @@ public class FoundItemService {
                 .ifPresent(extracted -> {
                     savedFoundItem.setAttributes(extracted.attributes());
                     if (extracted.location() != null) {
-                        savedFoundItem.setLocationHint(extracted.location());
+                        savedFoundItem.setLocation(extracted.location());
                     }
                     foundItemRepository.save(savedFoundItem);
                 });
@@ -140,9 +140,9 @@ public class FoundItemService {
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
 
-                    foundItem.setDescription(request.description());
+                    foundItem.setIntakeText(request.intakeText());
                     foundItem.setFoundAt(request.foundAt());
-                    foundItem.setLocationHint(request.locationHint());
+                    foundItem.setLocation(request.location());
                     foundItem.setStatus(request.status());
                     if (venueAccessService.isAdmin(jwt)) {
                         if (request.venueId() == null) {
@@ -451,9 +451,9 @@ public class FoundItemService {
         return new FoundItemResponse(
                 foundItem.getId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 foundItem.getFoundAt(),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus(),
                 foundItem.getVenueId(),
                 foundItem.getReporterId(),

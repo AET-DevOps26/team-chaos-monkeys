@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.AccessDeniedException;
@@ -460,6 +461,46 @@ class UserServiceTest {
         );
 
         verify(userRepository).findById(id);
+    }
+
+    @Test
+    void deleteUsersByVenue_shouldDeleteAllUsersForVenue() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID venueId = UUID.randomUUID();
+        User staff = new User("staff@example.com", Role.STAFF, "hash", venueId);
+        User manager = new User("manager@example.com", Role.OPS_MANAGER, "hash", venueId);
+        when(userRepository.findByVenueId(venueId)).thenReturn(List.of(staff, manager));
+
+        long deletedUsers = userService.deleteUsersByVenue(venueId);
+
+        assertEquals(2, deletedUsers);
+        verify(userRepository).findByVenueId(venueId);
+        verify(userRepository).deleteAll(List.of(staff, manager));
+    }
+
+    @Test
+    void deleteUsersByVenue_shouldNotDeleteWhenNoUsersExist() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID venueId = UUID.randomUUID();
+        when(userRepository.findByVenueId(venueId)).thenReturn(List.of());
+
+        long deletedUsers = userService.deleteUsersByVenue(venueId);
+
+        assertEquals(0, deletedUsers);
+        verify(userRepository).findByVenueId(venueId);
+        verify(userRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void deleteUsersByVenue_shouldIgnoreNullVenueId() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        long deletedUsers = userService.deleteUsersByVenue(null);
+
+        assertEquals(0, deletedUsers);
+        verifyNoInteractions(userRepository);
     }
 
     private Jwt adminJwt() {

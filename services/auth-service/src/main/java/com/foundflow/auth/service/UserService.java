@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.foundflow.auth.domain.Role;
@@ -112,6 +113,21 @@ public class UserService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    @Transactional
+    public long deleteUsersByVenue(UUID venueId) {
+        if (venueId == null) {
+            return 0;
+        }
+
+        List<User> users = userRepository.findByVenueId(venueId);
+        if (users.isEmpty()) {
+            return 0;
+        }
+
+        userRepository.deleteAll(users);
+        return users.size();
     }
 
     private UUID resolveCreateVenueId(CreateUserRequest request, Jwt jwt) {

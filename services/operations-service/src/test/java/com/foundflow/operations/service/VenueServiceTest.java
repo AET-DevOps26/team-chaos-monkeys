@@ -4,6 +4,7 @@ import com.foundflow.operations.domain.Venue;
 import com.foundflow.operations.dto.CreateVenueRequest;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
+import com.foundflow.operations.messaging.VenueEventPublisher;
 import com.foundflow.operations.repository.VenueRepository;
 import com.foundflow.operations.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
@@ -26,11 +27,14 @@ class VenueServiceTest {
     @Mock
     private VenueRepository venueRepository;
 
+    @Mock
+    private VenueEventPublisher venueEventPublisher;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
     void createVenue_shouldSaveAndReturnVenueForAdmin() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         CreateVenueRequest request = new CreateVenueRequest("Chaos Arena", "friendly", "de");
 
@@ -48,7 +52,7 @@ class VenueServiceTest {
 
     @Test
     void getAllVenues_shouldReturnOnlyOwnVenueForStaff() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID venueId = UUID.randomUUID();
         when(venueRepository.findById(venueId))
@@ -64,7 +68,7 @@ class VenueServiceTest {
 
     @Test
     void getVenueById_shouldReturnResponseWhenStaffAccessesOwnVenue() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         when(venueRepository.findById(id))
@@ -79,7 +83,7 @@ class VenueServiceTest {
 
     @Test
     void updateVenue_shouldUpdateExistingVenueForOwnVenue() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         Venue existingVenue = new Venue("Old Venue", "old-tone", "de");
@@ -99,7 +103,7 @@ class VenueServiceTest {
 
     @Test
     void deleteVenue_shouldDeleteForAdmin() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         Venue venue = new Venue("Venue A", "formal", "de");
@@ -107,6 +111,7 @@ class VenueServiceTest {
 
         assertTrue(service.deleteVenue(id, adminJwt()));
         verify(venueRepository).delete(venue);
+        verify(venueEventPublisher).publishVenueDeleted(id);
     }
 
     private Jwt staffJwt(UUID venueId) {

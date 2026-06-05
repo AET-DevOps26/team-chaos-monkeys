@@ -20,6 +20,16 @@ $E2E_PHOTO_BYTES = [System.IO.File]::ReadAllBytes(
 $E2E_PHOTO_MEDIA_TYPE = "image/jpeg"
 $E2E_PHOTO_FILE_NAME = "e2e-photo.jpg"
 
+function Read-ResponseBody {
+    param([System.Net.Http.HttpResponseMessage]$Response)
+
+    if ($null -eq $Response -or $null -eq $Response.Content) {
+        return ""
+    }
+
+    return $Response.Content.ReadAsStringAsync().Result
+}
+
 function Assert-Status {
     param(
         [System.Net.Http.HttpResponseMessage]$Response,
@@ -27,41 +37,114 @@ function Assert-Status {
         [string]$Label
     )
 
+    if ($null -eq $Response) {
+        throw "$Label expected HTTP $Expected but did not receive an HTTP response."
+    }
+
     $actual = [int]$Response.StatusCode
     if ($actual -ne $Expected) {
-        $body = ""
-        if ($null -ne $Response.Content) {
-            $body = $Response.Content.ReadAsStringAsync().Result
-        }
+        $body = Read-ResponseBody $Response
         throw "$Label expected HTTP $Expected but got $actual. Body: $body"
     }
 
     Write-Host "[OK] $Label -> HTTP $actual"
 }
 
+function Wait-ForStatus {
+    param(
+        [string]$Url,
+        [int]$Expected,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = Invoke-WebRequest `
+                -Uri $Url `
+                -Method GET `
+                -UseBasicParsing
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = [string]$response.Content
+
+            if ($lastStatus -eq $Expected) {
+                Write-Host "[OK] $Label -> HTTP $lastStatus"
+                return $response
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+            if ($_.Exception.Response) {
+                $lastStatus = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label expected HTTP $Expected but did not become ready within $TimeoutSeconds seconds. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
 function Get-TokenPair {
     param(
         [string]$Username,
-        [string]$Password
+        [string]$Password,
+        [int]$TimeoutSeconds = 20
     )
 
-    $client = [System.Net.Http.HttpClient]::new()
-    $tokenResponse = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+    $requestBody = @{
         email = $Username
         password = $Password
-    })).Result
-    $tokenBody = $tokenResponse.Content.ReadAsStringAsync().Result
+    } | ConvertTo-Json -Depth 8
 
-    if (-not $tokenResponse.IsSuccessStatusCode) {
-        throw "Login failed for $Username. Body: $tokenBody"
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $tokenResponse = Invoke-WebRequest `
+                -Uri "$GatewayBaseUrl/api/auth/login" `
+                -Method POST `
+                -ContentType "application/json" `
+                -Body $requestBody `
+                -UseBasicParsing
+            $lastStatus = [int]$tokenResponse.StatusCode
+            $lastBody = [string]$tokenResponse.Content
+
+            if ($lastStatus -ge 200 -and $lastStatus -lt 300) {
+                $tokens = $lastBody | ConvertFrom-Json
+                if ($tokens.expiresIn -ne 1800) {
+                    throw "Login for $Username should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
+                }
+
+                return $tokens
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+            if ($_.Exception.Response) {
+                $lastStatus = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        Start-Sleep -Milliseconds 250
     }
 
-    $tokens = $tokenBody | ConvertFrom-Json
-    if ($tokens.expiresIn -ne 1800) {
-        throw "Login for $Username should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
     }
 
-    return $tokens
+    throw "Login failed for $Username after retrying for $TimeoutSeconds seconds. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
 }
 
 function Assert-LoginRejected {
@@ -157,7 +240,7 @@ function EmptyContent {
 function Read-Json {
     param([System.Net.Http.HttpResponseMessage]$Response)
 
-    $body = $Response.Content.ReadAsStringAsync().Result
+    $body = Read-ResponseBody $Response
     if ([string]::IsNullOrWhiteSpace($body)) {
         return $null
     }
@@ -293,6 +376,47 @@ function Wait-ForNotification {
     throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'. Last HTTP status: $lastStatus. Parsed notifications: $lastNotificationCount. Last error: $lastError. Last body: $bodyPreview"
 }
 
+function Wait-ForUserDeleted {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$UserId,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = $Client.GetAsync("$GatewayBaseUrl/api/users/$UserId").Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
+            }
+
+            if ($lastStatus -eq 404) {
+                Write-Host "[OK] $Label -> HTTP 404"
+                return
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label timed out waiting for user $UserId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
 function Extract-MagicLinkUrl {
     param(
         [string]$Body,
@@ -311,8 +435,10 @@ Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
 
-$health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
-Assert-Status $health 200 "Gateway health is public"
+$health = Wait-ForStatus `
+    -Url "$GatewayBaseUrl/actuator/health" `
+    -Expected 200 `
+    -Label "Gateway health is public"
 
 $swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/swagger-ui/index.html").Result
 Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
@@ -320,8 +446,10 @@ Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
 $gatewayApiDocs = $publicClient.GetAsync("$GatewayBaseUrl/v3/api-docs").Result
 Assert-Status $gatewayApiDocs 200 "Gateway OpenAPI docs are public"
 
-$authHealth = $publicClient.GetAsync("$GatewayBaseUrl/auth/actuator/health").Result
-Assert-Status $authHealth 200 "Proxied auth health endpoint is public"
+$authHealth = Wait-ForStatus `
+    -Url "$GatewayBaseUrl/auth/actuator/health" `
+    -Expected 200 `
+    -Label "Proxied auth health endpoint is public"
 
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
@@ -482,6 +610,38 @@ Assert-Status $adminCreateByOps 403 "OPS_MANAGER cannot create ADMIN"
 
 $opsSelfRead = $opsClient.GetAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
 Assert-Status $opsSelfRead 200 "OPS_MANAGER can load itself by id"
+
+$deleteVenueSuffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
+$deleteVenueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
+    name = "E2E Deletable Venue $deleteVenueSuffix"
+    tone = "friendly"
+    defaultLanguage = "de"
+}
+Assert-Status $deleteVenueResponse 201 "Admin can create venue for deletion cleanup test"
+$deleteVenue = Read-Json $deleteVenueResponse
+$deleteVenueId = $deleteVenue.id
+
+$deletedVenueUserEmail = "venue-deleted-$deleteVenueSuffix@foundflow.local"
+$deletedVenueUserPassword = "deleted12345"
+$deletedVenueUserResponse = Post-Json $adminClient "$GatewayBaseUrl/api/users" @{
+    email = $deletedVenueUserEmail
+    role = "STAFF"
+    password = $deletedVenueUserPassword
+    venueId = $deleteVenueId
+}
+Assert-Status $deletedVenueUserResponse 200 "Admin can create STAFF in venue cleanup test"
+$deletedVenueUser = Read-Json $deletedVenueUserResponse
+$deletedVenueUserTokens = Get-TokenPair $deletedVenueUserEmail $deletedVenueUserPassword
+
+$deleteVenueResult = $adminClient.DeleteAsync("$GatewayBaseUrl/api/venues/$deleteVenueId").Result
+Assert-Status $deleteVenueResult 204 "Admin can delete venue for user cleanup"
+
+Wait-ForUserDeleted `
+    -Client $adminClient `
+    -UserId $($deletedVenueUser.id) `
+    -Label "Venue deletion removes assigned auth users"
+Assert-LoginRejected $deletedVenueUserEmail $deletedVenueUserPassword "Deleted-venue STAFF login is rejected"
+Assert-RefreshRejected $deletedVenueUserTokens.refreshToken "Deleted-venue STAFF refresh token is rejected"
 
 $foundRequest = @{
     description = "E2E found item"

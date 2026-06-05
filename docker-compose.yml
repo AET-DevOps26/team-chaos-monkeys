@@ -191,8 +191,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://operations-db:5432/${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${OPERATIONS_DB_PASSWORD:?OPERATIONS_DB_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       operations-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   ollama:

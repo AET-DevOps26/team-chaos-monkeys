@@ -1,0 +1,22 @@
+# Throwaway override for the local Matches-tab demo only — NOT part of the
+# committed stack. The default compose maps MinIO to host 9000/9001, which an
+# unrelated `lost-found-minio` container already holds, so the browser cannot
+# reach signed photo URLs. This republishes MinIO on the free 9100/9101 and
+# points both item services' public endpoint there so found photos load.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d \
+#          --no-deps minio found-item-service lost-item-service
+services:
+  minio:
+    # !override replaces the base ports list instead of appending to it
+    # (otherwise compose keeps the contested 9000/9001 bindings too).
+    ports: !override
+      - "9100:9000"
+      - "9101:9001"
+
+  found-item-service:
+    environment:
+      PHOTO_STORAGE_PUBLIC_ENDPOINT: http://localhost:9100
+
+  lost-item-service:
+    environment:
+      PHOTO_STORAGE_PUBLIC_ENDPOINT: http://localhost:9100

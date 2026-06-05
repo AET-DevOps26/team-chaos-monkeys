@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import FoundItemIntake from '@/pages/FoundItemIntake'
 import FoundItemsOverview from '@/pages/FoundItemsOverview'
 import LostReportsOverview from '@/pages/LostReportsOverview'
+import Matching from '@/pages/Matching'
 import ReportLostItem from '@/pages/public/ReportLostItem'
 import ReportConfirmation from '@/pages/public/ReportLostItem/ReportConfirmation'
 import Login from '@/pages/Login'
@@ -40,6 +41,16 @@ export default function AppRoutes() {
           <RequireAuth>
             <Layout>
               <LostReportsOverview />
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/matches"
+        element={
+          <RequireAuth>
+            <Layout>
+              <Matching />
             </Layout>
           </RequireAuth>
         }

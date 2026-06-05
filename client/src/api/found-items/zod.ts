@@ -55,19 +55,17 @@ export const getAllFoundItemsQueryParams = zod.object({
 })
 
 
+export const createFoundItemWithPhotoBodyRequestIntakeTextMin = 0;
+export const createFoundItemWithPhotoBodyRequestIntakeTextMax = 2000;
+
+
+
 export const createFoundItemWithPhotoBody = zod.object({
   "request": zod.object({
-  "description": zod.string().optional(),
+  "intakeText": zod.string().min(createFoundItemWithPhotoBodyRequestIntakeTextMin).max(createFoundItemWithPhotoBodyRequestIntakeTextMax).optional(),
   "foundAt": zod.iso.datetime({}),
-  "locationHint": zod.string().optional(),
   "venueId": zod.uuid(),
-  "reporterId": zod.uuid(),
-  "attributes": zod.object({
-  "category": zod.string().optional(),
-  "brand": zod.string().optional(),
-  "color": zod.string().optional(),
-  "marks": zod.array(zod.string()).optional()
-}).optional()
+  "reporterId": zod.uuid()
 }),
   "photo": zod.instanceof(File)
 })

@@ -496,15 +496,14 @@
       "CreateFoundItemRequest": {
         "type": "object",
         "properties": {
-          "description": {
-            "type": "string"
+          "intakeText": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
           },
           "foundAt": {
             "type": "string",
             "format": "date-time"
-          },
-          "locationHint": {
-            "type": "string"
           },
           "venueId": {
             "type": "string",
@@ -513,9 +512,6 @@
           "reporterId": {
             "type": "string",
             "format": "uuid"
-          },
-          "attributes": {
-            "$ref": "#/components/schemas/ItemAttributesDto"
           }
         },
         "required": [

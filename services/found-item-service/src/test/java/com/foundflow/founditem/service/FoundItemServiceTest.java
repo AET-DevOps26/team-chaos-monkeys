@@ -76,13 +76,13 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 foundAt,
-                "Neben Buehne 2",
                 requestVenueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -93,6 +93,8 @@ class FoundItemServiceTest {
 
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
+        assertNull(captor.getValue().getLocationHint());
+        assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
         verify(eventPublisher).publishFoundItemLogged(captor.getValue());
     }
@@ -113,13 +115,13 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 requestVenueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -133,7 +135,7 @@ class FoundItemServiceTest {
     }
 
     @Test
-    void shouldPopulateLocationFromGenAiWhenAvailable() {
+    void createFoundItemWithPhoto_shouldPopulateAttributesAndLocationFromGenAiWhenAvailable() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
@@ -145,32 +147,32 @@ class FoundItemServiceTest {
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        // No staff-supplied attributes and no operator location hint, so the
-        // best-effort GenAI extraction branch runs and fills the gap.
+        // Create requests no longer carry operator attributes or a location
+        // hint, so the best-effort GenAI extraction branch owns both.
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack neben Buehne 2",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                null,
                 requestVenueId,
-                reporterId,
-                null
+                reporterId
         );
-
-        ItemAttributes extractedAttrs = new ItemAttributes("Bag", null, "Black", List.of());
+        ItemAttributes extracted = new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"));
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
+                .thenReturn(Optional.of(new ExtractionResult(extracted, "neben Buehne 2")));
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extractWithLocation(any(), any()))
-                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, "neben Buehne 2")));
 
-        service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
-        FoundItem persisted = captor.getValue();
-        assertEquals("neben Buehne 2", persisted.getLocationHint());
-        assertEquals("Bag", persisted.getAttributes().getCategory());
+        assertEquals("neben Buehne 2", captor.getValue().getLocationHint());
+        assertEquals("Bag", response.attributes().category());
+        assertEquals("Nike", response.attributes().brand());
+        assertEquals("Black", response.attributes().color());
+        assertEquals(List.of("Roter Anhaenger"), response.attributes().marks());
+        verify(eventPublisher).publishFoundItemLogged(argThat(item -> item.getAttributes() == extracted));
     }
 
     @Test
@@ -189,10 +191,8 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Found a wallet",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                null,
                 requestVenueId,
-                reporterId,
-                null
+                reporterId
         );
 
         // Extraction succeeds but carries no location -> locationHint stays null.
@@ -424,10 +424,8 @@ class FoundItemServiceTest {
         return new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 venueId,
-                reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                reporterId
         );
     }
 

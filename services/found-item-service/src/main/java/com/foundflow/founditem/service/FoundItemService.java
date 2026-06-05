@@ -80,31 +80,30 @@ public class FoundItemService {
                 : venueAccessService.getVenueId(jwt);
         String photoKey = storePhoto(photo);
 
-        ItemAttributes attributes = toItemAttributes(request.attributes());
-
         FoundItem foundItem = new FoundItem(
                 photoKey,
-                request.description(),
+                request.intakeText(),
                 request.foundAt(),
-                request.locationHint(),
+                null,
                 ItemStatus.STORED,
                 venueId,
                 request.reporterId(),
-                attributes
+                null
         );
 
         FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
 
-        if (attributes == null) {
-            attributeExtractionService.extractWithLocation(request.description(), photoKey)
-                    .ifPresent(extracted -> {
-                        savedFoundItem.setAttributes(extracted.attributes());
-                        if (extracted.location() != null) {
-                            savedFoundItem.setLocationHint(extracted.location());
-                        }
-                        foundItemRepository.save(savedFoundItem);
-                    });
-        }
+        // Best-effort GenAI extraction. Create requests no longer accept
+        // operator-provided attributes; the model owns the initial enrichment.
+        // Failures are swallowed inside AttributeExtractionService.
+        attributeExtractionService.extractWithLocation(request.intakeText(), photoKey)
+                .ifPresent(extracted -> {
+                    savedFoundItem.setAttributes(extracted.attributes());
+                    if (extracted.location() != null) {
+                        savedFoundItem.setLocationHint(extracted.location());
+                    }
+                    foundItemRepository.save(savedFoundItem);
+                });
 
         eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);

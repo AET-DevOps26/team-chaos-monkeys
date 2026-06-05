@@ -78,9 +78,9 @@ Fields:
 - `foundItemId`
 - `venueId`
 - `photoKey`
-- `description`
+- `intakeText`
 - `foundAt`
-- `locationHint`
+- `location`
 - `status`
 - `reporterId`
 - `attributes`

@@ -413,14 +413,14 @@
       "UpdateFoundItemRequest": {
         "type": "object",
         "properties": {
-          "description": {
+          "intakeText": {
             "type": "string"
           },
           "foundAt": {
             "type": "string",
             "format": "date-time"
           },
-          "locationHint": {
+          "location": {
             "type": "string"
           },
           "status": {
@@ -461,14 +461,14 @@
           "photoKey": {
             "type": "string"
           },
-          "description": {
+          "intakeText": {
             "type": "string"
           },
           "foundAt": {
             "type": "string",
             "format": "date-time"
           },
-          "locationHint": {
+          "location": {
             "type": "string"
           },
           "status": {

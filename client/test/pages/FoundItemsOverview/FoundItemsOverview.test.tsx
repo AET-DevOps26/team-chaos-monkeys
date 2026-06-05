@@ -15,14 +15,14 @@ import type { FoundItemResponse } from '@/api/found-items/model'
 const ITEMS: FoundItemResponse[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
-    description: 'Black wallet',
+    intakeText: 'Black wallet',
     foundAt: '2026-05-20T10:00:00Z',
     status: FoundItemResponseStatus.STORED,
     attributes: { category: 'Wallet' },
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
-    description: 'Blue umbrella',
+    intakeText: 'Blue umbrella',
     foundAt: '2026-05-21T10:00:00Z',
     status: FoundItemResponseStatus.RETURNED,
     attributes: { category: 'Umbrella' },

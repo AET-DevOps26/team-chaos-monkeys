@@ -19,8 +19,10 @@ The script covers:
 - JSON lost/found item updates preserving the existing `photoKey`
 - JSON token login, refresh, and logout via `/api/auth`
 - refresh-token revocation after logout
+- password reset via auth-issued token and notification-service event/mail row
 - admin user lookup and KPI access
 - OPS_MANAGER own-venue user management
+- STAFF self get/update/delete and rejection for other users
 - found/lost/match count and histogram endpoints
 - same-venue matching
 - cross-venue matching rejection

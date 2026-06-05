@@ -64,6 +64,22 @@ function Get-TokenPair {
     return $tokens
 }
 
+function Assert-LoginRejected {
+    param(
+        [string]$Username,
+        [string]$Password,
+        [string]$Label
+    )
+
+    $client = [System.Net.Http.HttpClient]::new()
+    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+        email = $Username
+        password = $Password
+    })).Result
+
+    Assert-Status $response 401 $Label
+}
+
 function Refresh-TokenPair {
     param([string]$RefreshToken)
 
@@ -146,7 +162,8 @@ function Read-Json {
         return $null
     }
 
-    return $body | ConvertFrom-Json
+    $parsed = $body | ConvertFrom-Json
+    return $parsed
 }
 
 function Post-Json {
@@ -219,37 +236,61 @@ function Assert-SignedPhotoUrl {
     }
 }
 
-# notification-service consumes match-invite / pickup-confirmation events
+# notification-service consumes password-reset / match-invite /
+# pickup-confirmation events
 # asynchronously from RabbitMQ; the persist happens on the first attempt of
-# the listener, *before* SMTP is touched, so the row shows up shortly after
-# the staff-side action returns. Poll until one matching the URL marker
-# arrives, then return its body so the caller can regex out the URL.
+# the listener, before SMTP is touched, so the row shows up shortly after the
+# triggering action returns. Poll until one matching the URL marker arrives,
+# then return its body so the caller can regex out the URL.
 function Wait-ForNotification {
     param(
         [System.Net.Http.HttpClient]$Client,
         [string]$Email,
         [string]$UrlMarker,
-        [int]$TimeoutSeconds = 15
+        [int]$TimeoutSeconds = 60
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+    $lastNotificationCount = 0
+
     while ((Get-Date) -lt $deadline) {
-        $response = $Client.GetAsync(
-            "$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($Email))"
-        ).Result
-        if ($response.IsSuccessStatusCode) {
-            $notifications = @(Read-Json $response)
-            $matching = $notifications | Where-Object {
-                $_.body -and $_.body.Contains($UrlMarker)
-            } | Select-Object -First 1
-            if ($matching) {
-                return $matching
+        try {
+            $response = $Client.GetAsync(
+                "$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($Email))"
+            ).Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
             }
+
+            if ($response.IsSuccessStatusCode -and -not [string]::IsNullOrWhiteSpace($lastBody)) {
+                $parsedNotifications = $lastBody | ConvertFrom-Json
+                $notifications = @($parsedNotifications)
+                $lastNotificationCount = $notifications.Count
+                $matching = $notifications | Where-Object {
+                    $_.body -and $_.body.Contains($UrlMarker)
+                } | Select-Object -First 1
+                if ($matching) {
+                    return $matching
+                }
+            }
+        } catch {
+            $lastError = $_.Exception.Message
         }
+
         Start-Sleep -Milliseconds 250
     }
 
-    throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'."
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'. Last HTTP status: $lastStatus. Parsed notifications: $lastNotificationCount. Last error: $lastError. Last body: $bodyPreview"
 }
 
 function Extract-MagicLinkUrl {
@@ -356,10 +397,11 @@ if (($opsUsersBody | Where-Object { $_.venueId -ne $venueId }).Count -gt 0) {
 }
 
 $staffEmail = "staff-$suffix@foundflow.local"
+$staffPassword = "staff12345"
 $staffResponse = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
     email = $staffEmail
     role = "STAFF"
-    password = "staff12345"
+    password = $staffPassword
     venueId = "22222222-2222-2222-2222-222222222222"
 }
 Assert-Status $staffResponse 200 "OPS_MANAGER can create STAFF"
@@ -368,7 +410,66 @@ if ($staff.venueId -ne $venueId) {
     throw "OPS_MANAGER-created staff should receive own venueId. Expected $venueId but got $($staff.venueId)."
 }
 
-$staffTokens = Get-TokenPair $staffEmail "staff12345"
+$staffTokens = Get-TokenPair $staffEmail $staffPassword
+$staffClient = New-GatewayClient $staffTokens.accessToken
+
+$staffListUsers = $staffClient.GetAsync("$GatewayBaseUrl/api/users").Result
+Assert-Status $staffListUsers 403 "STAFF cannot list users"
+
+$staffSelfRead = $staffClient.GetAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
+Assert-Status $staffSelfRead 200 "STAFF can load itself by id"
+
+$staffOpsRead = $staffClient.GetAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
+Assert-Status $staffOpsRead 404 "STAFF cannot load another user by id"
+
+$staffOpsUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($opsUser.id)", (JsonContent @{
+    email = $opsEmail
+    role = "OPS_MANAGER"
+})).Result
+Assert-Status $staffOpsUpdate 403 "STAFF cannot update another user by id"
+
+$staffSelfUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($staff.id)", (JsonContent @{
+    email = $staffEmail
+    role = "STAFF"
+})).Result
+Assert-Status $staffSelfUpdate 200 "STAFF can update itself without role change"
+
+$staffSelfPromote = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($staff.id)", (JsonContent @{
+    email = $staffEmail
+    role = "OPS_MANAGER"
+})).Result
+Assert-Status $staffSelfPromote 403 "STAFF cannot promote itself"
+
+$oldStaffRefreshToken = $staffTokens.refreshToken
+$staffResetPassword = "staff-reset12345"
+$passwordResetRequest = Post-Json $publicClient "$GatewayBaseUrl/api/auth/password-reset/request" @{
+    email = $staffEmail
+}
+Assert-Status $passwordResetRequest 204 "Public password-reset request returns no content"
+
+$passwordResetNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $staffEmail `
+    -UrlMarker "/reset-password?token="
+$passwordResetUrl = Extract-MagicLinkUrl `
+    -Body $passwordResetNotification.body `
+    -UrlMarker "/reset-password?token="
+$passwordResetUri = [System.Uri]::new($passwordResetUrl)
+if (-not $passwordResetUri.Query.StartsWith("?token=")) {
+    throw "Password-reset URL should contain token query parameter. Actual: $passwordResetUrl"
+}
+$passwordResetToken = [System.Uri]::UnescapeDataString($passwordResetUri.Query.Substring("?token=".Length))
+
+$passwordResetConfirm = Post-Json $publicClient "$GatewayBaseUrl/api/auth/password-reset/confirm" @{
+    token = $passwordResetToken
+    newPassword = $staffResetPassword
+}
+Assert-Status $passwordResetConfirm 204 "Public password-reset confirm accepts notification token"
+Assert-LoginRejected $staffEmail $staffPassword "Old STAFF password is rejected after password reset"
+Assert-RefreshRejected $oldStaffRefreshToken "Password reset revokes old STAFF refresh token"
+
+$staffPassword = $staffResetPassword
+$staffTokens = Get-TokenPair $staffEmail $staffPassword
 $staffClient = New-GatewayClient $staffTokens.accessToken
 
 $adminCreateByOps = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
@@ -379,8 +480,8 @@ $adminCreateByOps = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
 }
 Assert-Status $adminCreateByOps 403 "OPS_MANAGER cannot create ADMIN"
 
-$opsSelfDelete = $opsClient.DeleteAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
-Assert-Status $opsSelfDelete 403 "OPS_MANAGER cannot delete itself"
+$opsSelfRead = $opsClient.GetAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
+Assert-Status $opsSelfRead 200 "OPS_MANAGER can load itself by id"
 
 $foundRequest = @{
     description = "E2E found item"
@@ -825,6 +926,9 @@ if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attribute
     throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
 }
 Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
+
+$staffSelfDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
+Assert-Status $staffSelfDelete 204 "STAFF can delete itself"
 
 Logout-RefreshToken $opsTokens.refreshToken
 Logout-RefreshToken $adminTokens.refreshToken

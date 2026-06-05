@@ -29,8 +29,16 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:?DEV_ADMIN_EMAIL is required}
       DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?DEV_ADMIN_PASSWORD is required}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      PASSWORD_RESET_TOKEN_MINUTES: ${PASSWORD_RESET_TOKEN_MINUTES:-30}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       auth-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   lost-item-service:

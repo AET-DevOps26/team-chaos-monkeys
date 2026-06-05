@@ -220,6 +220,41 @@ class UserServiceTest {
     }
 
     @Test
+    void getUserById_shouldReturnOwnUserForStaff() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User user = new User("staff@example.com", Role.STAFF, "hash", venueId);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        Optional<UserResponse> response =
+                userService.getUserById(id, staffJwt(venueId, "staff@example.com"));
+
+        assertTrue(response.isPresent());
+        assertEquals("staff@example.com", response.get().email());
+        verify(userRepository).findById(id);
+    }
+
+    @Test
+    void getUserById_shouldHideVenuePeerForStaff() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User user = new User("other-staff@example.com", Role.STAFF, "hash", venueId);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        Optional<UserResponse> response =
+                userService.getUserById(id, staffJwt(venueId, "staff@example.com"));
+
+        assertTrue(response.isEmpty());
+        verify(userRepository).findById(id);
+    }
+
+    @Test
     void getUserById_shouldReturnEmptyWhenUserDoesNotExist() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
@@ -287,6 +322,79 @@ class UserServiceTest {
     }
 
     @Test
+    void updateUser_shouldAllowStaffToUpdateItselfWithoutChangingRole() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User existingUser = new User(
+                "staff@example.com",
+                Role.STAFF,
+                "existing-password-hash",
+                venueId
+        );
+
+        UpdateUserRequest request = new UpdateUserRequest(
+                "updated-staff@example.com",
+                Role.STAFF
+        );
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<UserResponse> response =
+                userService.updateUser(id, request, staffJwt(venueId, "staff@example.com"));
+
+        assertTrue(response.isPresent());
+        assertEquals("updated-staff@example.com", response.get().email());
+        assertEquals(Role.STAFF, response.get().role());
+        assertEquals("existing-password-hash", existingUser.getPasswordHash());
+        verify(userRepository).save(existingUser);
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void updateUser_shouldRejectStaffSelfRoleChange() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User existingUser = new User("staff@example.com", Role.STAFF, "hash", venueId);
+        UpdateUserRequest request = new UpdateUserRequest(
+                "staff@example.com",
+                Role.OPS_MANAGER
+        );
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userService.updateUser(id, request, staffJwt(venueId, "staff@example.com"))
+        );
+    }
+
+    @Test
+    void updateUser_shouldRejectStaffUpdatingVenuePeer() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User existingUser = new User("other-staff@example.com", Role.STAFF, "hash", venueId);
+        UpdateUserRequest request = new UpdateUserRequest(
+                "updated@example.com",
+                Role.STAFF
+        );
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(existingUser));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userService.updateUser(id, request, staffJwt(venueId, "staff@example.com"))
+        );
+    }
+
+    @Test
     void deleteUser_shouldDeleteExistingUser() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
@@ -303,7 +411,7 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteUser_shouldRejectSelfDeletionForOpsManager() {
+    void deleteUser_shouldAllowSelfDeletionForOpsManager() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 
         UUID id = UUID.randomUUID();
@@ -312,9 +420,43 @@ class UserServiceTest {
 
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
 
+        boolean result = userService.deleteUser(id, opsManagerJwt(venueId, "manager@example.com"));
+
+        assertTrue(result);
+        verify(userRepository).findById(id);
+        verify(userRepository).delete(user);
+    }
+
+    @Test
+    void deleteUser_shouldAllowSelfDeletionForStaff() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User user = new User("staff@example.com", Role.STAFF, "hash", venueId);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        boolean result = userService.deleteUser(id, staffJwt(venueId, "staff@example.com"));
+
+        assertTrue(result);
+        verify(userRepository).findById(id);
+        verify(userRepository).delete(user);
+    }
+
+    @Test
+    void deleteUser_shouldRejectStaffDeletingVenuePeer() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        User user = new User("other-staff@example.com", Role.STAFF, "hash", venueId);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
         assertThrows(
                 AccessDeniedException.class,
-                () -> userService.deleteUser(id, opsManagerJwt(venueId, "manager@example.com"))
+                () -> userService.deleteUser(id, staffJwt(venueId, "staff@example.com"))
         );
 
         verify(userRepository).findById(id);
@@ -333,6 +475,15 @@ class UserServiceTest {
                 .subject(email)
                 .header("alg", "none")
                 .claim("roles", List.of("OPS_MANAGER"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt staffJwt(UUID venueId, String email) {
+        return Jwt.withTokenValue("token")
+                .subject(email)
+                .header("alg", "none")
+                .claim("roles", List.of("STAFF"))
                 .claim("venue_id", venueId.toString())
                 .build();
     }

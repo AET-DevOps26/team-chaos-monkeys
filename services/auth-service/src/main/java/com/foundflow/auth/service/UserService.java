@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.foundflow.auth.domain.Role;
@@ -55,6 +55,10 @@ public class UserService {
                     .toList();
         }
 
+        if (!isOpsManager(jwt)) {
+            throw new AccessDeniedException("Only admins and ops managers can list users.");
+        }
+
         return userRepository.findByVenueId(getVenueId(jwt))
                 .stream()
                 .map(this::toResponse)
@@ -81,6 +85,10 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     verifyUserAccess(user, jwt);
+                    if (!isAdmin(jwt) && isCurrentUser(user, jwt) && request.role() != user.getRole()) {
+                        throw new AccessDeniedException("Users cannot change their own role.");
+                    }
+
                     if (!isAdmin(jwt) && request.role() == Role.ADMIN) {
                         throw new AccessDeniedException("OPS_MANAGER cannot create or promote admins.");
                     }
@@ -100,10 +108,6 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     verifyUserAccess(user, jwt);
-                    if (!isAdmin(jwt) && user.getEmail().equals(getCurrentUserEmail(jwt))) {
-                        throw new AccessDeniedException("OPS_MANAGER cannot delete itself.");
-                    }
-
                     userRepository.delete(user);
                     return true;
                 })
@@ -130,6 +134,10 @@ public class UserService {
             return request.venueId();
         }
 
+        if (!isOpsManager(jwt)) {
+            throw new AccessDeniedException("Only admins and ops managers can create users.");
+        }
+
         if (request.role() == Role.ADMIN) {
             throw new AccessDeniedException("OPS_MANAGER cannot create admins.");
         }
@@ -142,7 +150,13 @@ public class UserService {
             return;
         }
 
-        if (user.getVenueId() == null || !user.getVenueId().equals(getVenueId(jwt))) {
+        if (isCurrentUser(user, jwt)) {
+            return;
+        }
+
+        if (!isOpsManager(jwt)
+                || user.getVenueId() == null
+                || !user.getVenueId().equals(getVenueId(jwt))) {
             throw new AccessDeniedException("No access to users outside your venue.");
         }
     }
@@ -152,11 +166,21 @@ public class UserService {
             return true;
         }
 
-        return user.getVenueId() != null && user.getVenueId().equals(getVenueId(jwt));
+        if (isCurrentUser(user, jwt)) {
+            return true;
+        }
+
+        return isOpsManager(jwt)
+                && user.getVenueId() != null
+                && user.getVenueId().equals(getVenueId(jwt));
     }
 
     private boolean isAdmin(Jwt jwt) {
         return hasRole(jwt, Role.ADMIN.name());
+    }
+
+    private boolean isOpsManager(Jwt jwt) {
+        return hasRole(jwt, Role.OPS_MANAGER.name());
     }
 
     private UUID getVenueId(Jwt jwt) {
@@ -175,6 +199,10 @@ public class UserService {
         }
 
         return jwt.getSubject();
+    }
+
+    private boolean isCurrentUser(User user, Jwt jwt) {
+        return user.getEmail().equals(getCurrentUserEmail(jwt));
     }
 
     private boolean hasRole(Jwt jwt, String role) {

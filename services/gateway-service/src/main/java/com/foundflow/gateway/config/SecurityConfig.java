@@ -45,7 +45,9 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST,
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                "/api/auth/logout"
+                                "/api/auth/logout",
+                                "/api/auth/password-reset/request",
+                                "/api/auth/password-reset/confirm"
                         ).permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/lost-items", "/api/lost-reports").permitAll()
                         .pathMatchers(

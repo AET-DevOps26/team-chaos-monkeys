@@ -1,9 +1,12 @@
 package com.foundflow.auth.controller;
 
 import com.foundflow.auth.dto.LoginRequest;
+import com.foundflow.auth.dto.PasswordResetConfirmRequest;
+import com.foundflow.auth.dto.PasswordResetRequest;
 import com.foundflow.auth.dto.RefreshTokenRequest;
 import com.foundflow.auth.dto.TokenResponse;
 import com.foundflow.auth.service.AuthService;
+import com.foundflow.auth.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -34,6 +37,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
@@ -128,6 +134,46 @@ class AuthControllerTest {
                 .logout(request);
 
         mockMvc.perform(post("/api/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void requestPasswordReset_shouldReturnNoContent() throws Exception {
+        PasswordResetRequest request = new PasswordResetRequest("staff@example.com");
+
+        mockMvc.perform(post("/api/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService).requestPasswordReset(request);
+    }
+
+    @Test
+    void confirmPasswordReset_shouldReturnNoContent() throws Exception {
+        PasswordResetConfirmRequest request =
+                new PasswordResetConfirmRequest("reset-token", "new-password");
+
+        mockMvc.perform(post("/api/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService).confirmPasswordReset(request);
+    }
+
+    @Test
+    void confirmPasswordReset_shouldReturnUnauthorizedWhenServiceRejectsToken() throws Exception {
+        PasswordResetConfirmRequest request =
+                new PasswordResetConfirmRequest("invalid-token", "new-password");
+
+        doThrow(new BadCredentialsException("Invalid password reset token"))
+                .when(passwordResetService)
+                .confirmPasswordReset(request);
+
+        mockMvc.perform(post("/api/auth/password-reset/confirm")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());

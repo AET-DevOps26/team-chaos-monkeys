@@ -1,6 +1,7 @@
 package com.foundflow.notification.messaging;
 
 import com.foundflow.events.MatchInviteRequestedEvent;
+import com.foundflow.events.PasswordResetRequestedEvent;
 import com.foundflow.events.PickupConfirmationRequestedEvent;
 import com.foundflow.notification.service.NotificationDispatcher;
 import org.junit.jupiter.api.Test;
@@ -57,5 +58,24 @@ class NotificationListenerTest {
         ));
 
         verify(dispatcher).dispatchPickupConfirmation(matchId, "lost@example.com", venueId, manageUrl);
+    }
+
+    @Test
+    void passwordResetListener_delegatesEventFieldsToDispatcher() {
+        PasswordResetEventListener listener = new PasswordResetEventListener(dispatcher);
+        UUID userId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        String resetUrl = "http://localhost:8080/reset-password?token=reset-token";
+
+        listener.onPasswordResetRequested(new PasswordResetRequestedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                userId,
+                venueId,
+                "staff@example.com",
+                resetUrl
+        ));
+
+        verify(dispatcher).dispatchPasswordReset("staff@example.com", venueId, resetUrl);
     }
 }

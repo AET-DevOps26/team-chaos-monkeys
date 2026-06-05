@@ -1,0 +1,108 @@
+name: OpenAI integration tests
+
+# Hits the real OpenAI API rather than respx mocks. Pairs with
+# genai-integration.yml (which exercises Ollama) so a model rename,
+# SDK bump, or text-embedding-3-small deprecation surfaces here
+# instead of at Azure deploy time.
+#
+# Does NOT gate PRs — runs nightly and on push to main. Staggered 30 min
+# after the Ollama nightly to keep the two runs distinct in the actions
+# UI and avoid sharing a runner's transient state.
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # 05:30 UTC ~ 07:30 Munich, 30 min after the Ollama nightly (05:00).
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openai-integration:
+    name: OpenAI provider — real backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Don't block main on flakes during the stabilization period; tighten
+    # once the suite has run cleanly for ~a week.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/genai-service/pyproject.toml
+
+      - name: Install genai-service with dev deps
+        working-directory: ./services/genai-service
+        run: pip install -e '.[dev]'
+
+      - name: Start genai-service
+        working-directory: ./services/genai-service
+        env:
+          GENAI_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_CHAT_MODEL: gpt-4o-mini
+          OPENAI_EMBED_MODEL: text-embedding-3-small
+          EMBEDDING_DIMENSIONS: '768'
+          GENAI_TIMEOUT_SECONDS: '120'
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/genai.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:8000/health > /dev/null; then
+              echo "genai-service is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "genai-service did not become reachable"
+          cat /tmp/genai.log
+          exit 1
+
+      - name: Verify /_diagnostic reports actual dim 768 against real OpenAI
+        run: |
+          set -euo pipefail
+          DIAG=$(curl -fsS http://localhost:8000/_diagnostic)
+          echo "$DIAG"
+          PROVIDER=$(echo "$DIAG" | python -c "import sys,json;print(json.load(sys.stdin)['provider'])")
+          CONFIGURED=$(echo "$DIAG" | python -c "import sys,json;print(json.load(sys.stdin)['embed_dimensions_configured'])")
+          ACTUAL=$(echo "$DIAG" | python -c "import sys,json;print(json.load(sys.stdin)['embed_dimensions_actual'])")
+          if [ "$PROVIDER" != "openai" ]; then
+            echo "Expected provider=openai, got $PROVIDER"
+            exit 1
+          fi
+          if [ "$CONFIGURED" != "768" ] || [ "$ACTUAL" != "768" ]; then
+            echo "Expected 768/768, got configured=$CONFIGURED actual=$ACTUAL"
+            exit 1
+          fi
+
+      - name: Run OpenAI integration tests
+        working-directory: ./services/genai-service
+        env:
+          GENAI_RUN_INTEGRATION: '1'
+          GENAI_PROVIDER: openai
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_CHAT_MODEL: gpt-4o-mini
+          OPENAI_EMBED_MODEL: text-embedding-3-small
+          EMBEDDING_DIMENSIONS: '768'
+          GENAI_TIMEOUT_SECONDS: '120'
+        # Target the OpenAI integration file explicitly. tests/integration/
+        # also contains the Ollama-shaped test_real_provider.py which would
+        # try to talk to a non-existent Ollama at localhost:11434.
+        run: pytest tests/integration/test_real_openai_provider.py -v
+
+      - name: Dump genai-service logs on failure
+        if: failure()
+        run: cat /tmp/genai.log || true

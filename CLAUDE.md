@@ -147,6 +147,8 @@ The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (defau
 
 `.github/workflows/genai-integration.yml` — nightly + on-push-to-main, hits real Ollama, non-blocking.
 
+`.github/workflows/openai-integration.yml` — nightly (05:30 UTC, 30 min after the Ollama one) + on-push-to-main + `workflow_dispatch`, hits real OpenAI via `secrets.OPENAI_API_KEY`, non-blocking. Pairs with the Ollama nightly so a model rename, SDK bump, or `text-embedding-3-small` deprecation surfaces here instead of at Azure deploy time. Boots `genai-service` standalone and asserts `/_diagnostic` reports `embed_dimensions_configured=embed_dimensions_actual=768` against the real API before running `tests/integration/test_real_openai_provider.py`.
+
 CD to Kubernetes is **not yet wired**. The Helm chart (`infra/helm/foundflow/`) is the deploy artifact; values-aet.yaml is the production override layer. Wiring a CD job to call `helm upgrade --install` on merges to `main` is an open ticket.
 
 ## Engineering Constraints from the Course Brief

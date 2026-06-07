@@ -103,28 +103,38 @@ def build_provider(settings: Settings) -> LLMProvider:
     if settings.provider == "fake":
         from app.providers.fake import FakeProvider
 
-        _EXTRACTION_RESPONSE = (
+        # The fake serves every endpoint deterministically for CI E2E and
+        # downstream Spring integration tests. It branches on a marker in the
+        # system prompt so /answer and /verify-match get schema-valid JSON
+        # instead of the default extraction blob.
+        _EXTRACTION_JSON = (
             '{"category":"jacket","brand":null,"color":"black",'
-            '"distinguishingMarks":[],"approximateTime":null,'
-            '"location":null}'
+            '"distinguishingMarks":[],"approximateTime":null,"location":null}'
         )
-        _VERIFY_RESPONSE = (
+        _ANSWER_JSON = (
+            '{"answer":"Top candidate is the first listed item [1].",'
+            '"citations":["fake-id"],"grounded":true}'
+        )
+        _VERIFY_JSON = (
             '{"verdict":"uncertain","confidence":0.5,'
-            '"rationale":"fake provider deterministic response"}'
+            '"rationale":"Fake provider canned response."}'
         )
 
-        def _fake_chat_response(messages: list[Message], json_mode: bool) -> str:
-            system = next(
-                (m["content"] for m in messages if m["role"] == "system"),
-                "",
-            )
-            if isinstance(system, str) and "compare a guest's lost-item report" in system:
-                return _VERIFY_RESPONSE
-            return _EXTRACTION_RESPONSE
+        def _canned(messages: list[Message], _json_mode: bool) -> str:
+            system = ""
+            for msg in messages:
+                if msg["role"] == "system" and isinstance(msg["content"], str):
+                    system = msg["content"]
+                    break
+            if '"grounded"' in system:
+                return _ANSWER_JSON
+            if '"verdict"' in system:
+                return _VERIFY_JSON
+            return _EXTRACTION_JSON
 
         return FakeProvider(
             name="fake",
-            chat_response=_fake_chat_response,
+            chat_response=_canned,
             embedding_dimensions=settings.embedding_dimensions,
         )
     raise ValueError(f"unknown provider: {settings.provider!r}")

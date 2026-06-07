@@ -51,6 +51,7 @@ from app.exceptions import (
 ENDPOINT_EXTRACT: Final = "extract-attributes"
 ENDPOINT_EMBED: Final = "embed"
 ENDPOINT_VERIFY: Final = "verify-match"
+ENDPOINT_ANSWER: Final = "answer"
 
 # Modality label values. Endpoints that don't take an image emit "text".
 MODALITY_TEXT: Final = "text"

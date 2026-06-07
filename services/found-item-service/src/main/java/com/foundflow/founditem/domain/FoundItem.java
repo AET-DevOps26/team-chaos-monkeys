@@ -29,14 +29,13 @@ public class FoundItem {
     @Column(name = "photo_key")
     private String photoKey;
 
-    @Column(columnDefinition = "TEXT")
-    private String description;
+    @Column(name = "intake_text", columnDefinition = "TEXT")
+    private String intakeText;
 
     @Column(name = "found_at")
     private LocalDateTime foundAt;
 
-    @Column(name = "location_hint")
-    private String locationHint;
+    private String location;
 
     @Enumerated(EnumType.STRING)
     private ItemStatus status;
@@ -62,18 +61,18 @@ public class FoundItem {
 
     public FoundItem(
             String photoKey,
-            String description,
+            String intakeText,
             LocalDateTime foundAt,
-            String locationHint,
+            String location,
             ItemStatus status,
             UUID venueId,
             UUID reporterId,
             ItemAttributes attributes
     ) {
         this.photoKey = photoKey;
-        this.description = description;
+        this.intakeText = intakeText;
         this.foundAt = foundAt;
-        this.locationHint = locationHint;
+        this.location = location;
         this.status = status;
         this.venueId = venueId;
         this.reporterId = reporterId;
@@ -88,16 +87,16 @@ public class FoundItem {
         return photoKey;
     }
 
-    public String getDescription() {
-        return description;
+    public String getIntakeText() {
+        return intakeText;
     }
 
     public LocalDateTime getFoundAt() {
         return foundAt;
     }
 
-    public String getLocationHint() {
-        return locationHint;
+    public String getLocation() {
+        return location;
     }
 
     public ItemStatus getStatus() {
@@ -120,16 +119,16 @@ public class FoundItem {
         this.photoKey = photoKey;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setIntakeText(String intakeText) {
+        this.intakeText = intakeText;
     }
 
     public void setFoundAt(LocalDateTime foundAt) {
         this.foundAt = foundAt;
     }
 
-    public void setLocationHint(String locationHint) {
-        this.locationHint = locationHint;
+    public void setLocation(String location) {
+        this.location = location;
     }
 
     public void setStatus(ItemStatus status) {

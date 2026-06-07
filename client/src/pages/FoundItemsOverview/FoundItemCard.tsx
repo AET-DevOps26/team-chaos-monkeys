@@ -25,7 +25,7 @@ function formatFoundAt(foundAt: string | undefined): string {
 function primaryLabel(item: FoundItemResponse): string {
   const category = item.attributes?.category?.trim()
   if (category) return category
-  const firstLine = item.description?.split(/\r?\n/)[0]?.trim()
+  const firstLine = item.intakeText?.split(/\r?\n/)[0]?.trim()
   if (firstLine) return firstLine
   return 'Found item'
 }

@@ -94,7 +94,7 @@ public class CandidateMatchingService {
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }
@@ -104,7 +104,7 @@ public class CandidateMatchingService {
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }

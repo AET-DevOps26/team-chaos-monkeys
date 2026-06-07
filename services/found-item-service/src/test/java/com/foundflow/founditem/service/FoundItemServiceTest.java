@@ -93,7 +93,7 @@ class FoundItemServiceTest {
 
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
-        assertNull(captor.getValue().getLocationHint());
+        assertNull(captor.getValue().getLocation());
         assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
         verify(eventPublisher).publishFoundItemLogged(captor.getValue());
@@ -167,7 +167,7 @@ class FoundItemServiceTest {
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
-        assertEquals("neben Buehne 2", captor.getValue().getLocationHint());
+        assertEquals("neben Buehne 2", captor.getValue().getLocation());
         assertEquals("Bag", response.attributes().category());
         assertEquals("Nike", response.attributes().brand());
         assertEquals("Black", response.attributes().color());
@@ -195,7 +195,7 @@ class FoundItemServiceTest {
                 reporterId
         );
 
-        // Extraction succeeds but carries no location -> locationHint stays null.
+        // Extraction succeeds but carries no location -> location stays null.
         ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, "Brown", List.of());
 
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
@@ -208,7 +208,7 @@ class FoundItemServiceTest {
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
-        assertNull(captor.getValue().getLocationHint());
+        assertNull(captor.getValue().getLocation());
     }
 
     @Test
@@ -224,7 +224,7 @@ class FoundItemServiceTest {
         Optional<FoundItemResponse> response = service.getFoundItemById(id, staffJwt(venueId));
 
         assertTrue(response.isPresent());
-        assertEquals("Schwarzer Rucksack", response.get().description());
+        assertEquals("Schwarzer Rucksack", response.get().intakeText());
         assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).findById(id);
     }
@@ -299,7 +299,7 @@ class FoundItemServiceTest {
         ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
         verify(eventPublisher).publishFoundItemUpdated(publishedItem.capture());
         assertSame(existingItem, publishedItem.getValue());
-        assertEquals("Neue Beschreibung", publishedItem.getValue().getDescription());
+        assertEquals("Neue Beschreibung", publishedItem.getValue().getIntakeText());
         assertEquals(ItemStatus.RESERVED, publishedItem.getValue().getStatus());
         verify(eventPublisher, never()).publishFoundItemLogged(any());
     }

@@ -16,9 +16,9 @@ export const updateFoundItemParams = zod.object({
 })
 
 export const updateFoundItemBody = zod.object({
-  "description": zod.string().optional(),
+  "intakeText": zod.string().optional(),
   "foundAt": zod.iso.datetime({}),
-  "locationHint": zod.string().optional(),
+  "location": zod.string().optional(),
   "status": zod.enum(['STORED', 'RESERVED', 'RETURNED', 'DISPOSED']),
   "venueId": zod.uuid(),
   "reporterId": zod.uuid(),

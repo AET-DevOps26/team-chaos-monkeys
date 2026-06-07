@@ -8,7 +8,7 @@ import com.foundflow.common.domain.ItemAttributes;
  *
  * <p>Location is kept separate from {@code ItemAttributes} because it is a
  * property of the item itself — consumers map it onto their own location
- * column (e.g. {@code FoundItem.locationHint}), not onto the attributes.
+ * column (e.g. {@code FoundItem.location}), not onto the attributes.
  */
 public record ExtractionResult(ItemAttributes attributes, String location) {
 }

@@ -416,9 +416,9 @@ Assert-Status $publicFoundPhotoUrl 401 "Public client cannot request found-item 
 
 $foundJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)", (JsonContent @{
     photoKey = "attacker-controlled-found-photo-key"
-    description = "E2E found item JSON update"
+    intakeText = "E2E found item JSON update"
     foundAt = "2026-05-19T15:46:00"
-    locationHint = "Desk updated"
+    location = "Desk updated"
     status = "STORED"
     venueId = "33333333-3333-3333-3333-333333333333"
     reporterId = "44444444-4444-4444-4444-444444444444"

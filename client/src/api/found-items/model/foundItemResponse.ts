@@ -10,9 +10,9 @@ import type { ItemAttributesDto } from './itemAttributesDto';
 export interface FoundItemResponse {
   id?: string;
   photoKey?: string;
-  description?: string;
+  intakeText?: string;
   foundAt?: string;
-  locationHint?: string;
+  location?: string;
   status?: FoundItemResponseStatus;
   venueId?: string;
   reporterId?: string;

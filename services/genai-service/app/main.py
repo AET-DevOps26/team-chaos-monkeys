@@ -18,7 +18,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api import diagnostic, embed, extract, health, verify
+from app.api import answer, diagnostic, embed, extract, health, verify
 from app.config import Settings
 from app.errors import register_exception_handlers
 from app.metrics import build_info
@@ -82,4 +82,5 @@ app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
 app.include_router(verify.router)
+app.include_router(answer.router)
 app.include_router(diagnostic.router)

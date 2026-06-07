@@ -8,12 +8,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record UpdateFoundItemRequest(
-        String description,
+        String intakeText,
 
         @NotNull
         LocalDateTime foundAt,
 
-        String locationHint,
+        String location,
 
         @NotNull
         ItemStatus status,

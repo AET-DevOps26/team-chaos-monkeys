@@ -84,9 +84,9 @@ class LostReport {
 class FoundItem {
   id: UUID
   photoKey: String
-  description: String
+  intakeText: String
   foundAt: LocalDateTime
-  locationHint: String
+  location: String
   status: ItemStatus
   venueId: UUID
   reporterId: UUID

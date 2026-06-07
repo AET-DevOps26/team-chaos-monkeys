@@ -46,9 +46,9 @@ public class FoundItemEventPublisher {
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 toInstant(foundItem.getFoundAt()),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
                 toPayload(foundItem.getAttributes())
@@ -62,9 +62,9 @@ public class FoundItemEventPublisher {
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 toInstant(foundItem.getFoundAt()),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
                 toPayload(foundItem.getAttributes())

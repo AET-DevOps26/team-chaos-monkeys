@@ -92,8 +92,12 @@ Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET
 | edge (nginx)     | 3000  | 80        |
 | prometheus       | 9090  | 9090      |
 | grafana          | 3030  | 3000      |
+| minio (API)      | 9000  | 9000      |
+| minio (console)  | 9001  | 9001      |
+| rabbitmq (AMQP)  | 5672  | 5672      |
+| rabbitmq (mgmt)  | 15672 | 15672     |
 
-The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. `.env.example` documents the required env vars; copy to `.env` before first run.
+The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
 
 ## Gateway Routing
 
@@ -118,7 +122,7 @@ Per-service actuator endpoints are exposed under `/{slug}/actuator/{health,prome
 The system is **event-driven with synchronous edges**. The intake → matching segment of the bus is wired; downstream segments (notification, operations projections) are still planned.
 
 - **REST/JSON over HTTP** is the synchronous edge: user-facing commands/queries through the gateway, plus synchronous calls to `genai-service` for attribute extraction, embedding, and match verification.
-- **RabbitMQ is live in docker-compose** (`rabbitmq:4.0-management`, internal only). All routing constants are shared in `shared/domain-events/.../FoundFlowEventRouting.java`: a single topic exchange `foundflow.domain-events`, with routing keys `lost-report.created.v1`, `lost-report.updated.v1`, `found-item.logged.v1`, `found-item.updated.v1`, and `match-candidate.created.v1`. Publishers (`lost-item-service`, `found-item-service`) and the consumer (`matching-service`, which declares the durable `matching.*.v1` queues and bindings in `AmqpConfig`) both import these constants, so producer keys and consumer bindings cannot drift.
+- **RabbitMQ is live in docker-compose** (`rabbitmq:4.0-management`; AMQP on 5672 and the management UI on 15672 are host-exposed for local debugging). All routing constants are shared in `shared/domain-events/.../FoundFlowEventRouting.java`: a single topic exchange `foundflow.domain-events`, with routing keys `lost-report.created.v1`, `lost-report.updated.v1`, `found-item.logged.v1`, `found-item.updated.v1`, and `match-candidate.created.v1`. Publishers (`lost-item-service`, `found-item-service`) and the consumer (`matching-service`, which declares the durable `matching.*.v1` queues and bindings in `AmqpConfig`) both import these constants, so producer keys and consumer bindings cannot drift.
 - **Wired flow:** `LostReportService`/`FoundItemService` save the item, call genai `/extract-attributes` (best-effort — failures are swallowed so intake never blocks), then publish the domain event. `matching-service`'s `IntakeEventListener` → `CandidateMatchingService.processIntake()` calls genai `/embed`, upserts the vector into `item_embeddings` (pgvector, HNSW, idempotent on `(item_type, item_id)`), runs the `<=>` cosine KNN against the opposite item type, scores `combinedScore = categoryGate × (1 − distance)`, persists a `Match` (PENDING) above the threshold (default `0.55`), publishes `match-candidate.created.v1`, and asynchronously calls `MatchVerificationService.verifyAsync()` (genai `/verify-match`) to record the verification verdict on the match.
 - **Still planned** (not yet wired): the `MatchConfirmed`, `NotificationSent`, and `CaseClosed` events and any consumer of `match-candidate.created.v1` (e.g. `notification-service`).
 - **Caveat for local/E2E:** the default-in-tests `fake` genai provider returns a constant embedding vector for every item, so semantic ranking is meaningless and matching collapses to the category gate. Real ranking requires `GENAI_PROVIDER=local` (Ollama) or `openai`; real-model behavior is only exercised by the nightly, non-blocking `genai-integration.yml`.

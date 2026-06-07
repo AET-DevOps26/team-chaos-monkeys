@@ -1,0 +1,922 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://lost-item-service:8082",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/lost-items/{id}/photo": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReportPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/{id}/photo": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhoto_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReportPhoto_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "photo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/{id}": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items/{id}": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportById_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "updateLostReport_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getAllLostReports",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LostReportResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "createLostReportWithPhoto",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateLostReportRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "request"
+                ]
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getAllLostReports_1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LostReportResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "createLostReportWithPhoto_1",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "request": {
+                    "$ref": "#/components/schemas/CreateLostReportRequest"
+                  },
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "request"
+                ]
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLostReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LostReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items/{id}/photo-url": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhotoUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/{id}/photo-url": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportPhotoUrl_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items/histogram": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportHistogram",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/histogram": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "getLostReportHistogram_1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-items/count": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "countLostReports",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lost-reports/count": {
+      "get": {
+        "tags": [
+          "lost-report-controller"
+        ],
+        "operationId": "countLostReports_1",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MATCHED",
+                "CLOSED",
+                "COLLECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ItemAttributesDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "marks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LostReportResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "photoKey": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "MATCHED",
+              "CLOSED",
+              "COLLECTED"
+            ]
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        }
+      },
+      "UpdateLostReportRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "MATCHED",
+              "CLOSED",
+              "COLLECTED"
+            ]
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "contactEmail",
+          "description",
+          "lostAt",
+          "status"
+        ]
+      },
+      "CreateLostReportRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 0
+          },
+          "lostAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/ItemAttributesDto"
+          }
+        },
+        "required": [
+          "contactEmail",
+          "description",
+          "lostAt"
+        ]
+      },
+      "PhotoUrlResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "HistogramResponse": {
+        "type": "object",
+        "properties": {
+          "perDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perWeek": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          }
+        }
+      },
+      "TimeBucketCount": {
+        "type": "object",
+        "properties": {
+          "bucketStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CountResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

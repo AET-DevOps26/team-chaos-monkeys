@@ -56,7 +56,7 @@ export default function ReportLostItem() {
       },
       {
         onSuccess: (response) => {
-          navigate('/report/confirmation', {
+          navigate('/confirmation', {
             state: { report: response },
           })
         },

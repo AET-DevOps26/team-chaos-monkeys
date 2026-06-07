@@ -13,12 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.concurrent.RejectedExecutionException;
 
 @Service
 public class MatchVerificationService {
@@ -74,7 +71,7 @@ public class MatchVerificationService {
                         matchId, resp.getModelInfo() != null ? resp.getModelInfo().getProvider() : "?");
             }
         } catch (Exception e) {
-            String reason = classify(e);
+            String reason = GenaiClientSupport.classify(e);
             meters.counter("matching.verify.requests_total",
                     "result", "error", "reason", reason).increment();
             if ("contract_error".equals(reason) || "unexpected".equals(reason)) {
@@ -87,16 +84,5 @@ public class MatchVerificationService {
         } finally {
             sample.stop(meters.timer("matching.verify.duration"));
         }
-    }
-
-    static String classify(Throwable t) {
-        if (t instanceof HttpServerErrorException.GatewayTimeout) return "timeout";
-        if (t instanceof HttpServerErrorException) return "upstream_5xx";
-        if (t instanceof HttpClientErrorException.TooManyRequests) return "throttled";
-        if (t instanceof HttpClientErrorException) return "contract_error";
-        if (t instanceof RejectedExecutionException) return "executor_full";
-        if (t instanceof java.net.SocketTimeoutException
-                || t instanceof org.springframework.web.client.ResourceAccessException) return "timeout";
-        return "unexpected";
     }
 }

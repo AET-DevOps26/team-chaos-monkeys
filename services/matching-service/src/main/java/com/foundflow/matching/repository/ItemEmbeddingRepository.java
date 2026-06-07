@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -82,6 +83,54 @@ public class ItemEmbeddingRepository {
                 venueId,
                 query,
                 k
+        );
+    }
+
+    /**
+     * KNN over the item corpus for a free-text staff search, always scoped to a single venue.
+     *
+     * @param itemTypeFilter when non-null, restrict to that item type; when {@code null}, search
+     *                       across both lost reports and found items.
+     */
+    public List<ScopedSimilarItem> findTopKForSearch(
+            ItemType itemTypeFilter,
+            UUID venueId,
+            float[] embedding,
+            int k
+    ) {
+        PGvector query = new PGvector(embedding);
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT item_id, item_type, category, text_source, embedding <=> ? AS distance
+                FROM item_embeddings
+                WHERE venue_id = ?
+                """);
+        List<Object> args = new ArrayList<>();
+        args.add(query);
+        args.add(venueId);
+
+        if (itemTypeFilter != null) {
+            sql.append("AND item_type = ?\n");
+            args.add(itemTypeFilter.name());
+        }
+
+        sql.append("""
+                ORDER BY embedding <=> ?
+                LIMIT ?
+                """);
+        args.add(query);
+        args.add(k);
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                (rs, n) -> new ScopedSimilarItem(
+                        rs.getObject(1, UUID.class),
+                        ItemType.valueOf(rs.getString(2)),
+                        rs.getString(3),
+                        rs.getString(4),
+                        rs.getFloat(5)
+                ),
+                args.toArray()
         );
     }
 }

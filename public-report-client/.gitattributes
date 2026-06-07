@@ -1,0 +1,4 @@
+# Generated / vendored — collapse in PR diffs and exclude from language stats.
+package-lock.json   linguist-generated=true
+openapi/**          linguist-generated=true
+src/api/**          linguist-generated=true

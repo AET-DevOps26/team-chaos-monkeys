@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import Dashboard from '@/pages/Dashboard'
 import FoundItemIntake from '@/pages/FoundItemIntake'
 import FoundItemsOverview from '@/pages/FoundItemsOverview'
 import LostReportsOverview from '@/pages/LostReportsOverview'
@@ -14,6 +15,16 @@ export default function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
+        element={
+          <RequireAuth>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/intake"
         element={
           <RequireAuth>
             <Layout>

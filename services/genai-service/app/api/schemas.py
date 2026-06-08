@@ -216,6 +216,55 @@ class VerificationOutput(CamelModel):
     rationale: str = Field(min_length=1)
 
 
+class SearchSnippet(CamelModel):
+    """One retrieved item passed to /answer as grounding context.
+
+    `text` is the stored `text_source` from matching-service's
+    `item_embeddings`; `id` is the item id the model cites. `distance` is
+    optional retrieval context — the model may use it for ordering but it is
+    not required.
+    """
+
+    id: str = Field(min_length=1)
+    item_type: Literal["lost_report", "found_item"]
+    category: str | None = None
+    text: str = Field(min_length=1, max_length=8000)
+    distance: float | None = None
+
+
+class AnswerRequest(CamelModel):
+    """Request body for `POST /answer`.
+
+    `snippets` may be empty — an empty list is the "nothing retrieved" case
+    and must yield a grounded:false answer, never an error.
+    """
+
+    query: str = Field(min_length=1, max_length=4000)
+    snippets: list[SearchSnippet] = Field(max_length=32)
+    language: str = Field(default="en", pattern=r"^[a-z]{2}$")
+
+
+class AnswerResponse(CamelModel):
+    """Response body for `POST /answer`."""
+
+    answer: str
+    citations: list[str]
+    grounded: bool
+    model_info: ModelInfo
+
+
+class AnswerOutput(CamelModel):
+    """The LLM's answer output — used for validation only (not API surface).
+
+    `app.answer.parse_answer` validates the model JSON against this, then
+    enforces that every citation refers to a provided snippet id.
+    """
+
+    answer: str = Field(min_length=1)
+    citations: list[str] = Field(default_factory=list)
+    grounded: bool
+
+
 class ErrorCode(StrEnum):
     """Machine-readable error codes from the contract's `ErrorResponse`.
 

@@ -3,13 +3,8 @@ import { foundItemIntakeSchema } from '@/pages/FoundItemIntake/schema'
 
 describe('foundItemIntakeSchema', () => {
   const validInput = {
-    description: 'Black umbrella',
+    intakeText: 'Black umbrella found near the lobby couch',
     foundAt: '2026-05-26T10:00:00Z',
-    locationHint: 'Lobby',
-    category: 'accessories',
-    brand: 'Anonymous',
-    color: 'black',
-    marks: [{ value: 'scratch on handle' }],
     photo: null,
   }
 
@@ -17,11 +12,10 @@ describe('foundItemIntakeSchema', () => {
     expect(() => foundItemIntakeSchema.parse(validInput)).not.toThrow()
   })
 
-  it('accepts a payload with only non-optional fields populated', () => {
+  it('accepts a photo-only intake without notes', () => {
     expect(() =>
       foundItemIntakeSchema.parse({
         foundAt: '2026-05-26T10:00:00Z',
-        marks: [],
         photo: null,
       }),
     ).not.toThrow()
@@ -34,6 +28,14 @@ describe('foundItemIntakeSchema', () => {
       const foundAtIssue = result.error.issues.find((i) => i.path[0] === 'foundAt')
       expect(foundAtIssue).toBeDefined()
       expect(foundAtIssue?.message).toBe('Required')
+    }
+  })
+
+  it('rejects intakeText longer than 2000 characters', () => {
+    const result = foundItemIntakeSchema.safeParse({ ...validInput, intakeText: 'a'.repeat(2001) })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path[0] === 'intakeText')).toBe(true)
     }
   })
 

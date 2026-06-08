@@ -89,6 +89,48 @@ class FoundItemControllerTest {
     }
 
     @Test
+    void createFoundItem_shouldRejectIntakeTextLongerThan2000Chars() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "a".repeat(2001),
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                venueId,
+                reporterId,
+                null
+        );
+
+        mockMvc.perform(post("/api/found-items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request))
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createFoundItem_shouldAcceptMissingIntakeText() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                null,
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                venueId,
+                reporterId,
+                null
+        );
+        FoundItemResponse response = response(id, venueId, reporterId, ItemStatus.STORED);
+
+        when(foundItemService.createFoundItem(eq(request), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/found-items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request))
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void createFoundItemMultipart_shouldReturnUnsupportedMediaType() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
@@ -267,7 +309,6 @@ class FoundItemControllerTest {
         return new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 venueId,
                 reporterId,
                 new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))

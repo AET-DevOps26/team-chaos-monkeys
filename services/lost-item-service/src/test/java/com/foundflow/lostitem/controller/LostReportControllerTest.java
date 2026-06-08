@@ -51,9 +51,9 @@ class LostReportControllerTest {
         when(lostReportService.createLostReport(eq(request), any(Jwt.class))).thenReturn(response);
 
         mockMvc.perform(post("/api/lost-items")
-                        .with(staffPrincipal(venueId))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(request)))
+                        .content(jsonMapper.writeValueAsString(request))
+                        .with(staffPrincipal(venueId)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/lost-items/" + id))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))

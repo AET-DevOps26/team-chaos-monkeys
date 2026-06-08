@@ -85,23 +85,32 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Counter notificationsSendFailuresCounter(MeterRegistry meterRegistry) {
-        return Counter.builder(SEND_FAILURES_COUNTER)
-                .description("Notification email sends that exhausted all retries and were dropped.")
-                .register(meterRegistry);
-    }
-
-    @Bean
-    public MessageRecoverer notificationSendFailureRecoverer(Counter notificationsSendFailuresCounter) {
+    public MessageRecoverer notificationSendFailureRecoverer(MeterRegistry meterRegistry) {
         RejectAndDontRequeueRecoverer reject = new RejectAndDontRequeueRecoverer();
         return (message, cause) -> {
-            notificationsSendFailuresCounter.increment();
+            String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+            Counter.builder(SEND_FAILURES_COUNTER)
+                    .description("Notification email sends that exhausted all retries and were dropped.")
+                    .tag("event_type", eventTypeFor(routingKey))
+                    .register(meterRegistry)
+                    .increment();
             log.warn(
                     "Dropping notification message after exhausting retries: routingKey={}",
-                    message.getMessageProperties().getReceivedRoutingKey(),
+                    routingKey,
                     cause
             );
             reject.recover(message, cause);
+        };
+    }
+
+    static String eventTypeFor(String routingKey) {
+        if (routingKey == null) {
+            return "unknown";
+        }
+        return switch (routingKey) {
+            case FoundFlowEventRouting.MATCH_INVITE_REQUESTED -> "match-invite-requested";
+            case FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED -> "pickup-confirmation-requested";
+            default -> "unknown";
         };
     }
 

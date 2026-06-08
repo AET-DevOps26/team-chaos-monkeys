@@ -72,10 +72,9 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 foundAt,
-                "Neben Buehne 2",
                 requestVenueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                null
         );
 
         when(foundItemRepository.save(any(FoundItem.class)))
@@ -89,6 +88,8 @@ class FoundItemServiceTest {
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
         assertNull(captor.getValue().getPhotoKey());
+        assertNull(captor.getValue().getLocation());
+        assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
         assertNull(response.photoKey());
         verifyNoInteractions(eventPublisher);
@@ -104,7 +105,6 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 UUID.randomUUID(),
                 null,
                 new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
@@ -132,10 +132,9 @@ class FoundItemServiceTest {
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 requestVenueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                null
         );
 
         when(foundItemRepository.save(any(FoundItem.class)))
@@ -151,7 +150,7 @@ class FoundItemServiceTest {
     }
 
     @Test
-    void updateFoundItemPhoto_shouldPopulateLocationFromGenAiWhenAvailable() {
+    void updateFoundItemPhoto_shouldPopulateAttributesAndLocationFromGenAiWhenAvailable() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
@@ -178,10 +177,13 @@ class FoundItemServiceTest {
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(attributeExtractionService.extractWithLocation(
+                existingItem.getIntakeText(),
+                "found-items/2026/05/generated.jpg"
+        ))
+                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, "neben Buehne 2")));
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extractWithLocation(any(), any()))
-                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, "neben Buehne 2")));
 
         Optional<FoundItemResponse> response = service.updateFoundItemPhoto(id, photo, staffJwt(jwtVenueId));
 
@@ -190,7 +192,7 @@ class FoundItemServiceTest {
         FoundItem persisted = captor.getValue();
         assertTrue(response.isPresent());
         assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
-        assertEquals("neben Buehne 2", persisted.getLocationHint());
+        assertEquals("neben Buehne 2", persisted.getLocation());
         assertEquals("Bag", persisted.getAttributes().getCategory());
         verify(eventPublisher).publishFoundItemCreated(existingItem);
     }
@@ -219,6 +221,7 @@ class FoundItemServiceTest {
                 "photo-bytes".getBytes()
         );
 
+        // Extraction succeeds but carries no location -> location stays null.
         ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, "Brown", List.of());
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
@@ -232,7 +235,7 @@ class FoundItemServiceTest {
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
-        assertNull(captor.getValue().getLocationHint());
+        assertNull(captor.getValue().getLocation());
         verify(eventPublisher).publishFoundItemCreated(existingItem);
     }
 
@@ -249,7 +252,7 @@ class FoundItemServiceTest {
         Optional<FoundItemResponse> response = service.getFoundItemById(id, staffJwt(venueId));
 
         assertTrue(response.isPresent());
-        assertEquals("Schwarzer Rucksack", response.get().description());
+        assertEquals("Schwarzer Rucksack", response.get().intakeText());
         assertEquals(venueId, response.get().venueId());
         verify(foundItemRepository).findById(id);
     }
@@ -326,7 +329,7 @@ class FoundItemServiceTest {
         ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
         verify(eventPublisher).publishFoundItemUpdated(publishedItem.capture());
         assertSame(existingItem, publishedItem.getValue());
-        assertEquals("Neue Beschreibung", publishedItem.getValue().getDescription());
+        assertEquals("Neue Beschreibung", publishedItem.getValue().getIntakeText());
         assertEquals(ItemStatus.RESERVED, publishedItem.getValue().getStatus());
         verify(eventPublisher, never()).publishFoundItemCreated(any());
     }
@@ -528,7 +531,6 @@ class FoundItemServiceTest {
         return new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
                 venueId,
                 reporterId,
                 new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))

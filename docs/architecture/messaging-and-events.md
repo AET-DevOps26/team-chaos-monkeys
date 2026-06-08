@@ -22,7 +22,7 @@ The current implemented broker is the domain-event RabbitMQ exchange:
 | --- | --- | --- |
 | `lost-report.created.v1` | `lost-item-service` | `matching.lost-report-created.v1` |
 | `lost-report.updated.v1` | `lost-item-service` | `matching.lost-report-updated.v1` |
-| `found-item.logged.v1` | `found-item-service` | `matching.found-item-logged.v1` |
+| `found-item.created.v1` | `found-item-service` | `matching.found-item-created.v1` |
 | `found-item.updated.v1` | `found-item-service` | `matching.found-item-updated.v1` |
 | `match-candidate.created.v1` | `matching-service` | No queue bound in the current codebase |
 
@@ -69,7 +69,7 @@ Fields:
 The payload intentionally excludes guest contact data. Consumers that need
 private details must call the owning service through an authorized API.
 
-### `FoundItemLoggedEvent` and `FoundItemUpdatedEvent`
+### `FoundItemCreatedEvent` and `FoundItemUpdatedEvent`
 
 Fields:
 
@@ -78,9 +78,9 @@ Fields:
 - `foundItemId`
 - `venueId`
 - `photoKey`
-- `description`
+- `intakeText`
 - `foundAt`
-- `locationHint`
+- `location`
 - `status`
 - `reporterId`
 - `attributes`

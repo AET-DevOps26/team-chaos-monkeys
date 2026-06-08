@@ -81,14 +81,13 @@ public class FoundItemService {
         UUID reporterId = request.reporterId() != null
                 ? request.reporterId()
                 : venueAccessService.getUserId(jwt);
-
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
         FoundItem foundItem = new FoundItem(
                 null,
-                request.description(),
+                request.intakeText(),
                 request.foundAt(),
-                request.locationHint(),
+                null,
                 ItemStatus.STORED,
                 venueId,
                 reporterId,
@@ -131,9 +130,9 @@ public class FoundItemService {
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
 
-                    foundItem.setDescription(request.description());
+                    foundItem.setIntakeText(request.intakeText());
                     foundItem.setFoundAt(request.foundAt());
-                    foundItem.setLocationHint(request.locationHint());
+                    foundItem.setLocation(request.location());
                     foundItem.setStatus(request.status());
                     if (venueAccessService.isAdmin(jwt)) {
                         if (request.venueId() == null) {
@@ -327,11 +326,11 @@ public class FoundItemService {
             return;
         }
 
-        attributeExtractionService.extractWithLocation(foundItem.getDescription(), photoKey)
+        attributeExtractionService.extractWithLocation(foundItem.getIntakeText(), photoKey)
                 .ifPresent(extracted -> {
                     foundItem.setAttributes(extracted.attributes());
                     if (extracted.location() != null) {
-                        foundItem.setLocationHint(extracted.location());
+                        foundItem.setLocation(extracted.location());
                     }
                     foundItemRepository.save(foundItem);
                 });
@@ -477,9 +476,9 @@ public class FoundItemService {
         return new FoundItemResponse(
                 foundItem.getId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 foundItem.getFoundAt(),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus(),
                 foundItem.getVenueId(),
                 foundItem.getReporterId(),
@@ -513,9 +512,9 @@ public class FoundItemService {
     private PublicFoundItemResponse toPublicResponse(FoundItem foundItem, URI photoUrl) {
         return new PublicFoundItemResponse(
                 foundItem.getId(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 foundItem.getFoundAt(),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus(),
                 toItemAttributesDto(foundItem.getAttributes()),
                 photoUrl

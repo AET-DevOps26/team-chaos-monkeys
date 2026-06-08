@@ -45,7 +45,14 @@ services:
 
   client:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/client:${IMAGE_TAG:-latest}
-    # Expose the frontend on host port 80 so the VM's public IP serves the app directly.
+
+  public-report-client:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/public-report-client:${IMAGE_TAG:-latest}
+
+  # The edge proxy is the single public entrypoint on the VM (mirrors the k8s
+  # ingress): / → client, /report → public-report-client, /api → gateway-service.
+  edge:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/edge:${IMAGE_TAG:-latest}
     ports: !override
       - "80:80"
 

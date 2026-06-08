@@ -18,9 +18,11 @@ Cross-subsystem work on CI/CD, Kubernetes, and observability is expected and tra
 All services and the shared infra now exist. The structure below reflects the repo as it stands.
 
 ```
-client/                            — React 19 + Vite 8 + TS frontend
+client/                            — React 19 + Vite 8 + TS staff frontend (served at /)
+public-report-client/              — React 19 + Vite 8 + TS unauthenticated guest report SPA (served at /report)
+edge/                              — nginx front door (compose only) mirroring the k8s ingress: / → client, /report → public-report-client, /api → gateway
 services/
-  gateway-service/                 — Spring Cloud Gateway, OAuth2 resource server, single public ingress (port 8080)
+  gateway-service/                 — Spring Cloud Gateway, OAuth2 resource server, single API ingress for /api (port 8080; sits behind the edge/k8s ingress)
   auth-service/                    — Spring Boot 4.0.6, Java 21; OAuth2 Authorization Server + Resource Server (8081)
   lost-item-service/               — Spring Boot 4.0.6 (8082)
   found-item-service/              — Spring Boot 4.0.6 (8083)
@@ -80,22 +82,26 @@ uvicorn app.main:app --reload --port 8000
 Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET /health`, `GET /_diagnostic`, `GET /metrics` (Prometheus exposition via `prometheus-fastapi-instrumentator`).
 
 ### Docker Compose (root)
-`docker compose up` brings up the whole stack: all eight Spring services, the genai-service, seven dedicated Postgres 17 instances, RabbitMQ and MinIO, Ollama + a one-shot `ollama-init` sidecar that pre-pulls the configured chat/vision/embed models, Prometheus 2.55.1, Grafana 11.3.0, and the React client behind nginx.
+`docker compose up` brings up the whole stack: all eight Spring services, the genai-service, seven dedicated Postgres 17 instances, RabbitMQ and MinIO, Ollama + a one-shot `ollama-init` sidecar that pre-pulls the configured chat/vision/embed models, Prometheus 2.55.1, Grafana 11.3.0, the two React SPAs (`client`, `public-report-client`) behind nginx, and the `edge` front door that path-routes to them and the gateway.
 
 **Host-exposed ports:**
 | Service          | Host  | Container |
 |------------------|-------|-----------|
 | gateway-service  | 8080  | 8080      |
 | genai-service    | 8000  | 8000      |
-| client (nginx)   | 3000  | 80        |
+| edge (nginx)     | 3000  | 80        |
 | prometheus       | 9090  | 9090      |
 | grafana          | 3030  | 3000      |
+| minio (API)      | 9000  | 9000      |
+| minio (console)  | 9001  | 9001      |
+| rabbitmq (AMQP)  | 5672  | 5672      |
+| rabbitmq (mgmt)  | 15672 | 15672     |
 
-All Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the gateway. `.env.example` documents the required env vars; copy to `.env` before first run.
+The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
 
 ## Gateway Routing
 
-`gateway-service` is the only public ingress. Routes live in `services/gateway-service/src/main/resources/application.yml`.
+`gateway-service` is the single ingress for `/api/**` (the API edge). It sits behind the HTTP front door — the `edge` container in compose, the Kubernetes ingress in the cluster — which path-routes `/` and `/report` to the SPAs and `/api` to the gateway. Gateway routes live in `services/gateway-service/src/main/resources/application.yml`.
 
 | Path prefix                            | Upstream                |
 |----------------------------------------|-------------------------|
@@ -116,7 +122,7 @@ Per-service actuator endpoints are exposed under `/{slug}/actuator/{health,prome
 The system is **event-driven with synchronous edges**. The intake → matching segment of the bus is wired; downstream segments (notification, operations projections) are still planned.
 
 - **REST/JSON over HTTP** is the synchronous edge: user-facing commands/queries through the gateway, plus synchronous calls to `genai-service` for attribute extraction, embedding, and match verification.
-- **RabbitMQ is live in docker-compose** (`rabbitmq:4.0-management`, internal only). All routing constants are shared in `shared/domain-events/.../FoundFlowEventRouting.java`: a single topic exchange `foundflow.domain-events`, with routing keys `lost-report.created.v1`, `lost-report.updated.v1`, `found-item.logged.v1`, `found-item.updated.v1`, and `match-candidate.created.v1`. Publishers (`lost-item-service`, `found-item-service`) and the consumer (`matching-service`, which declares the durable `matching.*.v1` queues and bindings in `AmqpConfig`) both import these constants, so producer keys and consumer bindings cannot drift.
+- **RabbitMQ is live in docker-compose** (`rabbitmq:4.0-management`; AMQP on 5672 and the management UI on 15672 are host-exposed for local debugging). All routing constants are shared in `shared/domain-events/.../FoundFlowEventRouting.java`: a single topic exchange `foundflow.domain-events`, with routing keys `lost-report.created.v1`, `lost-report.updated.v1`, `found-item.logged.v1`, `found-item.updated.v1`, and `match-candidate.created.v1`. Publishers (`lost-item-service`, `found-item-service`) and the consumer (`matching-service`, which declares the durable `matching.*.v1` queues and bindings in `AmqpConfig`) both import these constants, so producer keys and consumer bindings cannot drift.
 - **Wired flow:** `LostReportService`/`FoundItemService` save the item, call genai `/extract-attributes` (best-effort — failures are swallowed so intake never blocks), then publish the domain event. `matching-service`'s `IntakeEventListener` → `CandidateMatchingService.processIntake()` calls genai `/embed`, upserts the vector into `item_embeddings` (pgvector, HNSW, idempotent on `(item_type, item_id)`), runs the `<=>` cosine KNN against the opposite item type, scores `combinedScore = categoryGate × (1 − distance)`, persists a `Match` (PENDING) above the threshold (default `0.55`), publishes `match-candidate.created.v1`, and asynchronously calls `MatchVerificationService.verifyAsync()` (genai `/verify-match`) to record the verification verdict on the match.
 - **Still planned** (not yet wired): the `MatchConfirmed`, `NotificationSent`, and `CaseClosed` events and any consumer of `match-candidate.created.v1` (e.g. `notification-service`).
 - **Caveat for local/E2E:** the default-in-tests `fake` genai provider returns a constant embedding vector for every item, so semantic ranking is meaningless and matching collapses to the category gate. Real ranking requires `GENAI_PROVIDER=local` (Ollama) or `openai`; real-model behavior is only exercised by the nightly, non-blocking `genai-integration.yml`.
@@ -146,6 +152,8 @@ The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (defau
 7. **e2e-tests** — depends on `backend-tests`, `client-build`, and `client-tests`. Boots the backend stack via `docker compose up --build -d`, polls health endpoints through the gateway, then runs `./tests/e2e/foundflow-e2e.ps1` (PowerShell). Tears down with `docker compose down -v`.
 
 `.github/workflows/genai-integration.yml` — nightly + on-push-to-main, hits real Ollama, non-blocking.
+
+`.github/workflows/openai-integration.yml` — nightly (05:30 UTC, 30 min after the Ollama one) + on-push-to-main + `workflow_dispatch`, hits real OpenAI via `secrets.OPENAI_API_KEY`, non-blocking. Pairs with the Ollama nightly so a model rename, SDK bump, or `text-embedding-3-small` deprecation surfaces here instead of at Azure deploy time. Boots `genai-service` standalone and asserts `/_diagnostic` reports `embed_dimensions_configured=embed_dimensions_actual=768` against the real API before running `tests/integration/test_real_openai_provider.py`.
 
 CD to Kubernetes is **not yet wired**. The Helm chart (`infra/helm/foundflow/`) is the deploy artifact; values-aet.yaml is the production override layer. Wiring a CD job to call `helm upgrade --install` on merges to `main` is an open ticket.
 

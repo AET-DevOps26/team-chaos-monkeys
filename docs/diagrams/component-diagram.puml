@@ -6,7 +6,9 @@ left to right direction
 actor "Guest / Staff Browser" as Browser
 
 package "External Entry" {
-  [React Client] as Client
+  [Edge / Ingress\npath routing] as Edge
+  [Staff Client\nReact SPA at /] as Client
+  [Public Report Client\nReact SPA at /report] as ReportClient
   [Gateway Service\nSpring Cloud Gateway] as Gateway
 }
 
@@ -27,8 +29,10 @@ package "Observability" {
   [Grafana] as Grafana
 }
 
-Browser --> Client : uses app
-Client --> Gateway : HTTP /api/**
+Browser --> Edge : HTTPS
+Edge --> Client : / (staff app)
+Edge --> ReportClient : /report (guest app)
+Edge --> Gateway : /api/**
 Gateway --> SpringServices : routes API requests
 
 SpringServices --> Postgres : own data

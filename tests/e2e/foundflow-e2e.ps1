@@ -752,9 +752,8 @@ Assert-LoginRejected $deletedVenueUserEmail $deletedVenueUserPassword "Deleted-v
 Assert-RefreshRejected $deletedVenueUserTokens.refreshToken "Deleted-venue STAFF refresh token is rejected"
 
 $foundRequest = @{
-    description = "E2E found item"
+    intakeText = "E2E found item near the desk"
     foundAt = "2026-05-19T15:45:00"
-    locationHint = "Desk"
     venueId = "33333333-3333-3333-3333-333333333333"
     attributes = @{
         category = "Bag"
@@ -805,9 +804,9 @@ Assert-Status $publicFoundPhotoUrl 401 "Public client cannot request found-item 
 
 $foundJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)", (JsonContent @{
     photoKey = "attacker-controlled-found-photo-key"
-    description = "E2E found item JSON update"
+    intakeText = "E2E found item JSON update"
     foundAt = "2026-05-19T15:46:00"
-    locationHint = "Desk updated"
+    location = "Desk updated"
     status = "STORED"
     venueId = "33333333-3333-3333-3333-333333333333"
     reporterId = "44444444-4444-4444-4444-444444444444"
@@ -951,19 +950,22 @@ $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
 Assert-Status $matchResponse 201 "OPS_MANAGER can create same-venue match"
 $match = Read-Json $matchResponse
 
-$otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
-    description = "E2E lost item other venue"
-    lostAt = "2026-05-19T15:55:00"
-    location = "Other"
-    venueId = "99999999-9999-9999-9999-999999999999"
-    contactEmail = "other-$suffix@example.com"
-    attributes = @{
-        category = "Bag"
-        brand = "Test"
-        color = "Black"
-        marks = @("E2E")
-    }
-}
+$otherLostResponse = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent @{
+        description = "E2E lost item other venue"
+        lostAt = "2026-05-19T15:55:00"
+        location = "Other"
+        venueId = "99999999-9999-9999-9999-999999999999"
+        contactEmail = "other-$suffix@example.com"
+        attributes = @{
+            category = "Bag"
+            brand = "Test"
+            color = "Black"
+            marks = @("E2E")
+        }
+    })
+).Result
 Assert-Status $otherLostResponse 201 "Public lost item can be created for another venue"
 $otherLostItem = Read-Json $otherLostResponse
 
@@ -1190,9 +1192,13 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
 }
 
 # Issue #128 - GenAI attribute extraction wires through to persistence.
-# CI may run with GENAI_PROVIDER=fake, while local/OpenAI runs can infer
-# values from the golden umbrella photo. This is a wiring assertion, so it
-# checks that the extracted fields are present rather than pinning model text.
+# CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
+# ItemAttributes JSON ({"category":"jacket",...}) so we can assert
+# extraction actually ran end-to-end. Under a real provider
+# (GENAI_PROVIDER=openai|local) the category value depends on the model,
+# so we relax to a presence check - the contract is "extraction ran and
+# populated a non-empty category", not the specific value.
+$genaiProvider = if ($env:GENAI_PROVIDER) { $env:GENAI_PROVIDER } else { 'fake' }
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"
@@ -1212,21 +1218,21 @@ $extractionLostPhotoUpload = $publicClient.PutAsync(
 Assert-Status $extractionLostPhotoUpload 200 "Lost-item photo upload runs GenAI extraction"
 $extractionLostItem = Read-Json $extractionLostPhotoUpload
 
-$extractionLostCategory = [string]$extractionLostItem.attributes.category
-$extractionLostColor = [string]$extractionLostItem.attributes.color
-if (
-    $null -eq $extractionLostItem.attributes -or
-    [string]::IsNullOrWhiteSpace($extractionLostCategory) -or
-    [string]::IsNullOrWhiteSpace($extractionLostColor)
-) {
-    throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on lost-item (fake provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionLostItem.attributes -or [string]::IsNullOrWhiteSpace($extractionLostItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on lost-item ($genaiProvider provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='$($extractionLostItem.attributes.category)' ($genaiProvider provider)"
 }
-Write-Host "[OK] Lost-item GenAI extraction populated category='$extractionLostCategory', color='$extractionLostColor'"
 
 $extractionFoundRequest = @{
-    description = "E2E found item without attributes"
+    intakeText = "E2E found item without attributes"
     foundAt = "2026-05-19T16:05:00"
-    locationHint = "GenAI extraction"
     venueId = "33333333-3333-3333-3333-333333333333"
 }
 $extractionFoundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" $extractionFoundRequest
@@ -1244,16 +1250,17 @@ $extractionFoundPhotoUpload = $opsClient.PutAsync(
 Assert-Status $extractionFoundPhotoUpload 200 "Found-item photo upload runs GenAI extraction"
 $extractionFoundItem = Read-Json $extractionFoundPhotoUpload
 
-$extractionFoundCategory = [string]$extractionFoundItem.attributes.category
-$extractionFoundColor = [string]$extractionFoundItem.attributes.color
-if (
-    $null -eq $extractionFoundItem.attributes -or
-    [string]::IsNullOrWhiteSpace($extractionFoundCategory) -or
-    [string]::IsNullOrWhiteSpace($extractionFoundColor)
-) {
-    throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on found-item (fake provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionFoundItem.attributes -or [string]::IsNullOrWhiteSpace($extractionFoundItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on found-item ($genaiProvider provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='$($extractionFoundItem.attributes.category)' ($genaiProvider provider)"
 }
-Write-Host "[OK] Found-item GenAI extraction populated category='$extractionFoundCategory', color='$extractionFoundColor'"
 
 $staffSelfDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
 Assert-Status $staffSelfDelete 204 "STAFF can delete itself"

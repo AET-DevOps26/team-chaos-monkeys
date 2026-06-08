@@ -41,8 +41,8 @@ public class LostReportController {
                 authentication == null ? null : authentication.getToken()
         );
         return ResponseEntity
-        .created(URI.create("/api/lost-items/" + response.id()))
-        .body(response);
+                .created(URI.create("/api/lost-items/" + response.id()))
+                .body(response);
     }
 
     @GetMapping

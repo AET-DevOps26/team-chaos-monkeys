@@ -45,9 +45,9 @@ class FoundItemEventPublisherTest {
         assertEquals(foundItem.getVenueId(), event.venueId());
         assertEquals(foundItem.getReporterId(), event.reporterId());
         assertEquals("found-items/2026/05/photo.jpg", event.photoKey());
-        assertEquals("Black backpack", event.description());
+        assertEquals("Black backpack", event.intakeText());
         assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.foundAt());
-        assertEquals("Front desk", event.locationHint());
+        assertEquals("Front desk", event.location());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
         assertEquals("Nike", event.attributes().brand());
@@ -76,9 +76,9 @@ class FoundItemEventPublisherTest {
         assertEquals(foundItem.getVenueId(), event.venueId());
         assertEquals(foundItem.getReporterId(), event.reporterId());
         assertEquals("found-items/2026/05/photo.jpg", event.photoKey());
-        assertEquals("Black backpack", event.description());
+        assertEquals("Black backpack", event.intakeText());
         assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.foundAt());
-        assertEquals("Front desk", event.locationHint());
+        assertEquals("Front desk", event.location());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
     }

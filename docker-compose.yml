@@ -328,13 +328,34 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # Admin SPA. Internal only — reached through the edge proxy (mirrors the k8s
+  # ingress, where each frontend is a sibling Service behind one ingress).
   client:
     build:
       context: ./client
     container_name: foundflow-client
+    depends_on:
+      - gateway-service
+
+  # Unauthenticated guest report SPA, its own deployable micro-frontend.
+  public-report-client:
+    build:
+      context: ./public-report-client
+    container_name: foundflow-public-report-client
+    depends_on:
+      - gateway-service
+
+  # Single local entrypoint that mirrors the k8s ingress path routing:
+  #   /api → gateway-service, /report → public-report-client, / → client.
+  edge:
+    build:
+      context: ./edge
+    container_name: foundflow-edge
     ports:
       - "3000:80"
     depends_on:
+      - client
+      - public-report-client
       - gateway-service
 
   auth-db:

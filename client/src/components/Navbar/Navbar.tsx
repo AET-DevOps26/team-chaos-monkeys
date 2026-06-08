@@ -6,11 +6,6 @@ const linkBase =
 const linkActive = 'bg-accent-bg text-accent'
 const linkIdle = 'text-text-h'
 
-const placeholderCls =
-  'rounded px-3 py-1.5 text-sm font-medium text-text-h opacity-40 cursor-not-allowed select-none'
-
-const placeholders = ['Dashboard'] as const
-
 export default function Navbar() {
   const { user, logout } = useAuth()
 
@@ -27,6 +22,16 @@ export default function Navbar() {
             <NavLink
               to="/"
               end
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : linkIdle}`
+              }
+            >
+              Dashboard
+            </NavLink>
+          </li>
+          <li>
+            <NavLink
+              to="/intake"
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : linkIdle}`
               }
@@ -54,17 +59,6 @@ export default function Navbar() {
               Lost Items
             </NavLink>
           </li>
-          {placeholders.map((label) => (
-            <li key={label}>
-              <span
-                aria-disabled="true"
-                title="Coming soon"
-                className={placeholderCls}
-              >
-                {label}
-              </span>
-            </li>
-          ))}
         </ul>
 
         {user && (

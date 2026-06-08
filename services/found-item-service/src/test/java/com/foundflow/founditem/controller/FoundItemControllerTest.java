@@ -151,10 +151,16 @@ class FoundItemControllerTest {
     @Test
     void countAndHistogramEndpoints_shouldReturnKpiData() throws Exception {
         UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
 
         when(foundItemService.countFoundItems(eq(ItemStatus.STORED), isNull(), any(Jwt.class)))
                 .thenReturn(23L);
-        when(foundItemService.getFoundItemHistogram(eq(ItemStatus.STORED), isNull(), any(Jwt.class)))
+        when(foundItemService.getFoundItemHistogram(
+                eq(ItemStatus.STORED),
+                eq(venueId),
+                eq(reporterId),
+                any(Jwt.class)
+        ))
                 .thenReturn(new com.foundflow.founditem.dto.HistogramResponse(
                         List.of(new com.foundflow.founditem.dto.TimeBucketCount(
                                 java.time.LocalDate.of(2026, 5, 19),
@@ -178,6 +184,8 @@ class FoundItemControllerTest {
 
         mockMvc.perform(get("/api/found-items/histogram")
                         .param("status", "STORED")
+                        .param("venueId", venueId.toString())
+                        .param("reporterId", reporterId.toString())
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.perDay[0].bucketStart").value("2026-05-19"))

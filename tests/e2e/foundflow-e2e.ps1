@@ -919,6 +919,13 @@ if (@($foundHistogramBody.perDay).Count -lt 1) {
     throw "Found-item histogram should contain at least one daily bucket."
 }
 
+$foundReporterHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/histogram?status=STORED&reporterId=$($foundItem.reporterId)").Result
+Assert-Status $foundReporterHistogramResponse 200 "OPS_MANAGER can filter found-item histogram by reporterId"
+$foundReporterHistogramBody = Read-Json $foundReporterHistogramResponse
+if (@($foundReporterHistogramBody.perDay).Count -lt 1) {
+    throw "Found-item reporter histogram should contain at least one daily bucket."
+}
+
 $lostCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/count?status=OPEN").Result
 Assert-Status $lostCountResponse 200 "OPS_MANAGER can read lost-item count"
 $lostCountBody = Read-Json $lostCountResponse

@@ -257,15 +257,21 @@ public class FoundItemService {
     }
 
     public HistogramResponse getFoundItemHistogram(ItemStatus status, Jwt jwt) {
-        return getFoundItemHistogram(status, null, jwt);
+        return getFoundItemHistogram(status, null, null, jwt);
     }
 
-    public HistogramResponse getFoundItemHistogram(ItemStatus status, UUID requestedVenueId, Jwt jwt) {
+    public HistogramResponse getFoundItemHistogram(
+            ItemStatus status,
+            UUID requestedVenueId,
+            UUID reporterId,
+            Jwt jwt
+    ) {
         UUID venueId = resolveVenueFilter(requestedVenueId, jwt);
         List<TimeBucketCount> perDay = toTimeBucketCounts(
                 foundItemRepository.findDailyBuckets(
                         venueId,
-                        status == null ? null : status.name()
+                        status == null ? null : status.name(),
+                        reporterId
                 )
         );
 

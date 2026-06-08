@@ -276,12 +276,13 @@ class FoundItemServiceTest {
         FoundItemService service = service();
 
         UUID venueId = UUID.randomUUID();
-        when(foundItemRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
+        UUID reporterId = UUID.randomUUID();
+        when(foundItemRepository.findDailyBuckets(venueId, null, reporterId)).thenReturn(List.of(
                 bucket(java.time.LocalDate.of(2026, 5, 19), 2),
                 bucket(java.time.LocalDate.of(2026, 5, 20), 1)
         ));
 
-        var histogram = service.getFoundItemHistogram(null, staffJwt(venueId));
+        var histogram = service.getFoundItemHistogram(null, null, reporterId, staffJwt(venueId));
 
         assertEquals(2, histogram.perDay().size());
         assertEquals(java.time.LocalDate.of(2026, 5, 19), histogram.perDay().get(0).bucketStart());
@@ -289,6 +290,7 @@ class FoundItemServiceTest {
         assertEquals(1, histogram.perWeek().size());
         assertEquals(java.time.LocalDate.of(2026, 5, 18), histogram.perWeek().get(0).bucketStart());
         assertEquals(3, histogram.perMonth().get(0).count());
+        verify(foundItemRepository).findDailyBuckets(venueId, null, reporterId);
     }
 
     @Test

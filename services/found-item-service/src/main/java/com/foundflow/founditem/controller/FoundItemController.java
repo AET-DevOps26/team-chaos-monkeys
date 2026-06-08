@@ -65,11 +65,13 @@ public class FoundItemController {
     public ResponseEntity<HistogramResponse> getFoundItemHistogram(
             @RequestParam(required = false) ItemStatus status,
             @RequestParam(required = false) UUID venueId,
+            @RequestParam(required = false) UUID reporterId,
             JwtAuthenticationToken authentication
     ) {
         return ResponseEntity.ok(foundItemService.getFoundItemHistogram(
                 status,
                 venueId,
+                reporterId,
                 authentication.getToken()
         ));
     }

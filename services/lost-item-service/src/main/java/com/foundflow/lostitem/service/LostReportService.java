@@ -74,21 +74,12 @@ public class LostReportService {
             CreateLostReportRequest request,
             Jwt jwt
     ) {
-        return createLostReport(request, null, jwt);
-    }
-
-    public LostReportResponse createLostReport(
-            CreateLostReportRequest request,
-            MultipartFile photo,
-            Jwt jwt
-    ) {
         UUID venueId = resolveCreateVenueId(request, jwt);
-        String photoKey = hasPhoto(photo) ? storePhoto(photo) : null;
 
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
         LostReport lostReport = new LostReport(
-                photoKey,
+                null,
                 request.description(),
                 request.lostAt(),
                 request.location(),
@@ -98,19 +89,7 @@ public class LostReportService {
                 attributes
         );
 
-        LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
-
-        // Best-effort GenAI extraction (issue #128). Only runs when the
-        // request did not already carry attributes — staff-supplied input
-        // wins because the human on-site has more context than the model.
-        // Failures are swallowed inside AttributeExtractionService.
-        if (attributes == null) {
-            attributeExtractionService.extract(request.description(), photoKey)
-                    .ifPresent(extracted -> {
-                        savedLostReport.setAttributes(extracted);
-                        lostReportRepository.save(savedLostReport);
-                    });
-        }
+        LostReport savedLostReport = lostReportRepository.save(lostReport);
 
         eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
@@ -191,13 +170,14 @@ public class LostReportService {
     ) {
         return lostReportRepository.findById(id)
                 .map(lostReport -> {
-                    verifyVenueAccess(jwt, lostReport.getVenueId());
+                    verifyPhotoUpdateAccess(jwt, lostReport);
 
                     String previousPhotoKey = lostReport.getPhotoKey();
                     String photoKey = storePhoto(photo);
                     lostReport.setPhotoKey(photoKey);
 
                     LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
+                    enrichFromPhotoIfMissingAttributes(updatedReport, photoKey);
                     eventPublisher.publishLostReportUpdated(updatedReport);
                     safeDeletePhoto(previousPhotoKey, id);
 
@@ -336,6 +316,44 @@ public class LostReportService {
         }
     }
 
+    private void verifyPhotoUpdateAccess(Jwt jwt, LostReport lostReport) {
+        if (jwt != null) {
+            verifyVenueAccess(jwt, lostReport.getVenueId());
+            return;
+        }
+
+        if (lostReport.getPhotoKey() != null && !lostReport.getPhotoKey().isBlank()) {
+            throw new AccessDeniedException("Photo already exists for this lost report.");
+        }
+    }
+
+    private void enrichFromPhotoIfMissingAttributes(LostReport lostReport, String photoKey) {
+        if (hasMeaningfulAttributes(lostReport.getAttributes())) {
+            return;
+        }
+
+        attributeExtractionService.extract(lostReport.getDescription(), photoKey)
+                .ifPresent(extracted -> {
+                    lostReport.setAttributes(extracted);
+                    lostReportRepository.save(lostReport);
+                });
+    }
+
+    private boolean hasMeaningfulAttributes(ItemAttributes attributes) {
+        if (attributes == null) {
+            return false;
+        }
+
+        return hasText(attributes.getCategory())
+                || hasText(attributes.getBrand())
+                || hasText(attributes.getColor())
+                || (attributes.getMarks() != null && attributes.getMarks().stream().anyMatch(this::hasText));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private String storePhoto(MultipartFile photo) {
         validatePhoto(photo);
         try {
@@ -349,10 +367,6 @@ public class LostReportService {
         } catch (PhotoStorageException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not store uploaded photo.", exception);
         }
-    }
-
-    private boolean hasPhoto(MultipartFile photo) {
-        return photo != null && !photo.isEmpty();
     }
 
     private LostReport saveOrCompensate(LostReport lostReport, String newlyStoredPhotoKey, UUID reportId) {

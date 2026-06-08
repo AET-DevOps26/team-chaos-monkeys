@@ -9,9 +9,6 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.service.FoundItemService;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoUrlResponse;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
@@ -34,19 +31,12 @@ public class FoundItemController {
         this.foundItemService = foundItemService;
     }
 
-    @Operation(requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(
-                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
-                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
-            )
-    ))
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<FoundItemResponse> createFoundItemWithPhoto(
-            @Valid @RequestPart("request") CreateFoundItemRequest request,
-            @RequestPart("photo") MultipartFile photo,
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<FoundItemResponse> createFoundItem(
+            @Valid @RequestBody CreateFoundItemRequest request,
             JwtAuthenticationToken authentication
     ) {
-        FoundItemResponse response = foundItemService.createFoundItem(request, photo, authentication.getToken());
+        FoundItemResponse response = foundItemService.createFoundItem(request, authentication.getToken());
         return ResponseEntity
                 .created(URI.create("/api/found-items/" + response.id()))
                 .body(response);

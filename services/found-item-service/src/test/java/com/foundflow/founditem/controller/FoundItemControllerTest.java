@@ -42,27 +42,14 @@ class FoundItemControllerTest {
     private FoundItemService foundItemService;
 
     @Test
-    void createFoundItemJson_shouldReturnUnsupportedMediaType() throws Exception {
-        UUID venueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
-        CreateFoundItemRequest request = createRequest(venueId, reporterId);
-
-        mockMvc.perform(post("/api/found-items")
-                        .with(staffPrincipal(venueId))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(jsonMapper.writeValueAsString(request)))
-                .andExpect(status().isUnsupportedMediaType());
-    }
-
-    @Test
-    void createFoundItemWithPhoto_shouldReturnCreatedItemWithGeneratedPhotoKey() throws Exception {
+    void createFoundItem_shouldReturnCreatedItemWithoutPhotoKey() throws Exception {
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = createRequest(venueId, reporterId);
         FoundItemResponse response = new FoundItemResponse(
                 id,
-                "found-items/2026/05/generated.jpg",
+                null,
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 "Neben Buehne 2",
@@ -71,62 +58,38 @@ class FoundItemControllerTest {
                 reporterId,
                 new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
         );
-        MockMultipartFile requestPart = new MockMultipartFile(
-                "request",
-                "request.json",
-                MediaType.APPLICATION_JSON_VALUE,
-                jsonMapper.writeValueAsBytes(request)
-        );
-        MockMultipartFile photo = new MockMultipartFile(
-                "photo",
-                "bag.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "photo-bytes".getBytes()
-        );
 
-        when(foundItemService.createFoundItem(eq(request), any(), any(Jwt.class))).thenReturn(response);
+        when(foundItemService.createFoundItem(eq(request), any(Jwt.class))).thenReturn(response);
 
-        mockMvc.perform(multipart("/api/found-items")
-                        .file(requestPart)
-                        .file(photo)
-                        .with(staffPrincipal(venueId)))
+        mockMvc.perform(post("/api/found-items")
+                        .with(staffPrincipal(venueId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/found-items/" + id))
-                .andExpect(jsonPath("$.photoKey").value("found-items/2026/05/generated.jpg"));
+                .andExpect(jsonPath("$.photoKey").doesNotExist());
     }
 
     @Test
-    void createFoundItemWithPhoto_shouldAllowMissingReporterId() throws Exception {
+    void createFoundItem_shouldAllowMissingReporterId() throws Exception {
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = createRequest(venueId, null);
         FoundItemResponse response = response(id, venueId, reporterId, ItemStatus.STORED);
-        MockMultipartFile requestPart = new MockMultipartFile(
-                "request",
-                "request.json",
-                MediaType.APPLICATION_JSON_VALUE,
-                jsonMapper.writeValueAsBytes(request)
-        );
-        MockMultipartFile photo = new MockMultipartFile(
-                "photo",
-                "bag.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "photo-bytes".getBytes()
-        );
 
-        when(foundItemService.createFoundItem(eq(request), any(), any(Jwt.class))).thenReturn(response);
+        when(foundItemService.createFoundItem(eq(request), any(Jwt.class))).thenReturn(response);
 
-        mockMvc.perform(multipart("/api/found-items")
-                        .file(requestPart)
-                        .file(photo)
-                        .with(staffPrincipal(venueId)))
+        mockMvc.perform(post("/api/found-items")
+                        .with(staffPrincipal(venueId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.reporterId").value(reporterId.toString()));
     }
 
     @Test
-    void createFoundItemWithPhoto_shouldRejectMissingPhotoPart() throws Exception {
+    void createFoundItemMultipart_shouldReturnUnsupportedMediaType() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = createRequest(venueId, reporterId);
@@ -140,7 +103,7 @@ class FoundItemControllerTest {
         mockMvc.perform(multipart("/api/found-items")
                         .file(requestPart)
                         .with(staffPrincipal(venueId)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnsupportedMediaType());
     }
 
     @Test

@@ -73,7 +73,6 @@ public class FoundItemService {
 
     public FoundItemResponse createFoundItem(
             CreateFoundItemRequest request,
-            MultipartFile photo,
             Jwt jwt
     ) {
         UUID venueId = venueAccessService.isAdmin(jwt)
@@ -82,12 +81,11 @@ public class FoundItemService {
         UUID reporterId = request.reporterId() != null
                 ? request.reporterId()
                 : venueAccessService.getUserId(jwt);
-        String photoKey = storePhoto(photo);
 
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
         FoundItem foundItem = new FoundItem(
-                photoKey,
+                null,
                 request.description(),
                 request.foundAt(),
                 request.locationHint(),
@@ -97,20 +95,8 @@ public class FoundItemService {
                 attributes
         );
 
-        FoundItem savedFoundItem = saveOrCompensate(foundItem, photoKey, null);
+        FoundItem savedFoundItem = foundItemRepository.save(foundItem);
 
-        if (attributes == null) {
-            attributeExtractionService.extractWithLocation(request.description(), photoKey)
-                    .ifPresent(extracted -> {
-                        savedFoundItem.setAttributes(extracted.attributes());
-                        if (extracted.location() != null) {
-                            savedFoundItem.setLocationHint(extracted.location());
-                        }
-                        foundItemRepository.save(savedFoundItem);
-                    });
-        }
-
-        eventPublisher.publishFoundItemLogged(savedFoundItem);
         return toResponse(savedFoundItem);
     }
 
@@ -164,7 +150,9 @@ public class FoundItemService {
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
-                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
+                    if (hasStoredPhoto(updatedFoundItem.getPhotoKey())) {
+                        eventPublisher.publishFoundItemUpdated(updatedFoundItem);
+                    }
                     return toResponse(updatedFoundItem);
                 });
     }
@@ -179,11 +167,17 @@ public class FoundItemService {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
 
                     String previousPhotoKey = foundItem.getPhotoKey();
+                    boolean hadPhoto = hasStoredPhoto(previousPhotoKey);
                     String photoKey = storePhoto(photo);
                     foundItem.setPhotoKey(photoKey);
 
                     FoundItem updatedFoundItem = saveOrCompensate(foundItem, photoKey, id);
-                    eventPublisher.publishFoundItemUpdated(updatedFoundItem);
+                    enrichFromPhotoIfMissingAttributes(updatedFoundItem, photoKey);
+                    if (hadPhoto) {
+                        eventPublisher.publishFoundItemUpdated(updatedFoundItem);
+                    } else {
+                        eventPublisher.publishFoundItemCreated(updatedFoundItem);
+                    }
                     safeDeletePhoto(previousPhotoKey, id);
 
                     return toResponse(updatedFoundItem);
@@ -316,6 +310,40 @@ public class FoundItemService {
         if (!venueAccessService.canAccessVenue(jwt, resourceVenueId)) {
             throw new AccessDeniedException("No access to this venue.");
         }
+    }
+
+    private boolean hasStoredPhoto(String photoKey) {
+        return photoKey != null && !photoKey.isBlank();
+    }
+
+    private void enrichFromPhotoIfMissingAttributes(FoundItem foundItem, String photoKey) {
+        if (hasMeaningfulAttributes(foundItem.getAttributes())) {
+            return;
+        }
+
+        attributeExtractionService.extractWithLocation(foundItem.getDescription(), photoKey)
+                .ifPresent(extracted -> {
+                    foundItem.setAttributes(extracted.attributes());
+                    if (extracted.location() != null) {
+                        foundItem.setLocationHint(extracted.location());
+                    }
+                    foundItemRepository.save(foundItem);
+                });
+    }
+
+    private boolean hasMeaningfulAttributes(ItemAttributes attributes) {
+        if (attributes == null) {
+            return false;
+        }
+
+        return hasText(attributes.getCategory())
+                || hasText(attributes.getBrand())
+                || hasText(attributes.getColor())
+                || (attributes.getMarks() != null && attributes.getMarks().stream().anyMatch(this::hasText));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String storePhoto(MultipartFile photo) {

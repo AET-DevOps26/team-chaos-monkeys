@@ -320,6 +320,17 @@ function Assert-GeneratedPhotoKey {
     }
 }
 
+function Assert-NoPhotoKey {
+    param(
+        [object]$Item,
+        [string]$Label
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$Item.photoKey)) {
+        throw "$Label should not have a photoKey before photo upload. Actual: $($Item.photoKey)"
+    }
+}
+
 function Assert-SignedPhotoUrl {
     param(
         [object]$Body,
@@ -486,13 +497,24 @@ $publicLostReportRequest = @{
         marks = @("E2E")
     }
 }
-$publicLostReport = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $publicLostReportRequest)
-).Result
+$publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $publicLostReportRequest
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
 $publicLostReportBody = Read-Json $publicLostReport
-Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item multipart create"
+Assert-NoPhotoKey $publicLostReportBody "Public lost-item JSON create"
+
+$publicLostPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $publicLostPhotoUpload 200 "Public lost-item photo can be uploaded after create"
+$publicLostReportBody = Read-Json $publicLostPhotoUpload
+Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item photo upload"
+
+$publicLostPhotoReplace = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $publicLostPhotoReplace 401 "Public lost-item photo replacement is rejected"
 
 $publicLostPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo").Result
 Assert-Status $publicLostPhoto 401 "Public client cannot read lost-item photo"
@@ -502,6 +524,12 @@ Assert-Status $publicLostPhotoUrl 401 "Public client cannot request lost-item si
 $adminTokens = Get-TokenPair $AdminEmail $AdminPassword
 $adminTokens = Refresh-TokenPair $adminTokens.refreshToken
 $adminClient = New-GatewayClient $adminTokens.accessToken
+
+$lostMultipartCreate = $adminClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $publicLostReportRequest)
+).Result
+Assert-Status $lostMultipartCreate 415 "Lost-item create rejects multipart payload"
 
 $users = $adminClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $users 200 "Admin can list users"
@@ -735,10 +763,13 @@ $foundRequest = @{
         marks = @("E2E")
     }
 }
-$foundResponse = $opsClient.PostAsync(
+$foundMultipartCreate = $opsClient.PostAsync(
     "$GatewayBaseUrl/api/found-items",
     (MultipartItemContent $foundRequest)
 ).Result
+Assert-Status $foundMultipartCreate 415 "Found-item create rejects multipart payload"
+
+$foundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" $foundRequest
 Assert-Status $foundResponse 201 "OPS_MANAGER can create found item in own venue"
 $foundItem = Read-Json $foundResponse
 if ($foundItem.venueId -ne $venueId) {
@@ -747,7 +778,15 @@ if ($foundItem.venueId -ne $venueId) {
 if ($foundItem.reporterId -ne $opsUser.id) {
     throw "Found item should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($foundItem.reporterId)."
 }
-Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item multipart create"
+Assert-NoPhotoKey $foundItem "Found-item JSON create"
+
+$foundInitialPhotoUpload = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $foundInitialPhotoUpload 200 "OPS_MANAGER can upload found-item photo after create"
+$foundItem = Read-Json $foundInitialPhotoUpload
+Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item photo upload"
 
 $foundPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo").Result
 Assert-Status $foundPhoto 200 "OPS_MANAGER can read found-item photo"
@@ -810,13 +849,18 @@ $lostRequest = @{
         marks = @("E2E")
     }
 }
-$lostResponse = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $lostRequest)
-).Result
+$lostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $lostRequest
 Assert-Status $lostResponse 201 "Public lost item can be created for test venue"
 $lostItem = Read-Json $lostResponse
-Assert-GeneratedPhotoKey $lostItem "lost-reports/" "Lost-item multipart create"
+Assert-NoPhotoKey $lostItem "Lost-item JSON create"
+
+$lostInitialPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $lostInitialPhotoUpload 200 "Public lost-item photo can be uploaded after create"
+$lostItem = Read-Json $lostInitialPhotoUpload
+Assert-GeneratedPhotoKey $lostItem "lost-reports/" "Lost-item photo upload"
 
 $lostPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo").Result
 Assert-Status $lostPhoto 200 "OPS_MANAGER can read lost-item photo"
@@ -1149,12 +1193,17 @@ $extractionLostRequest = @{
     venueId = $venueId
     contactEmail = "extract-$suffix@example.com"
 }
-$extractionLostResponse = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $extractionLostRequest)
-).Result
-Assert-Status $extractionLostResponse 201 "Lost-item create runs GenAI extraction"
+$extractionLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $extractionLostRequest
+Assert-Status $extractionLostResponse 201 "Lost-item create accepts missing attributes before photo upload"
 $extractionLostItem = Read-Json $extractionLostResponse
+Assert-NoPhotoKey $extractionLostItem "Lost-item GenAI JSON create"
+
+$extractionLostPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($extractionLostItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $extractionLostPhotoUpload 200 "Lost-item photo upload runs GenAI extraction"
+$extractionLostItem = Read-Json $extractionLostPhotoUpload
 
 $extractionLostCategory = [string]$extractionLostItem.attributes.category
 $extractionLostColor = [string]$extractionLostItem.attributes.color
@@ -1173,15 +1222,21 @@ $extractionFoundRequest = @{
     locationHint = "GenAI extraction"
     venueId = "33333333-3333-3333-3333-333333333333"
 }
-$extractionFoundResponse = $opsClient.PostAsync(
-    "$GatewayBaseUrl/api/found-items",
-    (MultipartItemContent $extractionFoundRequest)
-).Result
-Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
+$extractionFoundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" $extractionFoundRequest
+Assert-Status $extractionFoundResponse 201 "Found-item create accepts missing attributes before photo upload"
 $extractionFoundItem = Read-Json $extractionFoundResponse
 if ($extractionFoundItem.reporterId -ne $opsUser.id) {
     throw "Found-item extraction create should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($extractionFoundItem.reporterId)."
 }
+Assert-NoPhotoKey $extractionFoundItem "Found-item GenAI JSON create"
+
+$extractionFoundPhotoUpload = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/found-items/$($extractionFoundItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $extractionFoundPhotoUpload 200 "Found-item photo upload runs GenAI extraction"
+$extractionFoundItem = Read-Json $extractionFoundPhotoUpload
+
 $extractionFoundCategory = [string]$extractionFoundItem.attributes.category
 $extractionFoundColor = [string]$extractionFoundItem.attributes.color
 if (

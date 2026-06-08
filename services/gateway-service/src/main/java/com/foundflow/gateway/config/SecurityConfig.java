@@ -50,6 +50,7 @@ public class SecurityConfig {
                                 "/api/auth/password-reset/confirm"
                         ).permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/lost-items").permitAll()
+                        .pathMatchers(HttpMethod.PUT, "/api/lost-items/*/photo").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/venues/public").permitAll()
                         .pathMatchers(
                                 "/api/matches/public/**",

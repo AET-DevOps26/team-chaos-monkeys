@@ -90,21 +90,9 @@ class LostReportControllerTest {
     }
 
     @Test
-    void createLostReportWithPhoto_shouldAllowPublicRequestAndReturnGeneratedPhotoKey() throws Exception {
-        UUID id = UUID.randomUUID();
+    void createLostReportMultipart_shouldReturnUnsupportedMediaType() throws Exception {
         UUID venueId = UUID.randomUUID();
         CreateLostReportRequest request = createRequest(venueId);
-        LostReportResponse response = new LostReportResponse(
-                id,
-                "lost-reports/2026/05/generated.jpg",
-                "Schwarzer Rucksack verloren",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                "Neben Buehne 2",
-                ReportStatus.OPEN,
-                venueId,
-                "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
-        );
         MockMultipartFile requestPart = new MockMultipartFile(
                 "request",
                 "request.json",
@@ -118,14 +106,10 @@ class LostReportControllerTest {
                 "photo-bytes".getBytes()
         );
 
-        when(lostReportService.createLostReport(eq(request), any(), isNull())).thenReturn(response);
-
         mockMvc.perform(multipart("/api/lost-items")
                         .file(requestPart)
                         .file(photo))
-                .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/lost-items/" + id))
-                .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
+                .andExpect(status().isUnsupportedMediaType());
     }
 
     @Test
@@ -243,6 +227,41 @@ class LostReportControllerTest {
                             return request;
                         })
                         .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
+    }
+
+    @Test
+    void updateLostReportPhoto_shouldAllowPublicInitialPhotoUpload() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        LostReportResponse response = new LostReportResponse(
+                id,
+                "lost-reports/2026/05/generated.jpg",
+                "Schwarzer Rucksack verloren",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ReportStatus.OPEN,
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+
+        when(lostReportService.updateLostReportPhoto(eq(id), any(), isNull()))
+                .thenReturn(Optional.of(response));
+
+        mockMvc.perform(multipart("/api/lost-items/{id}/photo", id)
+                        .file(photo)
+                        .with(request -> {
+                            request.setMethod("PUT");
+                            return request;
+                        }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photoKey").value("lost-reports/2026/05/generated.jpg"));
     }

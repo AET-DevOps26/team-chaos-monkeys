@@ -36,7 +36,7 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Queue foundItemLoggedQueue() {
+    public Queue foundItemCreatedQueue() {
         return new Queue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE, true);
     }
 
@@ -66,13 +66,13 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Binding foundItemLoggedBinding(
-            Queue foundItemLoggedQueue,
+    public Binding foundItemCreatedBinding(
+            Queue foundItemCreatedQueue,
             TopicExchange domainEventsExchange
     ) {
-        return BindingBuilder.bind(foundItemLoggedQueue)
+        return BindingBuilder.bind(foundItemCreatedQueue)
                 .to(domainEventsExchange)
-                .with(FoundFlowEventRouting.FOUND_ITEM_LOGGED);
+                .with(FoundFlowEventRouting.FOUND_ITEM_CREATED);
     }
 
     @Bean

@@ -157,8 +157,63 @@ jobs:
           name: client-coverage
           path: client/coverage
 
+  public-report-client-build:
+    name: Build public-report-client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: public-report-client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./public-report-client
+        run: npm ci
+
+      - name: Build public-report-client
+        working-directory: ./public-report-client
+        run: npm run build
+
+  public-report-client-tests:
+    name: Test public-report-client
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: public-report-client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./public-report-client
+        run: npm ci
+
+      - name: Run Vitest with coverage
+        working-directory: ./public-report-client
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-report-client-coverage
+          path: public-report-client/coverage
+
   codegen-check:
-    name: Verify Orval client matches committed specs
+    name: Verify Orval clients match committed specs
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -171,7 +226,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: |
+            client/package-lock.json
+            public-report-client/package-lock.json
 
       - name: Install client dependencies
         working-directory: ./client
@@ -181,8 +238,16 @@ jobs:
         working-directory: ./client
         run: npm run codegen
 
-      - name: Fail if generated client drifted
-        run: git diff --exit-code client/src/api
+      - name: Install public-report-client dependencies
+        working-directory: ./public-report-client
+        run: npm ci
+
+      - name: Regenerate public-report-client from committed specs
+        working-directory: ./public-report-client
+        run: npm run codegen
+
+      - name: Fail if any generated client drifted
+        run: git diff --exit-code client/src/api public-report-client/src/api
 
   e2e-tests:
     name: Run Docker Compose E2E flow

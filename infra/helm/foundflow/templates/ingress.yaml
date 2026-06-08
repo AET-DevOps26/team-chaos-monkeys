@@ -1,6 +1,7 @@
 {{/*
 Single Ingress for the whole stack:
   /         → client
+  /report   → public-report-client
   /api      → gateway-service
   /grafana  → grafana
 TLS via cert-manager when ingress.tls.enabled (on for AET, off locally).
@@ -48,6 +49,14 @@ spec:
                 name: gateway-service
                 port:
                   number: {{ (index .Values.services "gateway-service").port }}
+          {{- /* More specific path: must precede the catch-all `/` below. */}}
+          - path: /report
+            pathType: Prefix
+            backend:
+              service:
+                name: public-report-client
+                port:
+                  number: {{ (index .Values.services "public-report-client").port }}
           - path: /
             pathType: Prefix
             backend:

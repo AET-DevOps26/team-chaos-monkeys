@@ -17,14 +17,17 @@ logging, matching, notifying, and handing over lost items.
 7. Guests confirm or reject a match through the magic link.
 8. Confirmed matches can be scheduled for pickup through the pickup service.
 
-The current frontend exposes the core staff and guest flows:
+The frontend is split across two SPAs. The authenticated staff `client` (`/`)
+serves the staff flows; the unauthenticated `public-report-client` (`/report`)
+serves the guest report flow. The edge/ingress routes each prefix to the right
+app:
 
-- `/login`: staff login
-- `/`: found-item intake
-- `/found-items`: found-item overview
-- `/lost-items`: lost-report overview
-- `/report`: public lost-item report form
-- `/report/confirmation`: report confirmation page
+- `/login`: staff login (client)
+- `/`: found-item intake (client)
+- `/found-items`: found-item overview (client)
+- `/lost-items`: lost-report overview (client)
+- `/report`: public lost-item report form (public-report-client)
+- `/report/confirmation`: report confirmation page (public-report-client)
 
 ## Users
 
@@ -39,7 +42,9 @@ The current frontend exposes the core staff and guest flows:
 
 | Service | Responsibility |
 | --- | --- |
-| `client` | React/Vite frontend served as static assets. Consumes generated TypeScript API clients. |
+| `client` | Authenticated staff React/Vite SPA served as static assets at `/`. Consumes generated TypeScript API clients. |
+| `public-report-client` | Unauthenticated guest React/Vite SPA served at `/report` for the public lost-item report form. Its own deployable micro-frontend, scoped to the lost-items API. |
+| `edge` | nginx front door (compose only) mirroring the k8s ingress: routes `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. |
 | `gateway-service` | Single external API entrypoint for `/api/**`, actuator proxy routes, and Swagger aggregation. |
 | `auth-service` | Users, roles, password login, refresh tokens, JWT issuing, JWK publishing. |
 | `lost-item-service` | Public lost-report intake, lost-report CRUD, optional lost-report photos, lost-report events. |

@@ -18,9 +18,11 @@ Cross-subsystem work on CI/CD, Kubernetes, and observability is expected and tra
 All services and the shared infra now exist. The structure below reflects the repo as it stands.
 
 ```
-client/                            — React 19 + Vite 8 + TS frontend
+client/                            — React 19 + Vite 8 + TS staff frontend (served at /)
+public-report-client/              — React 19 + Vite 8 + TS unauthenticated guest report SPA (served at /report)
+edge/                              — nginx front door (compose only) mirroring the k8s ingress: / → client, /report → public-report-client, /api → gateway
 services/
-  gateway-service/                 — Spring Cloud Gateway, OAuth2 resource server, single public ingress (port 8080)
+  gateway-service/                 — Spring Cloud Gateway, OAuth2 resource server, single API ingress for /api (port 8080; sits behind the edge/k8s ingress)
   auth-service/                    — Spring Boot 4.0.6, Java 21; OAuth2 Authorization Server + Resource Server (8081)
   lost-item-service/               — Spring Boot 4.0.6 (8082)
   found-item-service/              — Spring Boot 4.0.6 (8083)
@@ -80,14 +82,14 @@ uvicorn app.main:app --reload --port 8000
 Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET /health`, `GET /_diagnostic`, `GET /metrics` (Prometheus exposition via `prometheus-fastapi-instrumentator`).
 
 ### Docker Compose (root)
-`docker compose up` brings up the whole stack: all eight Spring services, the genai-service, seven dedicated Postgres 17 instances, RabbitMQ and MinIO, Ollama + a one-shot `ollama-init` sidecar that pre-pulls the configured chat/vision/embed models, Prometheus 2.55.1, Grafana 11.3.0, and the React client behind nginx.
+`docker compose up` brings up the whole stack: all eight Spring services, the genai-service, seven dedicated Postgres 17 instances, RabbitMQ and MinIO, Ollama + a one-shot `ollama-init` sidecar that pre-pulls the configured chat/vision/embed models, Prometheus 2.55.1, Grafana 11.3.0, the two React SPAs (`client`, `public-report-client`) behind nginx, and the `edge` front door that path-routes to them and the gateway.
 
 **Host-exposed ports:**
 | Service          | Host  | Container |
 |------------------|-------|-----------|
 | gateway-service  | 8080  | 8080      |
 | genai-service    | 8000  | 8000      |
-| client (nginx)   | 3000  | 80        |
+| edge (nginx)     | 3000  | 80        |
 | prometheus       | 9090  | 9090      |
 | grafana          | 3030  | 3000      |
 | minio (API)      | 9000  | 9000      |
@@ -95,11 +97,11 @@ Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET
 | rabbitmq (AMQP)  | 5672  | 5672      |
 | rabbitmq (mgmt)  | 15672 | 15672     |
 
-All Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
+The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
 
 ## Gateway Routing
 
-`gateway-service` is the only public ingress. Routes live in `services/gateway-service/src/main/resources/application.yml`.
+`gateway-service` is the single ingress for `/api/**` (the API edge). It sits behind the HTTP front door — the `edge` container in compose, the Kubernetes ingress in the cluster — which path-routes `/` and `/report` to the SPAs and `/api` to the gateway. Gateway routes live in `services/gateway-service/src/main/resources/application.yml`.
 
 | Path prefix                            | Upstream                |
 |----------------------------------------|-------------------------|

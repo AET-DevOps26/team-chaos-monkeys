@@ -210,6 +210,21 @@ services:
       requests: { cpu: 50m,  memory: 64Mi }
       limits:   { cpu: 200m, memory: 128Mi }
 
+  # Unauthenticated guest report SPA, routed by the ingress at /report.
+  public-report-client:
+    kind: static
+    port: 80          # nginx in the image listens on 80
+    # nginx serves the bundle only under /report/ (Vite base), nothing at '/',
+    # so the static-default probe path of '/' would 404 and the pod never goes
+    # Ready. Probe the served prefix instead.
+    healthPath: /report/
+    metrics: false
+    public: true
+    replicas: 1
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi }
+      limits:   { cpu: 200m, memory: 128Mi }
+
 # One in-namespace Postgres instance per Spring service. Each gets:
 #   - StatefulSet with one replica (postgres:17, same image as docker-compose)
 #   - PVC of the requested size on global.storageClassName

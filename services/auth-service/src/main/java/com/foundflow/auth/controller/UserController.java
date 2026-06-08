@@ -1,5 +1,6 @@
 package com.foundflow.auth.controller;
 
+import com.foundflow.auth.domain.Role;
 import com.foundflow.auth.dto.CreateUserRequest;
 import com.foundflow.auth.dto.UpdateUserRequest;
 import com.foundflow.auth.dto.UserResponse;
@@ -33,9 +34,11 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAllUsers(
+            @RequestParam(required = false) UUID venueId,
+            @RequestParam(required = false) Role role,
             JwtAuthenticationToken authentication
     ) {
-        return ResponseEntity.ok(userService.getAllUsers(authentication.getToken()));
+        return ResponseEntity.ok(userService.getAllUsers(venueId, role, authentication.getToken()));
     }
 
     @GetMapping("/{id}")

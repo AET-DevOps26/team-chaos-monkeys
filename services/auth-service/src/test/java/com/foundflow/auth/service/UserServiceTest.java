@@ -203,6 +203,79 @@ class UserServiceTest {
     }
 
     @Test
+    void getAllUsers_shouldFilterByVenueAndRoleForAdmin() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID venueId = UUID.randomUUID();
+        User user = new User("staff@example.com", Role.STAFF, "hash-1", venueId);
+
+        when(userRepository.findByVenueIdAndRole(venueId, Role.STAFF))
+                .thenReturn(List.of(user));
+
+        List<UserResponse> responses = userService.getAllUsers(venueId, Role.STAFF, adminJwt());
+
+        assertEquals(1, responses.size());
+        assertEquals("staff@example.com", responses.get(0).email());
+        assertEquals(Role.STAFF, responses.get(0).role());
+        assertEquals(venueId, responses.get(0).venueId());
+        verify(userRepository).findByVenueIdAndRole(venueId, Role.STAFF);
+    }
+
+    @Test
+    void getAllUsers_shouldFilterByRoleForAdmin() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        User admin = new User("admin@example.com", Role.ADMIN, "hash-1", null);
+
+        when(userRepository.findByRole(Role.ADMIN)).thenReturn(List.of(admin));
+
+        List<UserResponse> responses = userService.getAllUsers(null, Role.ADMIN, adminJwt());
+
+        assertEquals(1, responses.size());
+        assertEquals("admin@example.com", responses.get(0).email());
+        assertEquals(Role.ADMIN, responses.get(0).role());
+        verify(userRepository).findByRole(Role.ADMIN);
+    }
+
+    @Test
+    void getAllUsers_shouldFilterByRoleForOpsManagerOwnVenue() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID venueId = UUID.randomUUID();
+        User user = new User("staff@example.com", Role.STAFF, "hash-1", venueId);
+
+        when(userRepository.findByVenueIdAndRole(venueId, Role.STAFF))
+                .thenReturn(List.of(user));
+
+        List<UserResponse> responses =
+                userService.getAllUsers(null, Role.STAFF, opsManagerJwt(venueId, "manager@example.com"));
+
+        assertEquals(1, responses.size());
+        assertEquals(Role.STAFF, responses.get(0).role());
+        assertEquals(venueId, responses.get(0).venueId());
+        verify(userRepository).findByVenueIdAndRole(venueId, Role.STAFF);
+    }
+
+    @Test
+    void getAllUsers_shouldRejectDifferentVenueFilterForOpsManager() {
+        UserService userService = new UserService(userRepository, passwordEncoder);
+
+        UUID ownVenueId = UUID.randomUUID();
+        UUID otherVenueId = UUID.randomUUID();
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userService.getAllUsers(
+                        otherVenueId,
+                        Role.STAFF,
+                        opsManagerJwt(ownVenueId, "manager@example.com")
+                )
+        );
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
     void getUserById_shouldReturnResponseWhenUserExists() {
         UserService userService = new UserService(userRepository, passwordEncoder);
 

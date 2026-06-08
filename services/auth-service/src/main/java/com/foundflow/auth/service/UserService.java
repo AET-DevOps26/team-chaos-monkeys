@@ -49,21 +49,47 @@ public class UserService {
     }
 
     public List<UserResponse> getAllUsers(Jwt jwt) {
+        return getAllUsers(null, null, jwt);
+    }
+
+    public List<UserResponse> getAllUsers(UUID venueId, Role role, Jwt jwt) {
+        return findAccessibleUsers(venueId, role, jwt)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private List<User> findAccessibleUsers(UUID venueId, Role role, Jwt jwt) {
         if (isAdmin(jwt)) {
-            return userRepository.findAll()
-                    .stream()
-                    .map(this::toResponse)
-                    .toList();
+            return findUsers(venueId, role);
         }
 
         if (!isOpsManager(jwt)) {
             throw new AccessDeniedException("Only admins and ops managers can list users.");
         }
 
-        return userRepository.findByVenueId(getVenueId(jwt))
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        UUID ownVenueId = getVenueId(jwt);
+        if (venueId != null && !venueId.equals(ownVenueId)) {
+            throw new AccessDeniedException("No access to users outside your venue.");
+        }
+
+        return findUsers(ownVenueId, role);
+    }
+
+    private List<User> findUsers(UUID venueId, Role role) {
+        if (venueId != null && role != null) {
+            return userRepository.findByVenueIdAndRole(venueId, role);
+        }
+
+        if (venueId != null) {
+            return userRepository.findByVenueId(venueId);
+        }
+
+        if (role != null) {
+            return userRepository.findByRole(role);
+        }
+
+        return userRepository.findAll();
     }
 
     public Optional<UserResponse> getUserById(UUID id, Jwt jwt) {

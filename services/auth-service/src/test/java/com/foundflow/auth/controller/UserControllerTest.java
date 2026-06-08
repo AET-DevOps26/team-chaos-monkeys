@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -97,7 +98,8 @@ class UserControllerTest {
                         null
                 );
 
-                when(userService.getAllUsers(any(Jwt.class))).thenReturn(List.of(user1, user2));
+                when(userService.getAllUsers(isNull(), isNull(), any(Jwt.class)))
+                        .thenReturn(List.of(user1, user2));
 
                 mockMvc.perform(get("/api/users")
                                 .with(adminPrincipal()))
@@ -106,6 +108,29 @@ class UserControllerTest {
                         .andExpect(jsonPath("$[0].role").value("STAFF"))
                         .andExpect(jsonPath("$[1].email").value("admin@example.com"))
                         .andExpect(jsonPath("$[1].role").value("ADMIN"));
+        }
+
+        @Test
+        void getAllUsers_shouldPassVenueAndRoleFilters() throws Exception {
+                UUID venueId = UUID.randomUUID();
+                UserResponse user = new UserResponse(
+                        UUID.randomUUID(),
+                        "staff@example.com",
+                        Role.STAFF,
+                        venueId
+                );
+
+                when(userService.getAllUsers(eq(venueId), eq(Role.STAFF), any(Jwt.class)))
+                        .thenReturn(List.of(user));
+
+                mockMvc.perform(get("/api/users")
+                                .param("venueId", venueId.toString())
+                                .param("role", "STAFF")
+                                .with(adminPrincipal()))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$[0].email").value("staff@example.com"))
+                        .andExpect(jsonPath("$[0].role").value("STAFF"))
+                        .andExpect(jsonPath("$[0].venueId").value(venueId.toString()));
         }
 
         @Test

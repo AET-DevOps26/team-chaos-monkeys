@@ -538,6 +538,29 @@ if ($staff.venueId -ne $venueId) {
     throw "OPS_MANAGER-created staff should receive own venueId. Expected $venueId but got $($staff.venueId)."
 }
 
+$adminFilteredUsers = $adminClient.GetAsync("$GatewayBaseUrl/api/users?venueId=$venueId&role=STAFF").Result
+Assert-Status $adminFilteredUsers 200 "Admin can filter users by venue and role"
+$adminFilteredUsersBody = @(Read-Json $adminFilteredUsers)
+if (@($adminFilteredUsersBody | Where-Object { $_.id -eq $staff.id }).Count -ne 1) {
+    throw "Admin filtered user list should contain created staff. Body: $($adminFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+if (@($adminFilteredUsersBody | Where-Object { $_.venueId -ne $venueId -or $_.role -ne "STAFF" }).Count -gt 0) {
+    throw "Admin filtered user list contains users outside requested venue or role. Body: $($adminFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+
+$opsFilteredUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users?role=STAFF").Result
+Assert-Status $opsFilteredUsers 200 "OPS_MANAGER can filter own venue users by role"
+$opsFilteredUsersBody = @(Read-Json $opsFilteredUsers)
+if (@($opsFilteredUsersBody | Where-Object { $_.id -eq $staff.id }).Count -ne 1) {
+    throw "OPS_MANAGER filtered user list should contain created staff. Body: $($opsFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+if (@($opsFilteredUsersBody | Where-Object { $_.venueId -ne $venueId -or $_.role -ne "STAFF" }).Count -gt 0) {
+    throw "OPS_MANAGER filtered user list contains users outside own venue or role. Body: $($opsFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+
+$opsOtherVenueUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users?venueId=22222222-2222-2222-2222-222222222222").Result
+Assert-Status $opsOtherVenueUsers 403 "OPS_MANAGER cannot filter users outside own venue"
+
 $staffTokens = Get-TokenPair $staffEmail $staffPassword
 $staffClient = New-GatewayClient $staffTokens.accessToken
 

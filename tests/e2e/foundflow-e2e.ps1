@@ -1049,7 +1049,7 @@ $opsBlueprintUpdate = $opsClient.PutAsync(
 ).Result
 Assert-Status $opsBlueprintUpdate 202 "OPS_MANAGER can update notification blueprints"
 
-$kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis/$venueId").Result
+$kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis?venueId=$venueId").Result
 Assert-Status $kpis 200 "Admin can read venue KPIs"
 $kpiBody = Read-Json $kpis
 if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1) {

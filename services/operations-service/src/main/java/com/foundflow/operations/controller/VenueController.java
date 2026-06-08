@@ -50,19 +50,16 @@ public class VenueController {
 
     @GetMapping("/kpis")
     public ResponseEntity<VenueKpiResponse> getVenueKpis(
+            @RequestParam(required = false) UUID venueId,
             JwtAuthenticationToken authentication
     ) {
-        return ResponseEntity.ok(venueKpiService.getKpis(authentication.getToken()));
-    }
+        if (venueId == null) {
+            return ResponseEntity.ok(venueKpiService.getKpis(authentication.getToken()));
+        }
 
-    @GetMapping("/kpis/{id}")
-    public ResponseEntity<VenueKpiResponse> getVenueKpisById(
-            @PathVariable UUID id,
-            JwtAuthenticationToken authentication
-    ) {
-        return venueService.getVenueById(id, authentication.getToken())
+        return venueService.getVenueById(venueId, authentication.getToken())
                 .map(venue -> ResponseEntity.ok(venueKpiService.getKpis(
-                        id,
+                        venueId,
                         authentication.getToken()
                 )))
                 .orElseGet(() -> ResponseEntity.notFound().build());

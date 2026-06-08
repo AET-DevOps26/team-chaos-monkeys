@@ -118,10 +118,18 @@ class VenueControllerTest {
                 .andExpect(jsonPath("$.totalMatches").value(5))
                 .andExpect(jsonPath("$.pendingMatches").value(2));
 
-        mockMvc.perform(get("/api/venues/kpis/{id}", venueId)
-                        .with(staffPrincipal(venueId)))
+        mockMvc.perform(get("/api/venues/kpis")
+                        .param("venueId", venueId.toString())
+                        .with(adminPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()));
+    }
+
+    @Test
+    void legacyKpiPath_shouldNotBeMapped() throws Exception {
+        mockMvc.perform(get("/api/venues/kpis/{id}", UUID.randomUUID())
+                        .with(adminPrincipal()))
+                .andExpect(status().isNotFound());
     }
 
     private org.springframework.test.web.servlet.request.RequestPostProcessor staffPrincipal(UUID venueId) {

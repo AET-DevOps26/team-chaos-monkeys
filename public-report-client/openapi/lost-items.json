@@ -369,15 +369,14 @@
                 "required": [
                   "request"
                 ]
-              }
-            },
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLostReportRequest"
+              },
+              "encoding": {
+                "request": {
+                  "contentType": "application/json"
+                }
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -453,15 +452,14 @@
                 "required": [
                   "request"
                 ]
-              }
-            },
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLostReportRequest"
+              },
+              "encoding": {
+                "request": {
+                  "contentType": "application/json"
+                }
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import { createLostReportSuccess } from '@test/handlers'
@@ -59,5 +60,36 @@ describe('<ReportLostItem />', () => {
     expect(await screen.findByText(/report submitted/i)).toBeInTheDocument()
     expect(screen.getByText(`#${REPORT.id}`)).toBeInTheDocument()
     expect(screen.getByText(REPORT.description!)).toBeInTheDocument()
+  })
+
+  it('sends the attached photo as a multipart part', async () => {
+    let contentType = ''
+    let rawBody = ''
+    server.use(
+      // Inspect the raw multipart body: the undici FormData parser can't
+      // read the JSON `request` Blob part, so assert on the wire bytes.
+      http.post('*/api/lost-items', async ({ request }) => {
+        contentType = request.headers.get('content-type') ?? ''
+        rawBody = await request.text()
+        return HttpResponse.json<LostReportResponse>(REPORT)
+      }),
+    )
+    const { user } = renderWithProviders(<AppRoutes />)
+
+    await fillForm(user)
+    const file = new File(['binary'], 'wallet.png', { type: 'image/png' })
+    await user.upload(screen.getByLabelText(/photo/i), file)
+
+    const submit = screen.getByRole('button', { name: /submit report/i })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(submit)
+
+    expect(await screen.findByText(/report submitted/i)).toBeInTheDocument()
+    // Photo reaches the wire as its own multipart part alongside the JSON
+    // `request` part. (jsdom/undici degrades the filename to "blob" and
+    // doesn't inline the Blob bytes, so assert on the part headers only.)
+    expect(contentType).toMatch(/multipart\/form-data/)
+    expect(rawBody).toMatch(/name="request"[\s\S]*Content-Type: application\/json/)
+    expect(rawBody).toMatch(/name="photo"[\s\S]*Content-Type: image\/png/)
   })
 })

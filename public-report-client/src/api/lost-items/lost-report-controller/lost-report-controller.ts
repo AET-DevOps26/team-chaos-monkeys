@@ -27,9 +27,8 @@ import type {
   CountLostReports1Params,
   CountLostReportsParams,
   CountResponse,
-  CreateLostReportRequest,
-  CreateLostReportWithPhoto1BodyOne,
-  CreateLostReportWithPhotoBodyOne,
+  CreateLostReportWithPhoto1Body,
+  CreateLostReportWithPhotoBody,
   GetAllLostReports1Params,
   GetAllLostReportsParams,
   GetLostReportHistogram1Params,
@@ -716,14 +715,19 @@ export function useGetAllLostReports<TData = Awaited<ReturnType<typeof getAllLos
 
 
 export const createLostReportWithPhoto = (
-    createLostReportWithPhotoBody: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest,
+    createLostReportWithPhotoBody: CreateLostReportWithPhotoBody,
  signal?: AbortSignal
 ) => {
       
-      
+      const formData = new FormData();
+formData.append(`request`, new Blob([JSON.stringify(createLostReportWithPhotoBody.request)], { type: 'application/json' }));
+if(createLostReportWithPhotoBody.photo !== undefined) {
+ formData.append(`photo`, createLostReportWithPhotoBody.photo)
+ }
+
       return customInstance<LostReportResponse>(
       {url: `/api/lost-items`, method: 'POST',
-      data: createLostReportWithPhotoBody, signal
+       data: formData, signal
     },
       );
     }
@@ -731,8 +735,8 @@ export const createLostReportWithPhoto = (
 
 
 export const getCreateLostReportWithPhotoMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBody}, TContext> => {
 
 const mutationKey = ['createLostReportWithPhoto'];
 const {mutation: mutationOptions} = options ?
@@ -744,7 +748,7 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto>>, {data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto>>, {data: CreateLostReportWithPhotoBody}> = (props) => {
           const {data} = props ?? {};
 
           return  createLostReportWithPhoto(data,)
@@ -756,15 +760,15 @@ const {mutation: mutationOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateLostReportWithPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof createLostReportWithPhoto>>>
-    export type CreateLostReportWithPhotoMutationBody = CreateLostReportWithPhotoBodyOne | CreateLostReportRequest
+    export type CreateLostReportWithPhotoMutationBody = CreateLostReportWithPhotoBody
     export type CreateLostReportWithPhotoMutationError = ErrorType<unknown>
 
     export const useCreateLostReportWithPhoto = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto>>, TError,{data: CreateLostReportWithPhotoBody}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createLostReportWithPhoto>>,
         TError,
-        {data: CreateLostReportWithPhotoBodyOne | CreateLostReportRequest},
+        {data: CreateLostReportWithPhotoBody},
         TContext
       > => {
 
@@ -860,14 +864,19 @@ export function useGetAllLostReports1<TData = Awaited<ReturnType<typeof getAllLo
 
 
 export const createLostReportWithPhoto1 = (
-    createLostReportWithPhoto1Body: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest,
+    createLostReportWithPhoto1Body: CreateLostReportWithPhoto1Body,
  signal?: AbortSignal
 ) => {
       
-      
+      const formData = new FormData();
+formData.append(`request`, new Blob([JSON.stringify(createLostReportWithPhoto1Body.request)], { type: 'application/json' }));
+if(createLostReportWithPhoto1Body.photo !== undefined) {
+ formData.append(`photo`, createLostReportWithPhoto1Body.photo)
+ }
+
       return customInstance<LostReportResponse>(
       {url: `/api/lost-reports`, method: 'POST',
-      data: createLostReportWithPhoto1Body, signal
+       data: formData, signal
     },
       );
     }
@@ -875,8 +884,8 @@ export const createLostReportWithPhoto1 = (
 
 
 export const getCreateLostReportWithPhoto1MutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1Body}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1Body}, TContext> => {
 
 const mutationKey = ['createLostReportWithPhoto1'];
 const {mutation: mutationOptions} = options ?
@@ -888,7 +897,7 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, {data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, {data: CreateLostReportWithPhoto1Body}> = (props) => {
           const {data} = props ?? {};
 
           return  createLostReportWithPhoto1(data,)
@@ -900,15 +909,15 @@ const {mutation: mutationOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateLostReportWithPhoto1MutationResult = NonNullable<Awaited<ReturnType<typeof createLostReportWithPhoto1>>>
-    export type CreateLostReportWithPhoto1MutationBody = CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest
+    export type CreateLostReportWithPhoto1MutationBody = CreateLostReportWithPhoto1Body
     export type CreateLostReportWithPhoto1MutationError = ErrorType<unknown>
 
     export const useCreateLostReportWithPhoto1 = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLostReportWithPhoto1>>, TError,{data: CreateLostReportWithPhoto1Body}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createLostReportWithPhoto1>>,
         TError,
-        {data: CreateLostReportWithPhoto1BodyOne | CreateLostReportRequest},
+        {data: CreateLostReportWithPhoto1Body},
         TContext
       > => {
 

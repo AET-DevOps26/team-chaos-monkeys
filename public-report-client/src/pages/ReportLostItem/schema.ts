@@ -5,7 +5,7 @@ import { createLostReportWithPhotoBody } from '@/api/lost-items/zod'
 // UTC ISO (`...Z`), but the `datetime-local` input produces a naive
 // local string. The other fields stay sourced from codegen so a spec
 // change surfaces here as a type error.
-export const reportLostItemSchema = createLostReportWithPhotoBody
+export const reportLostItemSchema = createLostReportWithPhotoBody.shape.request
   .pick({ description: true, contactEmail: true })
   .extend({
     lostAt: z

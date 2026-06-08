@@ -249,6 +249,24 @@ function Read-Json {
     return $parsed
 }
 
+function Decode-JwtPayload {
+    param([string]$Token)
+
+    $parts = $Token.Split(".")
+    if ($parts.Count -lt 2) {
+        throw "JWT should contain a payload segment."
+    }
+
+    $payload = $parts[1].Replace("-", "+").Replace("_", "/")
+    $padding = (4 - ($payload.Length % 4)) % 4
+    if ($padding -gt 0) {
+        $payload = $payload + ("=" * $padding)
+    }
+
+    $json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload))
+    return $json | ConvertFrom-Json
+}
+
 function Post-Json {
     param(
         [System.Net.Http.HttpClient]$Client,
@@ -489,6 +507,11 @@ $users = $adminClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $users 200 "Admin can list users"
 $usersByEmail = $adminClient.GetAsync("$GatewayBaseUrl/api/users/by-email?email=$([System.Uri]::EscapeDataString($AdminEmail))").Result
 Assert-Status $usersByEmail 200 "Admin can load user by email"
+$adminUser = Read-Json $usersByEmail
+$adminTokenPayload = Decode-JwtPayload $adminTokens.accessToken
+if ($adminTokenPayload.sub -ne $adminUser.id -or $adminTokenPayload.user_id -ne $adminUser.id) {
+    throw "Admin access token should identify the user by UUID. Expected $($adminUser.id), got sub=$($adminTokenPayload.sub), user_id=$($adminTokenPayload.user_id)."
+}
 
 $suffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
 $venueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
@@ -526,6 +549,10 @@ $opsUser = Read-Json $opsResponse
 
 $opsTokens = Get-TokenPair $opsEmail $opsPassword
 $opsClient = New-GatewayClient $opsTokens.accessToken
+$opsTokenPayload = Decode-JwtPayload $opsTokens.accessToken
+if ($opsTokenPayload.sub -ne $opsUser.id -or $opsTokenPayload.user_id -ne $opsUser.id) {
+    throw "OPS_MANAGER access token should identify the user by UUID. Expected $($opsUser.id), got sub=$($opsTokenPayload.sub), user_id=$($opsTokenPayload.user_id)."
+}
 
 $opsUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $opsUsers 200 "OPS_MANAGER can list own venue users"
@@ -701,7 +728,6 @@ $foundRequest = @{
     foundAt = "2026-05-19T15:45:00"
     locationHint = "Desk"
     venueId = "33333333-3333-3333-3333-333333333333"
-    reporterId = "44444444-4444-4444-4444-444444444444"
     attributes = @{
         category = "Bag"
         brand = "Test"
@@ -717,6 +743,9 @@ Assert-Status $foundResponse 201 "OPS_MANAGER can create found item in own venue
 $foundItem = Read-Json $foundResponse
 if ($foundItem.venueId -ne $venueId) {
     throw "Found item should use OPS_MANAGER venueId. Expected $venueId but got $($foundItem.venueId)."
+}
+if ($foundItem.reporterId -ne $opsUser.id) {
+    throw "Found item should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($foundItem.reporterId)."
 }
 Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item multipart create"
 
@@ -1143,7 +1172,6 @@ $extractionFoundRequest = @{
     foundAt = "2026-05-19T16:05:00"
     locationHint = "GenAI extraction"
     venueId = "33333333-3333-3333-3333-333333333333"
-    reporterId = "44444444-4444-4444-4444-444444444444"
 }
 $extractionFoundResponse = $opsClient.PostAsync(
     "$GatewayBaseUrl/api/found-items",
@@ -1151,6 +1179,9 @@ $extractionFoundResponse = $opsClient.PostAsync(
 ).Result
 Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
 $extractionFoundItem = Read-Json $extractionFoundResponse
+if ($extractionFoundItem.reporterId -ne $opsUser.id) {
+    throw "Found-item extraction create should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($extractionFoundItem.reporterId)."
+}
 $extractionFoundCategory = [string]$extractionFoundItem.attributes.category
 $extractionFoundColor = [string]$extractionFoundItem.attributes.color
 if (

@@ -79,6 +79,9 @@ public class FoundItemService {
         UUID venueId = venueAccessService.isAdmin(jwt)
                 ? request.venueId()
                 : venueAccessService.getVenueId(jwt);
+        UUID reporterId = request.reporterId() != null
+                ? request.reporterId()
+                : venueAccessService.getUserId(jwt);
         String photoKey = storePhoto(photo);
 
         ItemAttributes attributes = toItemAttributes(request.attributes());
@@ -90,7 +93,7 @@ public class FoundItemService {
                 request.locationHint(),
                 ItemStatus.STORED,
                 venueId,
-                request.reporterId(),
+                reporterId,
                 attributes
         );
 
@@ -155,7 +158,9 @@ public class FoundItemService {
                         }
                         foundItem.setVenueId(request.venueId());
                     }
-                    foundItem.setReporterId(request.reporterId());
+                    if (request.reporterId() != null) {
+                        foundItem.setReporterId(request.reporterId());
+                    }
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);

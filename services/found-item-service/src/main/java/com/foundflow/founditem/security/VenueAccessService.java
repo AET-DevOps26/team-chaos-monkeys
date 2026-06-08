@@ -24,6 +24,23 @@ public class VenueAccessService {
         return UUID.fromString(venueId);
     }
 
+    public UUID getUserId(Jwt jwt) {
+        String userId = jwt.getClaimAsString("user_id");
+        if (userId == null || userId.isBlank()) {
+            userId = jwt.getSubject();
+        }
+
+        if (userId == null || userId.isBlank()) {
+            throw new AccessDeniedException("Missing user identity claim.");
+        }
+
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException exception) {
+            throw new AccessDeniedException("Invalid user identity claim.", exception);
+        }
+    }
+
     public boolean canAccessVenue(Jwt jwt, UUID resourceVenueId) {
         if (isAdmin(jwt)) {
             return true;

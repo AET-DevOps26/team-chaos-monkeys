@@ -235,7 +235,7 @@ public class UserService {
         return UUID.fromString(venueId);
     }
 
-    private String getCurrentUserEmail(Jwt jwt) {
+    private String getSubject(Jwt jwt) {
         if (jwt.getSubject() == null || jwt.getSubject().isBlank()) {
             throw new AccessDeniedException("Missing subject claim.");
         }
@@ -244,7 +244,25 @@ public class UserService {
     }
 
     private boolean isCurrentUser(User user, Jwt jwt) {
-        return user.getEmail().equals(getCurrentUserEmail(jwt));
+        Optional<UUID> currentUserId = getCurrentUserId(jwt);
+        if (currentUserId.isPresent()) {
+            return user.getId() != null && user.getId().equals(currentUserId.get());
+        }
+
+        return user.getEmail().equals(getSubject(jwt));
+    }
+
+    private Optional<UUID> getCurrentUserId(Jwt jwt) {
+        String userId = jwt.getClaimAsString("user_id");
+        if (userId == null || userId.isBlank()) {
+            userId = getSubject(jwt);
+        }
+
+        try {
+            return Optional.of(UUID.fromString(userId));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     private boolean hasRole(Jwt jwt, String role) {

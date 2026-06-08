@@ -96,6 +96,36 @@ class FoundItemControllerTest {
     }
 
     @Test
+    void createFoundItemWithPhoto_shouldAllowMissingReporterId() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = createRequest(venueId, null);
+        FoundItemResponse response = response(id, venueId, reporterId, ItemStatus.STORED);
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request",
+                "request.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                jsonMapper.writeValueAsBytes(request)
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(foundItemService.createFoundItem(eq(request), any(), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/found-items")
+                        .file(requestPart)
+                        .file(photo)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.reporterId").value(reporterId.toString()));
+    }
+
+    @Test
     void createFoundItemWithPhoto_shouldRejectMissingPhotoPart() throws Exception {
         UUID venueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();

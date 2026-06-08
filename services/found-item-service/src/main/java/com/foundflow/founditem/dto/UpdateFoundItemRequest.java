@@ -21,7 +21,6 @@ public record UpdateFoundItemRequest(
         @NotNull
         UUID venueId,
 
-        @NotNull
         UUID reporterId,
 
         @Valid

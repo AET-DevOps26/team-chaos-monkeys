@@ -100,6 +100,41 @@ class FoundItemServiceTest {
     }
 
     @Test
+    void createFoundItemWithPhoto_shouldUseJwtUserIdWhenReporterIdIsMissing() {
+        FoundItemService service = service();
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                UUID.randomUUID(),
+                null,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+
+        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId, userId));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository).save(captor.capture());
+
+        assertEquals(userId, captor.getValue().getReporterId());
+        assertEquals(userId, response.reporterId());
+    }
+
+    @Test
     void createFoundItemWithPhoto_shouldPersistGeneratedPhotoKey() {
         FoundItemService service = service();
 
@@ -490,6 +525,16 @@ class FoundItemServiceTest {
     private Jwt staffJwt(UUID venueId) {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
+                .claim("roles", List.of("STAFF"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt staffJwt(UUID venueId, UUID userId) {
+        return Jwt.withTokenValue("token")
+                .subject(userId.toString())
+                .header("alg", "none")
+                .claim("user_id", userId.toString())
                 .claim("roles", List.of("STAFF"))
                 .claim("venue_id", venueId.toString())
                 .build();

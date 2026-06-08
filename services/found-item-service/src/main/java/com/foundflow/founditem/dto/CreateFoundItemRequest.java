@@ -17,7 +17,6 @@ public record CreateFoundItemRequest(
         @NotNull
         UUID venueId,
 
-        @NotNull
         UUID reporterId,
 
         @Valid

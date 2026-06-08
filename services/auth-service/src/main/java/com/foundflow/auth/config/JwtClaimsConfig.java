@@ -25,29 +25,35 @@ public class JwtClaimsConfig {
                 return;
             }
 
-            context.getClaims().claims(claims -> {
-                Set<String> roles = AuthorityUtils
-                        .authorityListToSet(context.getPrincipal().getAuthorities())
-                        .stream()
-                        .map(authority -> authority.replaceFirst("^ROLE_", ""))
-                        .collect(Collectors.collectingAndThen(
-                                Collectors.toSet(),
-                                Collections::unmodifiableSet
-                        ));
+            Set<String> roles = AuthorityUtils
+                    .authorityListToSet(context.getPrincipal().getAuthorities())
+                    .stream()
+                    .map(authority -> authority.replaceFirst("^ROLE_", ""))
+                    .collect(Collectors.collectingAndThen(
+                            Collectors.toSet(),
+                            Collections::unmodifiableSet
+                    ));
 
-                claims.put("roles", roles);
+            String email = context.getPrincipal().getName();
 
-                String email = context.getPrincipal().getName();
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() ->
+                            new IllegalStateException("Authenticated user not found: " + email)
+                    );
 
-                User user = userRepository.findByEmail(email)
-                        .orElseThrow(() ->
-                                new IllegalStateException("Authenticated user not found: " + email)
-                        );
+            if (user.getId() == null) {
+                throw new IllegalStateException("Authenticated user has no id: " + email);
+            }
 
-                if (user.getVenueId() != null) {
-                    claims.put("venue_id", user.getVenueId().toString());
-                }
-            });
+            String userId = user.getId().toString();
+            context.getClaims()
+                    .subject(userId)
+                    .claim("user_id", userId)
+                    .claim("roles", roles);
+
+            if (user.getVenueId() != null) {
+                context.getClaims().claim("venue_id", user.getVenueId().toString());
+            }
         };
     }
 }

@@ -1031,6 +1031,9 @@ if ($notificationUpdated.language -ne "en" -or $notificationUpdated.sentAt -ne "
     throw "Notification update should persist changed language and sentAt."
 }
 
+$publicBlueprintRead = $publicClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
+Assert-Status $publicBlueprintRead 401 "Public client cannot list notification blueprints"
+
 $blueprintsRead = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
 Assert-Status $blueprintsRead 200 "OPS_MANAGER can list notification blueprints"
 

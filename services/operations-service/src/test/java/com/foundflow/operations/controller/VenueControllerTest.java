@@ -93,7 +93,7 @@ class VenueControllerTest {
                 .thenReturn(Optional.of(response));
 
         mockMvc.perform(put("/api/venues/{id}", id)
-                        .with(staffPrincipal(id))
+                        .with(opsManagerPrincipal(id))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -133,9 +133,17 @@ class VenueControllerTest {
     }
 
     private org.springframework.test.web.servlet.request.RequestPostProcessor staffPrincipal(UUID venueId) {
+        return principal("STAFF", venueId);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor opsManagerPrincipal(UUID venueId) {
+        return principal("OPS_MANAGER", venueId);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor principal(String role, UUID venueId) {
         Jwt token = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .claim("roles", List.of("STAFF"))
+                .claim("roles", List.of(role))
                 .claim("venue_id", venueId.toString())
                 .build();
 

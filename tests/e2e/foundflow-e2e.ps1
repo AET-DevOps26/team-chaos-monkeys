@@ -541,6 +541,26 @@ if ($staff.venueId -ne $venueId) {
 $staffTokens = Get-TokenPair $staffEmail $staffPassword
 $staffClient = New-GatewayClient $staffTokens.accessToken
 
+$staffVenueRead = $staffClient.GetAsync("$GatewayBaseUrl/api/venues/$venueId").Result
+Assert-Status $staffVenueRead 200 "STAFF can load own venue"
+
+$opsVenueUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/venues/$venueId", (JsonContent @{
+    name = "E2E Venue updated $suffix"
+    tone = "focused"
+    defaultLanguage = "de"
+})).Result
+Assert-Status $opsVenueUpdate 200 "OPS_MANAGER can update own venue"
+
+$staffVenueUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/venues/$venueId", (JsonContent @{
+    name = "E2E Venue staff update $suffix"
+    tone = "staff"
+    defaultLanguage = "de"
+})).Result
+Assert-Status $staffVenueUpdate 403 "STAFF cannot update venue"
+
+$staffVenueDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/venues/$venueId").Result
+Assert-Status $staffVenueDelete 403 "STAFF cannot delete venue"
+
 $staffListUsers = $staffClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $staffListUsers 403 "STAFF cannot list users"
 

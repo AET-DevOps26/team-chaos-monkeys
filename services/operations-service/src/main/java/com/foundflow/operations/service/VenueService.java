@@ -78,7 +78,7 @@ public class VenueService {
             UpdateVenueRequest request,
             Jwt jwt
     ) {
-        verifyVenueAccess(jwt, id);
+        verifyVenueUpdateAccess(jwt, id);
 
         return venueRepository.findById(id)
                 .map(venue -> {
@@ -107,6 +107,17 @@ public class VenueService {
     private void verifyVenueAccess(Jwt jwt, UUID venueId) {
         if (!venueAccessService.canAccessVenue(jwt, venueId)) {
             throw new AccessDeniedException("No access to this venue.");
+        }
+    }
+
+    private void verifyVenueUpdateAccess(Jwt jwt, UUID venueId) {
+        if (venueAccessService.isAdmin(jwt)) {
+            return;
+        }
+
+        if (!venueAccessService.isOpsManager(jwt)
+                || !venueAccessService.canAccessVenue(jwt, venueId)) {
+            throw new AccessDeniedException("Only admins and ops managers can update venues.");
         }
     }
 

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;
@@ -82,7 +83,7 @@ class VenueServiceTest {
     }
 
     @Test
-    void updateVenue_shouldUpdateExistingVenueForOwnVenue() {
+    void updateVenue_shouldUpdateExistingVenueForOpsManagerOwnVenue() {
         VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
@@ -93,12 +94,27 @@ class VenueServiceTest {
         when(venueRepository.save(any(Venue.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<VenueResponse> response = service.updateVenue(id, request, staffJwt(id));
+        Optional<VenueResponse> response = service.updateVenue(id, request, opsManagerJwt(id));
 
         assertTrue(response.isPresent());
         assertEquals("Updated Venue", response.get().name());
         assertEquals("professional", response.get().tone());
         verify(venueRepository).save(existingVenue);
+    }
+
+    @Test
+    void updateVenue_shouldRejectStaffEvenForOwnVenue() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+        UpdateVenueRequest request = new UpdateVenueRequest("Updated Venue", "professional", "en");
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.updateVenue(id, request, staffJwt(id))
+        );
+        verify(venueRepository, never()).findById(any());
+        verify(venueRepository, never()).save(any());
     }
 
     @Test
@@ -114,10 +130,30 @@ class VenueServiceTest {
         verify(venueEventPublisher).publishVenueDeleted(id);
     }
 
+    @Test
+    void deleteVenue_shouldRejectStaff() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+
+        assertThrows(AccessDeniedException.class, () -> service.deleteVenue(id, staffJwt(id)));
+        verify(venueRepository, never()).findById(any());
+        verify(venueRepository, never()).delete(any());
+        verifyNoInteractions(venueEventPublisher);
+    }
+
     private Jwt staffJwt(UUID venueId) {
+        return roleJwt("STAFF", venueId);
+    }
+
+    private Jwt opsManagerJwt(UUID venueId) {
+        return roleJwt("OPS_MANAGER", venueId);
+    }
+
+    private Jwt roleJwt(String role, UUID venueId) {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .claim("roles", List.of("STAFF"))
+                .claim("roles", List.of(role))
                 .claim("venue_id", venueId.toString())
                 .build();
     }

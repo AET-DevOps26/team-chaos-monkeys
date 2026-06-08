@@ -2,6 +2,7 @@ package com.foundflow.operations.service;
 
 import com.foundflow.operations.domain.Venue;
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
 import com.foundflow.operations.messaging.VenueEventPublisher;
@@ -60,6 +61,13 @@ public class VenueService {
         return venueRepository.findById(venueAccessService.getVenueId(jwt))
                 .stream()
                 .map(this::toResponse)
+                .toList();
+    }
+
+    public List<PublicVenueResponse> getPublicVenues() {
+        return venueRepository.findAll()
+                .stream()
+                .map(this::toPublicResponse)
                 .toList();
     }
 
@@ -133,6 +141,13 @@ public class VenueService {
                 venue.getName(),
                 venue.getTone(),
                 venue.getDefaultLanguage()
+        );
+    }
+
+    private PublicVenueResponse toPublicResponse(Venue venue) {
+        return new PublicVenueResponse(
+                venue.getId(),
+                venue.getName()
         );
     }
 }

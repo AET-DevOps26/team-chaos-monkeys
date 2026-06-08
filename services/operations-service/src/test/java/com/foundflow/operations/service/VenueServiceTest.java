@@ -2,6 +2,7 @@ package com.foundflow.operations.service;
 
 import com.foundflow.operations.domain.Venue;
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
 import com.foundflow.operations.messaging.VenueEventPublisher;
@@ -65,6 +66,21 @@ class VenueServiceTest {
         assertEquals("Venue A", responses.get(0).name());
         verify(venueRepository).findById(venueId);
         verify(venueRepository, never()).findAll();
+    }
+
+    @Test
+    void getPublicVenues_shouldReturnAllVenueNames() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        Venue venue = new Venue("Venue A", "formal", "de");
+
+        when(venueRepository.findAll()).thenReturn(List.of(venue));
+
+        List<PublicVenueResponse> responses = service.getPublicVenues();
+
+        assertEquals(1, responses.size());
+        assertEquals("Venue A", responses.get(0).name());
+        verify(venueRepository).findAll();
     }
 
     @Test

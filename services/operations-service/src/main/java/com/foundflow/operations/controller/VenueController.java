@@ -1,6 +1,7 @@
 package com.foundflow.operations.controller;
 
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.dto.VenueResponse;
@@ -46,6 +47,11 @@ public class VenueController {
             JwtAuthenticationToken authentication
     ) {
         return ResponseEntity.ok(venueService.getAllVenues(authentication.getToken()));
+    }
+
+    @GetMapping("/public")
+    public ResponseEntity<List<PublicVenueResponse>> getPublicVenues() {
+        return ResponseEntity.ok(venueService.getPublicVenues());
     }
 
     @GetMapping("/kpis")

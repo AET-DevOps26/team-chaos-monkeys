@@ -1,6 +1,7 @@
 package com.foundflow.operations.controller;
 
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.dto.VenueResponse;
@@ -68,6 +69,21 @@ class VenueControllerTest {
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("Venue A"));
+    }
+
+    @Test
+    void getPublicVenues_shouldReturnVenueDirectoryWithoutAuthentication() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        PublicVenueResponse response = new PublicVenueResponse(venueId, "Venue A");
+
+        when(venueService.getPublicVenues()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/venues/public"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].venueId").value(venueId.toString()))
+                .andExpect(jsonPath("$[0].name").value("Venue A"))
+                .andExpect(jsonPath("$[0].tone").doesNotExist())
+                .andExpect(jsonPath("$[0].defaultLanguage").doesNotExist());
     }
 
     @Test

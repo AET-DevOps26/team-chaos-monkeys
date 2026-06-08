@@ -27,6 +27,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/venues/public")
+                        .permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/venues/**")
                         .hasAnyRole("ADMIN", "OPS_MANAGER")
                         .requestMatchers(HttpMethod.DELETE, "/api/venues/**")

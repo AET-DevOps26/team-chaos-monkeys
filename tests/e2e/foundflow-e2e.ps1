@@ -500,6 +500,16 @@ Assert-Status $venueResponse 201 "Admin can create venue"
 $venue = Read-Json $venueResponse
 $venueId = $venue.id
 
+$publicVenues = $publicClient.GetAsync("$GatewayBaseUrl/api/venues/public").Result
+Assert-Status $publicVenues 200 "Public client can list venue directory"
+$publicVenuesBody = @(Read-Json $publicVenues)
+if (@($publicVenuesBody | Where-Object { $_.venueId -eq $venueId -and $_.name -eq $venue.name }).Count -ne 1) {
+    throw "Public venue directory should contain created venue. Body: $($publicVenuesBody | ConvertTo-Json -Depth 8)"
+}
+if (@($publicVenuesBody | Where-Object { $null -ne $_.tone -or $null -ne $_.defaultLanguage }).Count -gt 0) {
+    throw "Public venue directory should not expose internal venue fields. Body: $($publicVenuesBody | ConvertTo-Json -Depth 8)"
+}
+
 $venueById = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/$venueId").Result
 Assert-Status $venueById 200 "Admin can load venue by id"
 

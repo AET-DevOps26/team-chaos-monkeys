@@ -11,6 +11,7 @@ import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.HistogramResponse;
 import com.foundflow.matching.dto.MatchResponse;
+import com.foundflow.matching.dto.PublicFoundItemResponse;
 import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.TimeBucketCount;
 import com.foundflow.matching.dto.UpdateMatchRequest;
@@ -227,10 +228,22 @@ public class MatchService {
                 .map(this::toResponse);
     }
 
+    public Optional<PublicFoundItemResponse> getPublicFoundItem(String token) {
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
+        return matchRepository.findById(claims.matchId())
+                .filter(match -> match.getVenueId().equals(claims.venueId()))
+                .map(match -> foundItemClient.getPublicFoundItemDetail(
+                        match.getFoundItemId(),
+                        match.getVenueId()
+                ));
+    }
+
+    @Transactional
     public Optional<MatchResponse> confirmPublicMatch(String token) {
         return updatePublicMatchStatus(token, MatchStatus.CONFIRMED);
     }
 
+    @Transactional
     public Optional<MatchResponse> rejectPublicMatch(String token) {
         return updatePublicMatchStatus(token, MatchStatus.REJECTED);
     }
@@ -275,7 +288,15 @@ public class MatchService {
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
                 .map(match -> {
                     match.setStatus(status);
-                    return toResponse(matchRepository.save(match));
+                    Match savedMatch = matchRepository.save(match);
+                    matchRepository.updateStatusForPair(
+                            savedMatch.getLostReportId(),
+                            savedMatch.getFoundItemId(),
+                            savedMatch.getVenueId(),
+                            MatchStatus.PENDING,
+                            status
+                    );
+                    return toResponse(savedMatch);
                 });
     }
 

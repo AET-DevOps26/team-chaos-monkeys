@@ -1,6 +1,7 @@
 package com.foundflow.matching.repository;
 
 import com.foundflow.matching.domain.Match;
+import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.domain.MatchVerification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -31,6 +32,24 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     int applyVerification(@Param("matchId") UUID matchId, @Param("v") MatchVerification v);
 
     Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
+
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE Match m
+           SET m.status = :newStatus
+         WHERE m.lostReportId = :lostReportId
+           AND m.foundItemId = :foundItemId
+           AND m.venueId = :venueId
+           AND m.status = :currentStatus
+        """)
+    int updateStatusForPair(
+            @Param("lostReportId") UUID lostReportId,
+            @Param("foundItemId") UUID foundItemId,
+            @Param("venueId") UUID venueId,
+            @Param("currentStatus") MatchStatus currentStatus,
+            @Param("newStatus") MatchStatus newStatus
+    );
 
     @Query(
             value = """

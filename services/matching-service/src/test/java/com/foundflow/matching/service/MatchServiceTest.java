@@ -9,6 +9,8 @@ import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.MatchResponse;
+import com.foundflow.matching.dto.PublicFoundItemResponse;
+import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.matching.dto.UpdateMatchRequest;
 import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.BucketCountView;
@@ -24,6 +26,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -432,11 +435,48 @@ class MatchServiceTest {
     }
 
     @Test
-    void confirmPublicMatch_shouldUpdateLinkedMatchOnly() {
+    void getPublicFoundItem_shouldReturnFoundItemDetailAndPhotoUrlForMagicLink() {
         MatchService matchService = matchService();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        URI photoUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+        Match match = match(foundItemId, lostReportId, venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        PublicFoundItemResponse foundItem = new PublicFoundItemResponse(
+                foundItemId,
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                "STORED",
+                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("Roter Anhaenger")),
+                photoUrl
+        );
+
+        when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
+                .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(foundItemClient.getPublicFoundItemDetail(foundItemId, venueId)).thenReturn(foundItem);
+
+        var response = matchService.getPublicFoundItem("public-token");
+
+        assertTrue(response.isPresent());
+        assertEquals(foundItemId, response.get().id());
+        assertEquals("Schwarzer Rucksack", response.get().description());
+        assertEquals("Bag", response.get().attributes().category());
+        assertEquals(photoUrl, response.get().photoUrl());
+        verify(foundItemClient).getPublicFoundItemDetail(foundItemId, venueId);
+    }
+
+    @Test
+    void confirmPublicMatch_shouldUpdateLinkedMatchAndPendingDuplicatesForSamePair() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        Match match = match(foundItemId, lostReportId, venueId, MatchStatus.PENDING, LocalDateTime.now());
         when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
                 .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
@@ -447,6 +487,13 @@ class MatchServiceTest {
         assertTrue(response.isPresent());
         assertEquals(MatchStatus.CONFIRMED, response.get().status());
         verify(matchRepository).save(match);
+        verify(matchRepository).updateStatusForPair(
+                lostReportId,
+                foundItemId,
+                venueId,
+                MatchStatus.PENDING,
+                MatchStatus.CONFIRMED
+        );
     }
 
     private MatchService matchService() {

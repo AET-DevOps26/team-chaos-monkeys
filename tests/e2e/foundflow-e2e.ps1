@@ -902,6 +902,16 @@ $publicMatch = Read-Json $publicMatchResponse
 if ($publicMatch.id -ne $match.id) {
     throw "Public match response should return the linked match."
 }
+$publicFoundItemResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)/found-item").Result
+Assert-Status $publicFoundItemResponse 200 "Public match link can load found-item detail"
+$publicFoundItem = Read-Json $publicFoundItemResponse
+if ($publicFoundItem.id -ne $foundItem.id) {
+    throw "Public found-item response should expose the linked found item for guest confirmation."
+}
+if ([string]::IsNullOrWhiteSpace($publicFoundItem.photoUrl)) {
+    throw "Public found-item response should include a signed found-item photo URL."
+}
+Assert-SignedPhotoUrl ([pscustomobject]@{ url = $publicFoundItem.photoUrl }) "Public match found-item photo URL"
 
 $publicConfirmResponse = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/matches/public/match-links/$($publicMatchLink.token)/confirm",
@@ -1043,10 +1053,10 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
 
-# Issue #128 — GenAI attribute extraction wires through to persistence.
-# CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
-# ItemAttributes JSON ({"category":"jacket",...}) so we can assert
-# extraction actually ran end-to-end.
+# Issue #128 - GenAI attribute extraction wires through to persistence.
+# CI may run with GENAI_PROVIDER=fake, while local/OpenAI runs can infer
+# values from the golden umbrella photo. This is a wiring assertion, so it
+# checks that the extracted fields are present rather than pinning model text.
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"
@@ -1061,13 +1071,16 @@ $extractionLostResponse = $publicClient.PostAsync(
 Assert-Status $extractionLostResponse 201 "Lost-item create runs GenAI extraction"
 $extractionLostItem = Read-Json $extractionLostResponse
 
-# GenAI extraction happens after the response is sent in the current
-# implementation? No - it's inline. The fake provider is synchronous and
-# returns immediately, so the response body already carries attributes.
-if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+$extractionLostCategory = [string]$extractionLostItem.attributes.category
+$extractionLostColor = [string]$extractionLostItem.attributes.color
+if (
+    $null -eq $extractionLostItem.attributes -or
+    [string]::IsNullOrWhiteSpace($extractionLostCategory) -or
+    [string]::IsNullOrWhiteSpace($extractionLostColor)
+) {
     throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
 }
-Write-Host "[OK] Lost-item GenAI extraction populated category='jacket'"
+Write-Host "[OK] Lost-item GenAI extraction populated category='$extractionLostCategory', color='$extractionLostColor'"
 
 $extractionFoundRequest = @{
     description = "E2E found item without attributes"
@@ -1082,10 +1095,16 @@ $extractionFoundResponse = $opsClient.PostAsync(
 ).Result
 Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
 $extractionFoundItem = Read-Json $extractionFoundResponse
-if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+$extractionFoundCategory = [string]$extractionFoundItem.attributes.category
+$extractionFoundColor = [string]$extractionFoundItem.attributes.color
+if (
+    $null -eq $extractionFoundItem.attributes -or
+    [string]::IsNullOrWhiteSpace($extractionFoundCategory) -or
+    [string]::IsNullOrWhiteSpace($extractionFoundColor)
+) {
     throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
 }
-Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
+Write-Host "[OK] Found-item GenAI extraction populated category='$extractionFoundCategory', color='$extractionFoundColor'"
 
 $staffSelfDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
 Assert-Status $staffSelfDelete 204 "STAFF can delete itself"

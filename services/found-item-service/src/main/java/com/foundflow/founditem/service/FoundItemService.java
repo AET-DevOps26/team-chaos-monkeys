@@ -7,6 +7,7 @@ import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.HistogramResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
+import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.messaging.FoundItemEventPublisher;
@@ -210,29 +211,14 @@ public class FoundItemService {
         return foundItemRepository.findById(id)
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
-                    String photoKey = foundItem.getPhotoKey();
-                    if (photoKey == null || photoKey.isBlank()) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
-                    }
-                    try {
-                        URI signedUrl = photoStorage.signedUrl(photoKey, photoUrlTtl);
-                        return new PhotoUrlResponse(signedUrl);
-                    } catch (PhotoNotFoundException exception) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
-                    } catch (UnsupportedOperationException exception) {
-                        throw new ResponseStatusException(
-                                HttpStatus.NOT_IMPLEMENTED,
-                                "Signed photo URLs are not supported by this storage backend.",
-                                exception
-                        );
-                    } catch (PhotoStorageException exception) {
-                        throw new ResponseStatusException(
-                                HttpStatus.BAD_GATEWAY,
-                                "Photo storage backend failure.",
-                                exception
-                        );
-                    }
+                    return new PhotoUrlResponse(signedUrlFor(foundItem.getPhotoKey()));
                 });
+    }
+
+    public Optional<PublicFoundItemResponse> getPublicFoundItemDetail(UUID id, UUID venueId) {
+        return foundItemRepository.findById(id)
+                .filter(foundItem -> foundItem.getVenueId() != null && foundItem.getVenueId().equals(venueId))
+                .map(foundItem -> toPublicResponse(foundItem, signedUrlFor(foundItem.getPhotoKey())));
     }
 
     public boolean deleteFoundItem(UUID id, Jwt jwt) {
@@ -459,6 +445,41 @@ public class FoundItemService {
                 foundItem.getVenueId(),
                 foundItem.getReporterId(),
                 toItemAttributesDto(foundItem.getAttributes())
+        );
+    }
+
+    private URI signedUrlFor(String photoKey) {
+        if (photoKey == null || photoKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
+        }
+        try {
+            return photoStorage.signedUrl(photoKey, photoUrlTtl);
+        } catch (PhotoNotFoundException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+        } catch (UnsupportedOperationException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_IMPLEMENTED,
+                    "Signed photo URLs are not supported by this storage backend.",
+                    exception
+            );
+        } catch (PhotoStorageException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Photo storage backend failure.",
+                    exception
+            );
+        }
+    }
+
+    private PublicFoundItemResponse toPublicResponse(FoundItem foundItem, URI photoUrl) {
+        return new PublicFoundItemResponse(
+                foundItem.getId(),
+                foundItem.getDescription(),
+                foundItem.getFoundAt(),
+                foundItem.getLocationHint(),
+                foundItem.getStatus(),
+                toItemAttributesDto(foundItem.getAttributes()),
+                photoUrl
         );
     }
 }

@@ -10,6 +10,7 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
+import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
@@ -28,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.LoggerFactory;
 
@@ -407,6 +409,43 @@ class FoundItemServiceTest {
         );
 
         assertEquals(501, exception.getStatusCode().value());
+    }
+
+    @Test
+    void getPublicFoundItemDetail_shouldReturnLimitedInfoAndSignedUrlForMatchingVenue() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+        FoundItem foundItem = foundItem(venueId);
+        ReflectionTestUtils.setField(foundItem, "id", id);
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem));
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10)))).thenReturn(signedUrl);
+
+        Optional<PublicFoundItemResponse> response = service.getPublicFoundItemDetail(id, venueId);
+
+        assertTrue(response.isPresent());
+        assertEquals(id, response.get().id());
+        assertEquals("Schwarzer Rucksack", response.get().description());
+        assertEquals("Neben Buehne 2", response.get().locationHint());
+        assertEquals("Bag", response.get().attributes().category());
+        assertEquals(signedUrl, response.get().photoUrl());
+    }
+
+    @Test
+    void getPublicFoundItemDetail_shouldReturnEmptyForWrongVenue() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(UUID.randomUUID())));
+
+        Optional<PublicFoundItemResponse> response = service.getPublicFoundItemDetail(id, UUID.randomUUID());
+
+        assertTrue(response.isEmpty());
+        verify(photoStorage, never()).signedUrl(any(), any());
     }
 
     private FoundItemService service() {

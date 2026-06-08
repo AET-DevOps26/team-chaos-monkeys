@@ -97,29 +97,32 @@ export const getAllLostReportsQueryParams = zod.object({
 })
 
 
-export const createLostReportWithPhotoBodyDescriptionMin = 0;
-export const createLostReportWithPhotoBodyDescriptionMax = 2000;
+export const createLostReportWithPhotoBodyRequestDescriptionMin = 0;
+export const createLostReportWithPhotoBodyRequestDescriptionMax = 2000;
 
-export const createLostReportWithPhotoBodyLocationMin = 0;
-export const createLostReportWithPhotoBodyLocationMax = 255;
+export const createLostReportWithPhotoBodyRequestLocationMin = 0;
+export const createLostReportWithPhotoBodyRequestLocationMax = 255;
 
-export const createLostReportWithPhotoBodyContactEmailMin = 0;
-export const createLostReportWithPhotoBodyContactEmailMax = 255;
+export const createLostReportWithPhotoBodyRequestContactEmailMin = 0;
+export const createLostReportWithPhotoBodyRequestContactEmailMax = 255;
 
 
 
 export const createLostReportWithPhotoBody = zod.object({
-  "description": zod.string().min(createLostReportWithPhotoBodyDescriptionMin).max(createLostReportWithPhotoBodyDescriptionMax),
+  "request": zod.object({
+  "description": zod.string().min(createLostReportWithPhotoBodyRequestDescriptionMin).max(createLostReportWithPhotoBodyRequestDescriptionMax),
   "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReportWithPhotoBodyLocationMin).max(createLostReportWithPhotoBodyLocationMax).optional(),
+  "location": zod.string().min(createLostReportWithPhotoBodyRequestLocationMin).max(createLostReportWithPhotoBodyRequestLocationMax).optional(),
   "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReportWithPhotoBodyContactEmailMin).max(createLostReportWithPhotoBodyContactEmailMax),
+  "contactEmail": zod.email().min(createLostReportWithPhotoBodyRequestContactEmailMin).max(createLostReportWithPhotoBodyRequestContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
+}),
+  "photo": zod.instanceof(File).optional()
 })
 
 
@@ -128,29 +131,32 @@ export const getAllLostReports1QueryParams = zod.object({
 })
 
 
-export const createLostReportWithPhoto1BodyDescriptionMin = 0;
-export const createLostReportWithPhoto1BodyDescriptionMax = 2000;
+export const createLostReportWithPhoto1BodyRequestDescriptionMin = 0;
+export const createLostReportWithPhoto1BodyRequestDescriptionMax = 2000;
 
-export const createLostReportWithPhoto1BodyLocationMin = 0;
-export const createLostReportWithPhoto1BodyLocationMax = 255;
+export const createLostReportWithPhoto1BodyRequestLocationMin = 0;
+export const createLostReportWithPhoto1BodyRequestLocationMax = 255;
 
-export const createLostReportWithPhoto1BodyContactEmailMin = 0;
-export const createLostReportWithPhoto1BodyContactEmailMax = 255;
+export const createLostReportWithPhoto1BodyRequestContactEmailMin = 0;
+export const createLostReportWithPhoto1BodyRequestContactEmailMax = 255;
 
 
 
 export const createLostReportWithPhoto1Body = zod.object({
-  "description": zod.string().min(createLostReportWithPhoto1BodyDescriptionMin).max(createLostReportWithPhoto1BodyDescriptionMax),
+  "request": zod.object({
+  "description": zod.string().min(createLostReportWithPhoto1BodyRequestDescriptionMin).max(createLostReportWithPhoto1BodyRequestDescriptionMax),
   "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReportWithPhoto1BodyLocationMin).max(createLostReportWithPhoto1BodyLocationMax).optional(),
+  "location": zod.string().min(createLostReportWithPhoto1BodyRequestLocationMin).max(createLostReportWithPhoto1BodyRequestLocationMax).optional(),
   "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReportWithPhoto1BodyContactEmailMin).max(createLostReportWithPhoto1BodyContactEmailMax),
+  "contactEmail": zod.email().min(createLostReportWithPhoto1BodyRequestContactEmailMin).max(createLostReportWithPhoto1BodyRequestContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
+}),
+  "photo": zod.instanceof(File).optional()
 })
 
 

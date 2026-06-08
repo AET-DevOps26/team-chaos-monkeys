@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
 import { useCreateLostReportWithPhoto } from '@/api/lost-items/lost-report-controller/lost-report-controller'
+import type { CreateLostReportRequest, CreateLostReportWithPhotoBody } from '@/api/lost-items/model'
 
 // TODO(FRND-122): temporary — the public form has no way to derive a venue yet.
 // Replace with a real source (route param from a per-venue QR link, query
@@ -40,20 +41,23 @@ export default function ReportLostItem() {
   }, [photo])
 
   const onSubmit = (data: ReportLostItemInput) => {
-    // TODO: multipart upload for `data.photo` once the API accepts it;
-    // currently the file is collected for preview only and discarded here.
+    const payload: CreateLostReportRequest = {
+      description: data.description,
+      contactEmail: data.contactEmail,
+      // `datetime-local` already gives ISO-8601 local time
+      // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
+      // intent is preserved instead of collapsed to UTC.
+      lostAt: data.lostAt,
+      venueId: PLACEHOLDER_VENUE_ID,
+    }
+    // `photo` is optional; pass `undefined` (not `null`) when none was
+    // picked so the generated FormData builder omits the photo part.
+    const body: CreateLostReportWithPhotoBody = {
+      request: payload,
+      photo: data.photo ?? undefined,
+    }
     mutate(
-      {
-        data: {
-          description: data.description,
-          contactEmail: data.contactEmail,
-          // `datetime-local` already gives ISO-8601 local time
-          // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
-          // intent is preserved instead of collapsed to UTC.
-          lostAt: data.lostAt,
-          venueId: PLACEHOLDER_VENUE_ID,
-        },
-      },
+      { data: body },
       {
         onSuccess: (response) => {
           navigate('/report/confirmation', {

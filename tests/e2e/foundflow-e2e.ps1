@@ -550,19 +550,22 @@ $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
 Assert-Status $matchResponse 201 "OPS_MANAGER can create same-venue match"
 $match = Read-Json $matchResponse
 
-$otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
-    description = "E2E lost item other venue"
-    lostAt = "2026-05-19T15:55:00"
-    location = "Other"
-    venueId = "99999999-9999-9999-9999-999999999999"
-    contactEmail = "other-$suffix@example.com"
-    attributes = @{
-        category = "Bag"
-        brand = "Test"
-        color = "Black"
-        marks = @("E2E")
-    }
-}
+$otherLostResponse = $publicClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent @{
+        description = "E2E lost item other venue"
+        lostAt = "2026-05-19T15:55:00"
+        location = "Other"
+        venueId = "99999999-9999-9999-9999-999999999999"
+        contactEmail = "other-$suffix@example.com"
+        attributes = @{
+            category = "Bag"
+            brand = "Test"
+            color = "Black"
+            marks = @("E2E")
+        }
+    })
+).Result
 Assert-Status $otherLostResponse 201 "Public lost item can be created for another venue"
 $otherLostItem = Read-Json $otherLostResponse
 

@@ -9,6 +9,9 @@ import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.service.LostReportService;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoUrlResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
@@ -31,20 +34,12 @@ public class LostReportController {
         this.lostReportService = lostReportService;
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<LostReportResponse> createLostReport(
-            @Valid @RequestBody CreateLostReportRequest request,
-            JwtAuthenticationToken authentication
-    ) {
-        LostReportResponse response = lostReportService.createLostReport(
-                request,
-                authentication == null ? null : authentication.getToken()
-        );
-        return ResponseEntity
-        .created(URI.create("/api/lost-items/" + response.id()))
-        .body(response);
-    }
-
+    @Operation(requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
+            )
+    ))
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LostReportResponse> createLostReportWithPhoto(
             @Valid @RequestPart("request") CreateLostReportRequest request,

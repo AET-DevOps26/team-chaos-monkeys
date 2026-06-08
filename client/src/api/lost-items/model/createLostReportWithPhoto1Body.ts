@@ -6,7 +6,7 @@
  */
 import type { CreateLostReportRequest } from './createLostReportRequest';
 
-export type CreateLostReportWithPhoto1BodyOne = {
+export type CreateLostReportWithPhoto1Body = {
   request: CreateLostReportRequest;
   photo?: Blob;
 };

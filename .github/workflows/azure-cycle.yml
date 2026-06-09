@@ -80,16 +80,41 @@ jobs:
         if: ${{ inputs.action == 'apply' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BREVO_SMTP_USERNAME: ${{ secrets.BREVO_SMTP_USERNAME }}
+          BREVO_SMTP_PASSWORD: ${{ secrets.BREVO_SMTP_PASSWORD }}
+          BREVO_MAIL_FROM: ${{ secrets.BREVO_MAIL_FROM }}
+          BREVO_TEST_RECIPIENT: ${{ secrets.BREVO_TEST_RECIPIENT }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
         working-directory: deploy/ansible
         run: |
+          set -euo pipefail
+          deploy_vars="$(mktemp)"
+          trap 'rm -f "$deploy_vars"' EXIT
+          jq -n \
+            --arg openai_api_key "$OPENAI_API_KEY" \
+            --arg brevo_smtp_username "$BREVO_SMTP_USERNAME" \
+            --arg brevo_smtp_password "$BREVO_SMTP_PASSWORD" \
+            --arg brevo_mail_from "$BREVO_MAIL_FROM" \
+            --arg brevo_test_recipient "$BREVO_TEST_RECIPIENT" \
+            --arg public_base_url "http://${{ steps.tf.outputs.public_ip }}" \
+            --arg image_tag "${{ inputs.image_tag }}" \
+            '{
+              openai_api_key: $openai_api_key,
+              brevo_smtp_username: $brevo_smtp_username,
+              brevo_smtp_password: $brevo_smtp_password,
+              brevo_mail_from: $brevo_mail_from,
+              brevo_test_recipient: $brevo_test_recipient,
+              public_base_url: $public_base_url,
+              image_tag: $image_tag
+            }' > "$deploy_vars"
+          chmod 600 "$deploy_vars"
+
           ansible-playbook \
             -i "${{ steps.tf.outputs.public_ip }}," \
             --user azureuser \
             --private-key ~/.ssh/id_rsa \
             deploy.yml \
-            -e "openai_api_key=$OPENAI_API_KEY" \
-            -e "image_tag=${{ inputs.image_tag }}"
+            --extra-vars "@$deploy_vars"
 
       - name: Summarise
         if: ${{ inputs.action == 'apply' && success() }}

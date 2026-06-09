@@ -96,8 +96,10 @@ Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET
 | minio (console)  | 9001  | 9001      |
 | rabbitmq (AMQP)  | 5672  | 5672      |
 | rabbitmq (mgmt)  | 15672 | 15672     |
+| mailpit (SMTP)   | 1025  | 1025      |
+| mailpit (web/API)| 8025  | 8025      |
 
-The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
+The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `mailpit` is the local/CI SMTP sink: `notification-service` delivers there by default (web UI + REST API on 8025) so test/demo mail never reaches the shared Brevo account. `.env.example` documents the required env vars; copy to `.env` before first run.
 
 ## Gateway Routing
 

@@ -135,19 +135,23 @@ services:
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
-      # Brevo SMTP — optional locally. Without creds the consumer persists the
-      # notifications row, the first send attempt fails authenticating with
-      # smtp-relay.brevo.com, the retry interceptor drops after three attempts,
-      # and notifications_send_failures_total tracks the drop.
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp-relay.brevo.com}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      # Mail defaults to the local Mailpit sink so test/demo sends never reach the
+      # shared Brevo account (every send to a fake recipient is a hard bounce that
+      # harms sender reputation). Mailpit needs SMTP auth + STARTTLS off. To send
+      # real mail through Brevo for a manual demo, set SPRING_MAIL_* in .env.
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
       SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_SMTP_AUTH: ${SPRING_MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_SMTP_STARTTLS: ${SPRING_MAIL_SMTP_STARTTLS:-false}
       FOUNDFLOW_MAIL_FROM: ${FOUNDFLOW_MAIL_FROM:-no-reply@foundflow.app}
     depends_on:
       notification-db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
 
   pickup-service:
@@ -232,6 +236,22 @@ services:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Local/CI SMTP sink. notification-service delivers here by default (see its
+  # SPRING_MAIL_* env) so test and demo flows never hit the shared Brevo account.
+  # Web UI + REST API on 8025, SMTP on 1025. Captured mail: http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.30.1
+    container_name: foundflow-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025/readyz"]
       interval: 5s
       timeout: 5s
       retries: 20

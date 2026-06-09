@@ -33,6 +33,7 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
 | http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
 | http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
+| http://localhost:8025 | Mailpit — captured outbound email (local/CI SMTP sink; nothing reaches the real Brevo account) |
 
 `auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 

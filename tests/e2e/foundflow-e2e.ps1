@@ -1,5 +1,6 @@
 param(
     [string]$GatewayBaseUrl = "http://localhost:8080",
+    [string]$MailpitBaseUrl = "http://localhost:8025",
     [string]$AdminEmail = "admin@foundflow.local",
     [string]$AdminPassword = "admin12345"
 )
@@ -252,6 +253,39 @@ function Wait-ForNotification {
     throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'."
 }
 
+# A persisted notifications row only proves the listener ran; it does NOT prove
+# the email left the service. notification-service sends to the Mailpit sink in
+# local + CI (issue #219), so query Mailpit's REST API to confirm the message
+# was actually accepted by the SMTP server -- and, by extension, that 0 mail
+# reached the real Brevo account. Poll because the send happens just after the
+# row is persisted.
+function Wait-ForMailpitMessage {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$Recipient,
+        [string]$Subject,
+        [int]$TimeoutSeconds = 15
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $response = $Client.GetAsync("$MailpitBaseUrl/api/v1/messages?limit=200").Result
+        if ($response.IsSuccessStatusCode) {
+            $payload = Read-Json $response
+            $matching = $payload.messages | Where-Object {
+                $_.Subject -eq $Subject -and
+                (@($_.To | Where-Object { $_.Address -eq $Recipient }).Count -gt 0)
+            } | Select-Object -First 1
+            if ($matching) {
+                return $matching
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for Mailpit to capture a '$Subject' email to $Recipient."
+}
+
 function Extract-MagicLinkUrl {
     param(
         [string]$Body,
@@ -269,6 +303,9 @@ function Extract-MagicLinkUrl {
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
+
+# Mailpit's REST API is unauthenticated and not behind the gateway.
+$mailpitClient = [System.Net.Http.HttpClient]::new()
 
 $health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
 Assert-Status $health 200 "Gateway health is public"
@@ -630,6 +667,14 @@ $matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlM
 if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
     throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
 }
+
+# Confirm the match-invite email actually reached the SMTP sink (Mailpit), proving
+# the send path works and that test mail never touches the real Brevo account.
+Wait-ForMailpitMessage `
+    -Client $mailpitClient `
+    -Recipient $lostItem.contactEmail `
+    -Subject "FoundFlow may have found your item" | Out-Null
+Write-Host "[OK] Mailpit captured the match-invite email to $($lostItem.contactEmail)"
 
 $publicMatchResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)").Result
 Assert-Status $publicMatchResponse 200 "Public match link can load match"

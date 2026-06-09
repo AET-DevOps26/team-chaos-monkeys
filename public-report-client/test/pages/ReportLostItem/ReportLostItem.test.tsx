@@ -16,6 +16,10 @@ const REPORT: LostReportResponse = {
   contactEmail: 'anna@example.com',
 }
 
+// A report is always scoped to a venue carried in the path (/report/<venueId>).
+const VENUE_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+const venueRoute = `/${VENUE_ID}`
+
 async function fillForm(user: ReturnType<typeof renderWithProviders>['user']) {
   await user.type(
     screen.getByLabelText(/description/i),
@@ -30,13 +34,22 @@ async function fillForm(user: ReturnType<typeof renderWithProviders>['user']) {
 
 describe('<ReportLostItem />', () => {
   it('keeps submit disabled until the form is valid', async () => {
-    renderWithProviders(<AppRoutes />)
+    renderWithProviders(<AppRoutes />, { route: venueRoute })
 
     expect(screen.getByRole('button', { name: /submit report/i })).toBeDisabled()
   })
 
+  it('blocks submission and warns when the venue link is invalid', async () => {
+    const { user } = renderWithProviders(<AppRoutes />, { route: '/not-a-uuid' })
+
+    expect(screen.getByText(/report link is invalid/i)).toBeInTheDocument()
+
+    await fillForm(user)
+    expect(screen.getByRole('button', { name: /submit report/i })).toBeDisabled()
+  })
+
   it('shows validation errors for an invalid contact email', async () => {
-    const { user } = renderWithProviders(<AppRoutes />)
+    const { user } = renderWithProviders(<AppRoutes />, { route: venueRoute })
 
     await user.type(screen.getByLabelText(/contact email/i), 'not-an-email')
     await user.tab()
@@ -49,7 +62,7 @@ describe('<ReportLostItem />', () => {
 
   it('submits a valid report and navigates to the confirmation page', async () => {
     server.use(createLostReportSuccess(REPORT))
-    const { user } = renderWithProviders(<AppRoutes />)
+    const { user } = renderWithProviders(<AppRoutes />, { route: venueRoute })
 
     await fillForm(user)
 
@@ -74,7 +87,7 @@ describe('<ReportLostItem />', () => {
         return HttpResponse.json<LostReportResponse>(REPORT)
       }),
     )
-    const { user } = renderWithProviders(<AppRoutes />)
+    const { user } = renderWithProviders(<AppRoutes />, { route: venueRoute })
 
     await fillForm(user)
     const file = new File(['binary'], 'wallet.png', { type: 'image/png' })

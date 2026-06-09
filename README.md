@@ -22,6 +22,12 @@ cp .env.example .env          # one-time, gitignored
 docker compose up --build     # builds and starts everything
 ```
 
+On a fresh machine, expect the first image build and startup to take roughly
+**10-15 minutes**, depending on CPU, memory, and network speed. Subsequent starts
+are significantly faster because Docker reuses downloaded images and build
+layers. The frontend may become reachable before the backend services are ready;
+wait until the login request succeeds before evaluating the application.
+
 The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 
 | URL | What it is |

@@ -14,14 +14,21 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 
 ## Run locally
 
-The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, and an Ollama LLM runtime — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
+The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
 
 ```bash
 cp .env.example .env          # one-time, gitignored
+# Set OPENAI_API_KEY in .env from the shared Bitwarden entry
 docker compose up --build     # builds and starts everything
 ```
 
-First boot pulls Ollama models, which takes a few minutes; subsequent boots reuse the cached models in a Docker volume. Once `docker compose ps` shows everything healthy:
+On a fresh machine, expect the first image build and startup to take roughly
+**10-15 minutes**, depending on CPU, memory, and network speed. Subsequent starts
+are significantly faster because Docker reuses downloaded images and build
+layers. The frontend may become reachable before the backend services are ready;
+wait until the login request succeeds before evaluating the application.
+
+The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 
 | URL | What it is |
 |---|---|
@@ -40,7 +47,13 @@ To stop and clean up volumes: `docker compose down -v`.
 
 ### Provider switch for GenAI
 
-`GENAI_PROVIDER=local` (default) talks to the bundled Ollama container with the chat/embed models named in `.env`. Setting `GENAI_PROVIDER=openai` with an `OPENAI_API_KEY` switches to OpenAI without changing any code paths.
+`GENAI_PROVIDER=openai` is the default and requires `OPENAI_API_KEY` from the shared Bitwarden entry. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
+
+```bash
+docker compose --profile ollama up --build
+```
+
+The first Ollama run downloads the configured models into the persistent `ollama-models` volume.
 
 ## Architecture
 
@@ -122,7 +135,7 @@ Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-c
 
 ### Devcontainer
 
-`.devcontainer/` defines a VS Code dev container with all three toolchains (Java 21, Node 22, Python 3.12) pre-installed. The container is the *toolbox*; the runtime stack (databases, services, Ollama) is still launched separately with `docker compose up` against the host Docker socket.
+`.devcontainer/` defines a VS Code dev container with all three toolchains (Java 21, Node 22, Python 3.12) pre-installed. The container is the *toolbox*; the runtime stack is still launched separately with `docker compose up` against the host Docker socket. Ollama is available through the optional `ollama` Compose profile.
 
 ## API contract
 

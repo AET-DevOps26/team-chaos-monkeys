@@ -50,7 +50,7 @@ foreach ($serviceRoot in $serviceRoots) {
     }
 }
 
-$failedResults = $results | Where-Object { -not $_.Success }
+$failedResults = @($results | Where-Object { -not $_.Success })
 
 Write-Host ""
 Write-Host "=== Overall result ==="

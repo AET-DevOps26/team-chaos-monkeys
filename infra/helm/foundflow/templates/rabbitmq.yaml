@@ -12,7 +12,8 @@ consume the same SPRING_RABBITMQ_HOST=rabbitmq value everywhere.
 
 Persistence is opt-in. With persistence off, queue contents are lost on pod
 restart — acceptable for the transient domain events we publish; flip on if
-durable queues are introduced.
+you need broker data survivability. Clean up old queues explicitly when durable queue
+names change.
 */}}
 {{- if .Values.rabbitmq.enabled -}}
 {{- $existing := lookup "v1" "Secret" .Values.namespace.name "foundflow-rabbitmq" -}}

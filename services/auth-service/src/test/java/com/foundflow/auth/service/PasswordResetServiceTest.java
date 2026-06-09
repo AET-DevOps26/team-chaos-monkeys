@@ -17,12 +17,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -83,6 +86,52 @@ class PasswordResetServiceTest {
         PasswordResetToken savedToken = tokenCaptor.getValue();
         assertTrue(savedToken.getTokenHash().matches("[0-9a-f]{64}"));
         assertNotNull(savedToken.getExpiresAt());
+    }
+
+    @Test
+    void requestPasswordReset_shouldPublishMailAfterCommitWhenTransactionSynchronizationIsActive() {
+        PasswordResetService service = new PasswordResetService(
+                userRepository,
+                passwordResetTokenRepository,
+                refreshTokenRepository,
+                passwordEncoder,
+                passwordResetEventPublisher,
+                30
+        );
+        User user = new User("staff@example.com", Role.STAFF, "hash", UUID.randomUUID());
+
+        when(userRepository.findByEmailIgnoreCase("staff@example.com"))
+                .thenReturn(Optional.of(user));
+        when(passwordResetTokenRepository.findByUserAndUsedAtIsNull(user))
+                .thenReturn(List.of());
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.requestPasswordReset(new PasswordResetRequest("staff@example.com"));
+
+            verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+            verify(passwordResetEventPublisher, never()).publishPasswordResetRequested(
+                    any(),
+                    any(),
+                    anyString(),
+                    anyString()
+            );
+
+            List<TransactionSynchronization> synchronizations =
+                    TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1, synchronizations.size());
+
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(passwordResetEventPublisher).publishPasswordResetRequested(
+                    any(),
+                    any(),
+                    anyString(),
+                    anyString()
+            );
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

@@ -78,9 +78,7 @@ public class FoundItemService {
         UUID venueId = venueAccessService.isAdmin(jwt)
                 ? request.venueId()
                 : venueAccessService.getVenueId(jwt);
-        UUID reporterId = request.reporterId() != null
-                ? request.reporterId()
-                : venueAccessService.getUserId(jwt);
+        UUID reporterId = resolveCreateReporterId(request, jwt);
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
         FoundItem foundItem = new FoundItem(
@@ -143,7 +141,7 @@ public class FoundItemService {
                         }
                         foundItem.setVenueId(request.venueId());
                     }
-                    if (request.reporterId() != null) {
+                    if (venueAccessService.isAdmin(jwt) && request.reporterId() != null) {
                         foundItem.setReporterId(request.reporterId());
                     }
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
@@ -315,6 +313,14 @@ public class FoundItemService {
         if (!venueAccessService.canAccessVenue(jwt, resourceVenueId)) {
             throw new AccessDeniedException("No access to this venue.");
         }
+    }
+
+    private UUID resolveCreateReporterId(CreateFoundItemRequest request, Jwt jwt) {
+        if (venueAccessService.isAdmin(jwt) && request.reporterId() != null) {
+            return request.reporterId();
+        }
+
+        return venueAccessService.getUserId(jwt);
     }
 
     private boolean hasStoredPhoto(String photoKey) {

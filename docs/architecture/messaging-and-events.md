@@ -26,6 +26,13 @@ The current implemented broker is the domain-event RabbitMQ exchange:
 | `found-item.updated.v1` | `found-item-service` | `matching.found-item-updated.v1` |
 | `match-candidate.created.v1` | `matching-service` | No queue bound in the current codebase |
 
+Matching queues are declared durable by the consumers. When renaming a queue on
+a persistent broker, drain or delete the old durable queue after the rollout so
+messages are not stranded under the previous name. The found-item create queue
+was renamed from `matching.found-item-logged.v1` to
+`matching.found-item-created.v1`; disposable local brokers can be recreated with
+`docker compose down -v` before bringing the stack back up.
+
 ## Planned Notification Messaging
 
 Notifications are intended to move through RabbitMQ as a separate asynchronous

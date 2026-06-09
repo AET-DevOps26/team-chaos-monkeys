@@ -181,6 +181,16 @@ ssh tum-azure 'cd ~/foundflow && sudo docker compose \
   sudo docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d'
 ```
 
+### RabbitMQ queue renames
+
+The matching consumers declare durable queues. If a deploy changes a durable
+queue name on a broker with persistent storage, the old queue remains until it
+is drained or deleted explicitly. For this branch, the found-item matching queue
+was renamed from `matching.found-item-logged.v1` to
+`matching.found-item-created.v1`; drain/delete the old queue on persistent
+brokers after the rollout. For disposable local stacks, recreate the broker
+volume with `docker compose down -v` before starting the stack again.
+
 ## Deploy via CI
 
 Actions tab → **Azure cycle (ephemeral VM)** → Run workflow:

@@ -13,6 +13,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -22,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 public class PasswordResetService {
@@ -94,7 +97,7 @@ public class PasswordResetService {
         );
 
         passwordResetTokenRepository.save(resetToken);
-        passwordResetEventPublisher.publishPasswordResetRequested(
+        publishPasswordResetRequestedAfterCommit(
                 user.getId(),
                 user.getVenueId(),
                 user.getEmail(),
@@ -108,6 +111,39 @@ public class PasswordResetService {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(randomBytes);
+    }
+
+    private void publishPasswordResetRequestedAfterCommit(
+            UUID userId,
+            UUID venueId,
+            String email,
+            String token
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            publishPasswordResetRequested(userId, venueId, email, token);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishPasswordResetRequested(userId, venueId, email, token);
+            }
+        });
+    }
+
+    private void publishPasswordResetRequested(
+            UUID userId,
+            UUID venueId,
+            String email,
+            String token
+    ) {
+        passwordResetEventPublisher.publishPasswordResetRequested(
+                userId,
+                venueId,
+                email,
+                token
+        );
     }
 
     private String normalizeEmail(String email) {

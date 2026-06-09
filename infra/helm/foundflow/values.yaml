@@ -271,7 +271,8 @@ rabbitmq:
     limits:   { cpu: 500m, memory: 512Mi }
   # Persistence is off by default: RabbitMQ here carries transient domain events
   # only — losing the queue contents on pod restart is acceptable. Flip to true
-  # and set storageSize if/when durable queues are introduced.
+  # and set storageSize for broker data survivability. Durable queues already
+  # exist; clean up old queues explicitly when durable queue names change.
   persistence:
     enabled: false
     storageSize: 1Gi

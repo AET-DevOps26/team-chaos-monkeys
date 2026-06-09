@@ -65,32 +65,35 @@ class FoundItemServiceTest {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
+        UUID jwtUserId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
+        UUID requestReporterId = UUID.randomUUID();
         LocalDateTime foundAt = LocalDateTime.of(2026, 5, 12, 14, 30);
 
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 foundAt,
                 requestVenueId,
-                reporterId,
+                requestReporterId,
                 null
         );
 
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId, jwtUserId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
 
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
+        assertEquals(jwtUserId, captor.getValue().getReporterId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
         assertNull(captor.getValue().getPhotoKey());
         assertNull(captor.getValue().getLocation());
         assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
+        assertEquals(jwtUserId, response.reporterId());
         assertNull(response.photoKey());
         verifyNoInteractions(eventPublisher);
     }
@@ -127,6 +130,7 @@ class FoundItemServiceTest {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
+        UUID jwtUserId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
         CreateFoundItemRequest request = new CreateFoundItemRequest(
@@ -140,13 +144,40 @@ class FoundItemServiceTest {
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId, jwtUserId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
 
         assertNull(captor.getValue().getPhotoKey());
         assertNull(response.photoKey());
+    }
+
+    @Test
+    void createFoundItem_shouldAllowAdminReporterOverride() {
+        FoundItemService service = service();
+
+        UUID requestVenueId = UUID.randomUUID();
+        UUID requestReporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                requestVenueId,
+                requestReporterId,
+                null
+        );
+
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FoundItemResponse response = service.createFoundItem(request, adminJwt(UUID.randomUUID()));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository).save(captor.capture());
+
+        assertEquals(requestVenueId, captor.getValue().getVenueId());
+        assertEquals(requestReporterId, captor.getValue().getReporterId());
+        assertEquals(requestReporterId, response.reporterId());
     }
 
     @Test
@@ -303,6 +334,7 @@ class FoundItemServiceTest {
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         FoundItem existingItem = foundItem(venueId);
+        UUID originalReporterId = existingItem.getReporterId();
 
         UpdateFoundItemRequest request = new UpdateFoundItemRequest(
                 "Neue Beschreibung",
@@ -324,6 +356,7 @@ class FoundItemServiceTest {
         assertTrue(response.isPresent());
         assertEquals(ItemStatus.RESERVED, response.get().status());
         assertEquals(venueId, response.get().venueId());
+        assertEquals(originalReporterId, response.get().reporterId());
         assertEquals("photo-123", response.get().photoKey());
         verify(foundItemRepository).save(existingItem);
         ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
@@ -569,6 +602,15 @@ class FoundItemServiceTest {
                 .claim("user_id", userId.toString())
                 .claim("roles", List.of("STAFF"))
                 .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt adminJwt(UUID userId) {
+        return Jwt.withTokenValue("token")
+                .subject(userId.toString())
+                .header("alg", "none")
+                .claim("user_id", userId.toString())
+                .claim("roles", List.of("ADMIN"))
                 .build();
     }
 

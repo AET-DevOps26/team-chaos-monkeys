@@ -9,6 +9,7 @@
     repo_root: "{{ playbook_dir }}/../.."
     image_registry: ghcr.io/aet-devops26/team-chaos-monkeys
     image_tag: latest
+    internal_service_token: "{{ lookup('env', 'INTERNAL_SERVICE_TOKEN') }}"
 
   handlers:
     - name: Reset SSH connection
@@ -124,6 +125,13 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         recurse: true
+
+    - name: Require internal service token
+      ansible.builtin.assert:
+        that:
+          - internal_service_token is defined
+          - internal_service_token | length > 0
+        fail_msg: "Set INTERNAL_SERVICE_TOKEN or pass -e internal_service_token=... before deploying."
 
     - name: Render .env from template
       ansible.builtin.template:

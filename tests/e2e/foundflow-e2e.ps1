@@ -170,13 +170,28 @@ function Refresh-TokenPair {
     $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
         refreshToken = $RefreshToken
     })).Result
-    $body = $response.Content.ReadAsStringAsync().Result
+    $body = Read-ResponseBody $response
 
-    if (-not $response.IsSuccessStatusCode) {
-        throw "Refresh token request failed. Body: $body"
+    if ($null -eq $response) {
+        throw "Refresh token request failed. No HTTP response was received."
     }
 
-    $tokens = $body | ConvertFrom-Json
+    if (-not $response.IsSuccessStatusCode) {
+        $status = [int]$response.StatusCode
+        throw "Refresh token request failed. HTTP $status. Body: $body"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        $status = [int]$response.StatusCode
+        throw "Refresh token request succeeded with HTTP $status but returned an empty body."
+    }
+
+    try {
+        $tokens = $body | ConvertFrom-Json
+    } catch {
+        throw "Refresh token request returned invalid JSON. Body: $body. Error: $($_.Exception.Message)"
+    }
+
     if ($tokens.expiresIn -ne 1800) {
         throw "Refresh should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
     }
@@ -950,22 +965,19 @@ $matchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
 Assert-Status $matchResponse 201 "OPS_MANAGER can create same-venue match"
 $match = Read-Json $matchResponse
 
-$otherLostResponse = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent @{
-        description = "E2E lost item other venue"
-        lostAt = "2026-05-19T15:55:00"
-        location = "Other"
-        venueId = "99999999-9999-9999-9999-999999999999"
-        contactEmail = "other-$suffix@example.com"
-        attributes = @{
-            category = "Bag"
-            brand = "Test"
-            color = "Black"
-            marks = @("E2E")
-        }
-    })
-).Result
+$otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
+    description = "E2E lost item other venue"
+    lostAt = "2026-05-19T15:55:00"
+    location = "Other"
+    venueId = "99999999-9999-9999-9999-999999999999"
+    contactEmail = "other-$suffix@example.com"
+    attributes = @{
+        category = "Bag"
+        brand = "Test"
+        color = "Black"
+        marks = @("E2E")
+    }
+}
 Assert-Status $otherLostResponse 201 "Public lost item can be created for another venue"
 $otherLostItem = Read-Json $otherLostResponse
 
@@ -1099,13 +1111,11 @@ if (@($staffPickups | Where-Object { $_.id -eq $publicPickup.id }).Count -ne 1) 
 $publicPickupDeleteResponse = $publicClient.DeleteAsync($manageLink).Result
 Assert-Status $publicPickupDeleteResponse 204 "Public pickup manage link can cancel pickup"
 
-$matchListResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/matches?foundItem=$($foundItem.id)&lostItem=$($lostItem.id)&status=PENDING"
-).Result
-Assert-Status $matchListResponse 200 "OPS_MANAGER can list filtered matches"
-$matchListBody = Read-Json $matchListResponse
-if (@($matchListBody).Count -ne 0) {
-    throw "Pending match list should be empty after public confirmation."
+$confirmedMatchResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
+Assert-Status $confirmedMatchResponse 200 "OPS_MANAGER can load confirmed match by id"
+$confirmedMatch = Read-Json $confirmedMatchResponse
+if ($confirmedMatch.status -ne "CONFIRMED") {
+    throw "Manual match should be CONFIRMED after public confirmation. Actual status: $($confirmedMatch.status)."
 }
 
 $matchCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/count?status=CONFIRMED").Result

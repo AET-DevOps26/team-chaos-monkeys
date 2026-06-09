@@ -23,9 +23,12 @@ public class InternalFoundItemController {
 
     public InternalFoundItemController(
             FoundItemService foundItemService,
-            @Value("${foundflow.internal.token:dev-internal-token}") String internalToken
+            @Value("${foundflow.internal.token}") String internalToken
     ) {
         this.foundItemService = foundItemService;
+        if (internalToken == null || internalToken.isBlank()) {
+            throw new IllegalStateException("foundflow.internal.token must be configured.");
+        }
         this.internalToken = internalToken;
     }
 

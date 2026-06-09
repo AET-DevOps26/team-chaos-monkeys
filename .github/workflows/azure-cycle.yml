@@ -80,6 +80,7 @@ jobs:
         if: ${{ inputs.action == 'apply' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
         working-directory: deploy/ansible
         run: |
@@ -89,6 +90,7 @@ jobs:
             --private-key ~/.ssh/id_rsa \
             deploy.yml \
             -e "openai_api_key=$OPENAI_API_KEY" \
+            -e "internal_service_token=$INTERNAL_SERVICE_TOKEN" \
             -e "image_tag=${{ inputs.image_tag }}"
 
       - name: Summarise

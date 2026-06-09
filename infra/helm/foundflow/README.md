@@ -93,6 +93,7 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   | `devAdminEmail`        | `DEV_ADMIN_EMAIL` (auth-service)         | Bootstrap admin email seeded on first start. |
   | `devAdminPassword`     | `DEV_ADMIN_PASSWORD` (auth-service)      | Bootstrap admin password. |
   | `jwtRsaPrivateKey`     | `JWT_RSA_PRIVATE_KEY` (auth-service)     | Override the auto-generated JWT signing key. |
+  | `internalServiceToken` | `INTERNAL_SERVICE_TOKEN` (found-item, matching) | Shared token for matching-service calls to found-item internal endpoints. Required. |
   | `magicLinkSecret`      | `MAGIC_LINK_SECRET` (matching, pickup, notification) | HMAC secret for public match/pickup magic-link tokens. Falls back to the dev default when empty. |
   | `brevoSmtpUsername`    | `SPRING_MAIL_USERNAME` (notification-service) | Brevo SMTP login (the verified Foundflow Gmail). |
   | `brevoSmtpPassword`    | `SPRING_MAIL_PASSWORD` (notification-service) | Brevo SMTP password (issued in the Brevo dashboard). |

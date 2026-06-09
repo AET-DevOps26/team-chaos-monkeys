@@ -12,6 +12,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -106,10 +108,24 @@ public class VenueService {
         return venueRepository.findById(id)
                 .map(venue -> {
                     venueRepository.delete(venue);
-                    venueEventPublisher.publishVenueDeleted(id);
+                    publishVenueDeletedAfterCommit(id);
                     return true;
                 })
                 .orElse(false);
+    }
+
+    private void publishVenueDeletedAfterCommit(UUID id) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            venueEventPublisher.publishVenueDeleted(id);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                venueEventPublisher.publishVenueDeleted(id);
+            }
+        });
     }
 
     private void verifyVenueAccess(Jwt jwt, UUID venueId) {

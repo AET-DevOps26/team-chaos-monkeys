@@ -118,6 +118,7 @@ services:
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
       - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   matching-service:
@@ -136,6 +137,7 @@ services:
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
@@ -299,6 +301,9 @@ secrets:
   devAdminEmail: ""
   devAdminPassword: ""
   jwtRsaPrivateKey: ""
+  # Shared service-to-service token used by matching-service to call
+  # found-item-service internal endpoints. Required for those services to start.
+  internalServiceToken: ""
   # Magic-link HMAC signing secret. When empty the app falls back to the dev
   # default baked into application.properties — fine for demo, never for prod.
   magicLinkSecret: ""

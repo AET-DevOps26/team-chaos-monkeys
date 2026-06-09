@@ -125,6 +125,7 @@ cd deploy
 ```bash
 cd ansible
 export OPENAI_API_KEY=sk-...
+export INTERNAL_SERVICE_TOKEN="$(openssl rand -hex 32)"
 ansible-playbook \
   -i "$(terraform -chdir=../terraform output -raw public_ip)," \
   --user azureuser \
@@ -135,9 +136,9 @@ cd ..
 ```
 
 Installs Docker + compose plugin, rsyncs the repo, templates `.env` with
-`OPENAI_API_KEY`, pulls images, starts the stack, and waits for the gateway
-to return 200. Re-running against the same VM is a near-no-op when nothing
-changed.
+`OPENAI_API_KEY` and `INTERNAL_SERVICE_TOKEN`, pulls images, starts the stack,
+and waits for the gateway to return 200. Re-running against the same VM is a
+near-no-op when nothing changed.
 
 > `scripts/bootstrap.sh` is the legacy bash path. Still works, kept as a
 > one-shot debug helper — the Ansible playbook is the primary entrypoint.
@@ -162,6 +163,8 @@ Everything from `.env.example` (Postgres credentials × 7, `DEV_ADMIN_*`,
 `GRAFANA_ADMIN_*`), plus on the VM:
 
 - `OPENAI_API_KEY` — required (Ollama is excluded on the VM)
+- `INTERNAL_SERVICE_TOKEN` — required shared token for internal
+  service-to-service endpoints.
 - `IMAGE_REGISTRY` — defaults to `ghcr.io/aet-devops26/team-chaos-monkeys`.
   Only set if you pushed images to a different registry.
 - `GENAI_PROVIDER=openai` is set in the prod override; you don't need to set
@@ -193,7 +196,7 @@ Terraform state lives in the `tfstate` container of the
 
 Required repo secrets: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`,
 `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_VM_SSH_KEY` (private key),
-`OPENAI_API_KEY`.
+`OPENAI_API_KEY`, `INTERNAL_SERVICE_TOKEN`.
 
 ## Tearing down (stop burning credits)
 

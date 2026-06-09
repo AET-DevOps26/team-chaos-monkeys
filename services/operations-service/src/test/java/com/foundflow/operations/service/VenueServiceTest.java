@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -144,6 +146,29 @@ class VenueServiceTest {
         assertTrue(service.deleteVenue(id, adminJwt()));
         verify(venueRepository).delete(venue);
         verify(venueEventPublisher).publishVenueDeleted(id);
+    }
+
+    @Test
+    void deleteVenue_shouldPublishDeletedEventAfterCommitWhenTransactionSynchronizationIsActive() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+        Venue venue = new Venue("Venue A", "formal", "de");
+        when(venueRepository.findById(id)).thenReturn(Optional.of(venue));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertTrue(service.deleteVenue(id, adminJwt()));
+            verify(venueRepository).delete(venue);
+            verifyNoInteractions(venueEventPublisher);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            verify(venueEventPublisher).publishVenueDeleted(id);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test

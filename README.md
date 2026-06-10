@@ -37,7 +37,9 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 
 `auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 
-To stop and clean up volumes: `docker compose down -v`.
+To stop and clean up volumes: `docker compose down -v --remove-orphans`.
+The orphan cleanup also removes services that existed on the branch where the
+stack was started but are absent after switching branches.
 
 ### Provider switch for GenAI
 

@@ -96,8 +96,10 @@ Endpoints: `POST /extract-attributes`, `POST /embed`, `POST /verify-match`, `GET
 | minio (console)  | 9001  | 9001      |
 | rabbitmq (AMQP)  | 5672  | 5672      |
 | rabbitmq (mgmt)  | 15672 | 15672     |
+| mailpit (SMTP)   | 1025  | 1025      |
+| mailpit (web/API)| 8025  | 8025      |
 
-The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `.env.example` documents the required env vars; copy to `.env` before first run.
+The `edge` container on `3000` is the single browser entrypoint: `/` → `client`, `/report` → `public-report-client`, `/api` → `gateway-service`. The two client containers and all Spring backend services (8081–8087) and the seven Postgres DBs are internal-only; reach them through the edge/gateway. RabbitMQ and MinIO additionally expose their ports on the host (broker/management and object-store API/console) for local debugging. `mailpit` is the local/CI SMTP sink: `notification-service` delivers there by default (web UI + REST API on 8025) so test/demo mail never reaches the shared Brevo account. `.env.example` documents the required env vars; copy to `.env` before first run.
 
 ## Gateway Routing
 
@@ -135,7 +137,7 @@ The system is **event-driven with synchronous edges**. The intake → matching s
 
 **Provider switch for the LLM.** `GENAI_PROVIDER=openai|local|fake` selects the OpenAI API, a local Ollama backend, or the deterministic `fake` provider used in tests/E2E. OpenAI is the local Compose default and requires the Bitwarden-shared `OPENAI_API_KEY`; Ollama is an explicit optional Compose profile. Implementations live in `app/providers/{openai,ollama,fake}.py` and share the same provider interface — same code path, no separate implementations. A nightly `genai-integration.yml` workflow runs the service against a real Ollama backend (`qwen2.5:0.5b` + `nomic-embed-text`) and is non-blocking (`continue-on-error: true`).
 
-The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (default `768`). It drives the `item_embeddings.embedding` column type via a Flyway placeholder (`spring.flyway.placeholders.embedding_dim`), the OpenAI `dimensions=` parameter, and a startup probe in both services. When changing `OPENAI_EMBED_MODEL` or `OLLAMA_EMBED_MODEL`, also update `EMBEDDING_DIMENSIONS` to match the new model's output — both services refuse to start otherwise. The matching-service migrations under `db/migration/*.sql` are now the first in the repo to use Flyway placeholders; editing one of them requires `flyway repair` or `docker compose down -v` on any local dev DB once.
+The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (default `768`). It drives the `item_embeddings.embedding` column type via a Flyway placeholder (`spring.flyway.placeholders.embedding_dim`), the OpenAI `dimensions=` parameter, and a startup probe in both services. When changing `OPENAI_EMBED_MODEL` or `OLLAMA_EMBED_MODEL`, also update `EMBEDDING_DIMENSIONS` to match the new model's output — both services refuse to start otherwise. The matching-service migrations under `db/migration/*.sql` are now the first in the repo to use Flyway placeholders; editing one of them requires `flyway repair` or `docker compose down -v --remove-orphans` on any local dev DB once.
 
 **Object storage abstraction.** Implemented in `shared/photo-storage/` as a single `PhotoStorage` interface with three adapters — `MinioPhotoStorage` (compose default), `AzurePhotoStorage` (cloud), and `FileSystemPhotoStorage` (test/fallback) — selected via `PHOTO_STORAGE_PROVIDER`. Both `lost-item-service` and `found-item-service` inject the interface; signed-URL TTL is configurable via `photo-storage.signed-url-ttl` (default `PT10M`). Detailed in `docs/architecture/photo-storage.md`.
 
@@ -149,7 +151,7 @@ The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (defau
 4. **client-build** — `npm ci && npm run build` on Node 22.
 5. **client-tests** — `npm ci && npm run test:coverage` (Vitest) on Node 22; uploads the `client-coverage` artifact.
 6. **codegen-check** — regenerates the Orval client from `client/openapi/` and fails on `git diff --exit-code client/src/api`.
-7. **e2e-tests** — depends on `backend-tests`, `client-build`, and `client-tests`. Boots the backend stack via `docker compose up --build -d`, polls health endpoints through the gateway, then runs `./tests/e2e/foundflow-e2e.ps1` (PowerShell). Tears down with `docker compose down -v`.
+7. **e2e-tests** — depends on `backend-tests`, `client-build`, and `client-tests`. Boots the backend stack via `docker compose up --build -d`, polls health endpoints through the gateway, then runs `./tests/e2e/foundflow-e2e.ps1` (PowerShell). Tears down with `docker compose down -v --remove-orphans`.
 
 `.github/workflows/genai-integration.yml` — nightly + on-push-to-main, hits real Ollama, non-blocking.
 

@@ -193,7 +193,14 @@ Terraform state lives in the `tfstate` container of the
 
 Required repo secrets: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`,
 `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_VM_SSH_KEY` (private key),
-`OPENAI_API_KEY`.
+`OPENAI_API_KEY`, `BREVO_SMTP_USERNAME`, `BREVO_SMTP_PASSWORD`,
+`BREVO_MAIL_FROM`, and `BREVO_TEST_RECIPIENT`.
+
+An `apply` run publishes one match-invite event to RabbitMQ after the stack is
+healthy. The workflow succeeds only after `notification-service` records a
+non-null `sent_at`, proving Brevo accepted the SMTP delivery for
+`BREVO_TEST_RECIPIENT`. Confirm final inbox delivery manually, then run the
+workflow again with `action: destroy`.
 
 ## Tearing down (stop burning credits)
 

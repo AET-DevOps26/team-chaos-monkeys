@@ -153,6 +153,8 @@ services:
       - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
       - { name: SPRING_MAIL_HOST, value: "smtp-relay.brevo.com" }
       - { name: SPRING_MAIL_PORT, value: "587" }
+      - { name: SPRING_MAIL_SMTP_AUTH, value: "true" }
+      - { name: SPRING_MAIL_SMTP_STARTTLS, value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq,    key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq,    key: password }
@@ -336,4 +338,3 @@ grafana:
 monitoring:
   enabled: true
   prometheusReleaseLabel: kube-prometheus-stack
-

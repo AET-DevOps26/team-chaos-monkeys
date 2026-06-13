@@ -8,7 +8,7 @@ The service speaks to one LLM provider, picked at startup via `GENAI_PROVIDER`. 
 
 | Env var | Required | Default | Notes |
 |---|---|---|---|
-| `GENAI_PROVIDER` | yes | — | `local` (Ollama) or `openai`. Invalid values fail at startup. |
+| `GENAI_PROVIDER` | yes | `openai` in root `.env.example` | `openai`, `local` (Ollama), or `fake`. Invalid values fail at startup. |
 | `OPENAI_API_KEY` | iff `provider=openai` | — | Validated at startup; missing key crashloops the container. |
 | `OPENAI_CHAT_MODEL` | no | `gpt-4o-mini` | |
 | `OPENAI_EMBED_MODEL` | no | `text-embedding-3-small` | |
@@ -17,36 +17,46 @@ The service speaks to one LLM provider, picked at startup via `GENAI_PROVIDER`. 
 | `OLLAMA_EMBED_MODEL` | no | `nomic-embed-text` | Pulled by the `ollama-init` sidecar. |
 | `GENAI_TIMEOUT_SECONDS` | no | `30` | Per-request timeout for chat + embed. |
 
-The compose stack defaults to `GENAI_PROVIDER=local`, so a fresh `docker compose up` runs end-to-end without an API key. To use OpenAI in local dev: copy `.env.example` to `.env`, set `GENAI_PROVIDER=openai` and `OPENAI_API_KEY=…`.
+The Compose stack defaults to `GENAI_PROVIDER=openai`. Copy the root `.env.example` to `.env`, then set `OPENAI_API_KEY` from the shared Bitwarden entry. The service validates the key configuration and probes the embedding model during startup.
 
 ## Run locally
 
 ### Via docker-compose (recommended)
 
+```bash
+cp .env.example .env
+# Set OPENAI_API_KEY in .env from the shared Bitwarden entry
+docker compose up --build
 ```
-docker compose up
-```
-
-First run pulls ~1.5 GB of Ollama models (`llama3.2:3b` + `nomic-embed-text`) via the `ollama-init` sidecar. This takes 3-5 minutes depending on your connection. Models are cached in the `ollama-models` volume, so subsequent runs are instant.
 
 Verify with:
 
-```
+```bash
 curl http://localhost:8000/_diagnostic | jq
-# { "provider": "local", "chat_ok": true, "embed_ok": true, ... }
+# { "provider": "openai", "chat_ok": true, "embed_ok": true, ... }
 ```
+
+### Optional local Ollama provider
+
+To run without an OpenAI key, set `GENAI_PROVIDER=local` in the root `.env` and enable the optional Compose profile:
+
+```bash
+docker compose --profile ollama up --build
+```
+
+The first run pulls the Ollama image and configured chat, vision, and embedding models. They are cached in the `ollama-models` volume for subsequent runs.
 
 ### Standalone (host Python)
 
 Requires Python 3.12.
 
-```
+```bash
 cd services/genai-service
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-export GENAI_PROVIDER=local
-export OLLAMA_BASE_URL=http://localhost:11434   # if Ollama runs on the host
+export GENAI_PROVIDER=openai
+export OPENAI_API_KEY=sk-...
 uvicorn app.main:app --reload --port 8000
 ```
 

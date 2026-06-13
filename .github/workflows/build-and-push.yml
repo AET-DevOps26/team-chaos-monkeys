@@ -27,6 +27,9 @@ jobs:
       IMAGE_TAG: ${{ inputs.image_tag || 'latest' }}
       DOCKER_DEFAULT_PLATFORM: linux/amd64
       OPENAI_API_KEY: ci-build-placeholder
+      SPRING_MAIL_USERNAME: ci-build-placeholder
+      SPRING_MAIL_PASSWORD: ci-build-placeholder
+      FOUNDFLOW_MAIL_FROM: ci-build-placeholder@example.com
 
     steps:
       - name: Checkout repository

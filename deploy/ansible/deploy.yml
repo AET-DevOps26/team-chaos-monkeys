@@ -190,3 +190,75 @@
       register: frontend_check
       until: frontend_check.status == 200
       changed_when: false
+
+    - name: Wait for notification service health
+      ansible.builtin.uri:
+        url: http://localhost:8080/notifications/actuator/health
+        status_code: 200
+        validate_certs: false
+      register: notification_health
+      retries: 30
+      delay: 5
+      until: notification_health.status == 200
+      changed_when: false
+
+    - name: Prepare Brevo delivery test event
+      ansible.builtin.set_fact:
+        brevo_test_event_id: "{{ lookup('pipe', 'cat /proc/sys/kernel/random/uuid') }}"
+        brevo_test_match_id: "{{ lookup('pipe', 'cat /proc/sys/kernel/random/uuid') }}"
+        brevo_test_venue_id: "{{ lookup('pipe', 'cat /proc/sys/kernel/random/uuid') }}"
+      when: brevo_test_recipient | default('') | length > 0
+      no_log: true
+
+    - name: Publish one match invite for the Brevo delivery test
+      ansible.builtin.uri:
+        url: http://localhost:15672/api/exchanges/%2F/foundflow.domain-events/publish
+        method: POST
+        user: foundflow
+        password: foundflow
+        force_basic_auth: true
+        body_format: json
+        body:
+          properties:
+            content_type: application/json
+            headers:
+              __TypeId__: com.foundflow.events.MatchInviteRequestedEvent
+          routing_key: match-invite.requested.v1
+          payload: >-
+            {{
+              {
+                'eventId': brevo_test_event_id,
+                'occurredAt': ansible_date_time.iso8601,
+                'matchId': brevo_test_match_id,
+                'recipient': brevo_test_recipient,
+                'venueId': brevo_test_venue_id,
+                'matchUrl': public_base_url ~ '/api/matches/public/' ~ brevo_test_match_id
+              } | to_json
+            }}
+          payload_encoding: string
+        status_code: 200
+        return_content: true
+      register: brevo_publish
+      failed_when: brevo_publish.json.routed | default(false) != true
+      when: brevo_test_recipient | default('') | length > 0
+      no_log: true
+
+    - name: Wait for Brevo to accept the test email
+      community.docker.docker_container_exec:
+        container: foundflow-notification-db
+        command: >-
+          psql -U notification_user -d notification_db -tAc
+          "SELECT CASE WHEN sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END
+          FROM notifications WHERE match_id = '{{ brevo_test_match_id }}'"
+      register: brevo_delivery
+      retries: 12
+      delay: 5
+      until: brevo_delivery.stdout | trim == "sent"
+      changed_when: false
+      when: brevo_test_recipient | default('') | length > 0
+      no_log: true
+
+    - name: Report Brevo delivery test result
+      ansible.builtin.debug:
+        msg: Brevo accepted the Azure match-invite test email.
+      when: brevo_test_recipient | default('') | length > 0

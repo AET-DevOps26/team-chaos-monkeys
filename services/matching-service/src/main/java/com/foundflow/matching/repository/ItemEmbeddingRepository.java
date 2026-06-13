@@ -13,6 +13,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Persistence for the pgvector-backed {@code item_embeddings} table, and the only repository wired
+ * directly on {@link JdbcTemplate}. Elsewhere the codebase uses Spring Data JPA repositories — though
+ * those aren't pure ORM either (e.g. {@code MatchRepository} drops to {@code @Query(nativeQuery=true)}
+ * for reporting queries). What's specific here is binding {@link com.pgvector.PGvector} parameters and
+ * the {@code vector(N)} column / {@code <=>} cosine-distance operator, which our Hibernate/JPA setup
+ * doesn't map; {@code JdbcTemplate} is the pragmatic fit. This predates the search endpoint —
+ * {@code findTopKForSearch} just follows the existing {@code findTopKSimilar}.
+ */
 @Repository
 public class ItemEmbeddingRepository {
 

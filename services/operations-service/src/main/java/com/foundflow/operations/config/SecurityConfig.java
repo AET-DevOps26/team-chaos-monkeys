@@ -2,6 +2,7 @@ package com.foundflow.operations.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
@@ -26,6 +27,12 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/venues/public")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/venues/**")
+                        .hasAnyRole("ADMIN", "OPS_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/venues/**")
+                        .hasRole("ADMIN")
                         .requestMatchers("/api/**")
                         .hasAnyRole("ADMIN", "STAFF", "OPS_MANAGER")
                         .anyRequest().authenticated()

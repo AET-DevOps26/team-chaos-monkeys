@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCreateFoundItemWithPhoto } from '@/api/found-items/found-item-controller/found-item-controller'
-import type { CreateFoundItemRequest, CreateFoundItemWithPhotoBody } from '@/api/found-items/model'
+import { useUpdateFoundItemPhoto } from '@/api/found-items/found-item-controller/found-item-controller'
+import type { CreateFoundItemRequest, FoundItemResponse } from '@/api/found-items/model'
+import { customInstance } from '@/api/mutator/custom-instance'
 import { useAuth } from '@/auth/useAuth'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
-// The backend requires UUID values
-// The auth-service `sub` is an email, not a UUID, hence the guard.
-// TODO: wire real venue/reporter UUIDs. until the backend change items are written with the
-// nil UUID, collapsing all records under one fake venue/reporter.
-// tracked in issue #120
+// The create DTO still carries a venue UUID. For non-admin users the backend
+// applies the JWT venue, but this keeps the request shape valid while auth
+// state is still hydrating.
 const PLACEHOLDER_UUID = '00000000-0000-0000-0000-000000000000'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const asUuidOrPlaceholder = (value: string | null | undefined): string =>
@@ -72,9 +71,10 @@ export default function FoundItemIntake() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isCreatingItem, setIsCreatingItem] = useState(false)
 
   const { user } = useAuth()
-  const createFoundItem = useCreateFoundItemWithPhoto()
+  const updateFoundItemPhoto = useUpdateFoundItemPhoto()
 
   useEffect(() => {
     if (!photo) {
@@ -103,9 +103,17 @@ export default function FoundItemIntake() {
       setSubmitError('Photo is required.')
       return
     }
+    setIsCreatingItem(true)
     try {
-      const multipartPayload: CreateFoundItemWithPhotoBody = { request: payload, photo: data.photo }
-      await createFoundItem.mutateAsync({ data: multipartPayload })
+      const created = await customInstance<FoundItemResponse>({
+        url: '/api/found-items',
+        method: 'POST',
+        data: payload,
+      })
+      if (!created.id) {
+        throw new Error('Failed to create found item.')
+      }
+      await updateFoundItemPhoto.mutateAsync({ id: created.id, data: { photo: data.photo } })
       reset({
         intakeText: '',
         foundAt: nowForDatetimeLocal(),
@@ -115,10 +123,13 @@ export default function FoundItemIntake() {
       window.setTimeout(() => setShowSuccess(false), 3000)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to log found item.')
+    } finally {
+      setIsCreatingItem(false)
     }
   }
 
   const hasPhoto = !!previewUrl
+  const isSubmitting = isCreatingItem || updateFoundItemPhoto.isPending
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-2xl flex-col p-4">
@@ -137,10 +148,10 @@ export default function FoundItemIntake() {
             {hasPhoto && (
               <button
                 type="submit"
-                disabled={!isValid || createFoundItem.isPending}
+                disabled={!isValid || isSubmitting}
                 className="rounded bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {createFoundItem.isPending ? 'Logging…' : 'Log found item'}
+                {isSubmitting ? 'Logging…' : 'Log found item'}
               </button>
             )}
           </div>

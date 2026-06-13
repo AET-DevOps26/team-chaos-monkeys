@@ -2,7 +2,7 @@ package com.foundflow.founditem.messaging;
 
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.founditem.domain.ItemStatus;
@@ -23,22 +23,22 @@ import static org.mockito.Mockito.verify;
 class FoundItemEventPublisherTest {
 
     @Test
-    void publishFoundItemLogged_shouldSendDomainEvent() {
+    void publishFoundItemCreated_shouldSendDomainEvent() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
         FoundItem foundItem = foundItem();
 
-        publisher.publishFoundItemLogged(foundItem);
+        publisher.publishFoundItemCreated(foundItem);
 
-        ArgumentCaptor<FoundItemLoggedEvent> eventCaptor =
-                ArgumentCaptor.forClass(FoundItemLoggedEvent.class);
+        ArgumentCaptor<FoundItemCreatedEvent> eventCaptor =
+                ArgumentCaptor.forClass(FoundItemCreatedEvent.class);
         verify(rabbitTemplate).convertAndSend(
                 eq(FoundFlowEventRouting.EXCHANGE),
-                eq(FoundFlowEventRouting.FOUND_ITEM_LOGGED),
+                eq(FoundFlowEventRouting.FOUND_ITEM_CREATED),
                 eventCaptor.capture()
         );
 
-        FoundItemLoggedEvent event = eventCaptor.getValue();
+        FoundItemCreatedEvent event = eventCaptor.getValue();
         assertNotNull(event.eventId());
         assertNotNull(event.occurredAt());
         assertEquals(foundItem.getId(), event.foundItemId());

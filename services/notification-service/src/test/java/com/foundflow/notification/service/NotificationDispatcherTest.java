@@ -15,7 +15,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -28,6 +27,7 @@ class NotificationDispatcherTest {
     private static final String FROM_ADDRESS = "no-reply@foundflow.test";
     private static final String MATCH_URL = "http://localhost:8080/api/matches/public/public-token";
     private static final String MANAGE_URL = "http://localhost:8080/api/pickups/public/manage-token";
+    private static final String RESET_URL = "http://localhost:8080/reset-password?token=reset-token";
 
     @Mock
     private NotificationRepository notificationRepository;
@@ -86,7 +86,7 @@ class NotificationDispatcherTest {
     }
 
     @Test
-    void dispatchMatchInvite_persistsRowEvenWhenSendThrows() {
+    void dispatchMatchInvite_keepsPersistedRowWhenSendThrows() {
         NotificationDispatcher dispatcher = dispatcher();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -97,12 +97,12 @@ class NotificationDispatcherTest {
         doThrow(new MailSendException("smtp unavailable"))
                 .when(mailSender).send(any(SimpleMailMessage.class));
 
-        assertThatThrownBy(() -> dispatcher.dispatchMatchInvite(matchId, recipient, venueId, MATCH_URL))
-                .isInstanceOf(MailSendException.class);
+        dispatcher.dispatchMatchInvite(matchId, recipient, venueId, MATCH_URL);
 
-        // The first save (URL persisted) happened before the throw; the second
-        // save (sentAt) did not. JpaRepository.save() is called exactly once.
+        // The URL stays visible via the persisted row; sentAt is only recorded
+        // after a successful SMTP send.
         verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(mailSender).send(any(SimpleMailMessage.class));
     }
 
     @Test
@@ -135,6 +135,40 @@ class NotificationDispatcherTest {
         assertThat(finalState.getSubject()).isEqualTo("Your FoundFlow pickup is scheduled");
         assertThat(finalState.getBody())
                 .isEqualTo("Use this link to change or cancel your pickup: " + MANAGE_URL);
+        assertThat(sentAtAtEachSave).hasSize(2);
+        assertThat(sentAtAtEachSave.get(0)).isNull();
+        assertThat(sentAtAtEachSave.get(1)).isNotNull();
+    }
+
+    @Test
+    void dispatchPasswordReset_persistsRowFirstThenSendsAndMarksSent() {
+        NotificationDispatcher dispatcher = dispatcher();
+        UUID venueId = UUID.randomUUID();
+        String recipient = "staff@example.com";
+
+        java.util.List<java.time.LocalDateTime> sentAtAtEachSave = new java.util.ArrayList<>();
+        org.mockito.Mockito.when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> {
+                    Notification arg = invocation.getArgument(0);
+                    sentAtAtEachSave.add(arg.getSentAt());
+                    return arg;
+                });
+
+        dispatcher.dispatchPasswordReset(recipient, venueId, RESET_URL);
+
+        ArgumentCaptor<Notification> savedCaptor = ArgumentCaptor.forClass(Notification.class);
+        InOrder order = inOrder(notificationRepository, mailSender);
+        order.verify(notificationRepository).save(savedCaptor.capture());
+        order.verify(mailSender).send(any(SimpleMailMessage.class));
+        order.verify(notificationRepository).save(any(Notification.class));
+
+        Notification finalState = savedCaptor.getValue();
+        assertThat(finalState.getMatchId()).isNull();
+        assertThat(finalState.getVenueId()).isEqualTo(venueId);
+        assertThat(finalState.getRecipientAddress()).isEqualTo(recipient);
+        assertThat(finalState.getSubject()).isEqualTo("Reset your FoundFlow password");
+        assertThat(finalState.getBody())
+                .isEqualTo("Use this link to reset your FoundFlow password: " + RESET_URL);
         assertThat(sentAtAtEachSave).hasSize(2);
         assertThat(sentAtAtEachSave.get(0)).isNull();
         assertThat(sentAtAtEachSave.get(1)).isNotNull();

@@ -1,5 +1,6 @@
 package com.foundflow.founditem.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -16,7 +17,9 @@ public record CreateFoundItemRequest(
         @NotNull
         UUID venueId,
 
-        @NotNull
-        UUID reporterId
+        UUID reporterId,
+
+        @Valid
+        ItemAttributesDto attributes
 ) {
 }

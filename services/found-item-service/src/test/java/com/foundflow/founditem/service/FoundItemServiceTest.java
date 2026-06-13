@@ -10,6 +10,7 @@ import com.foundflow.founditem.domain.ItemStatus;
 import com.foundflow.founditem.dto.CreateFoundItemRequest;
 import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
+import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
 import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
@@ -28,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.LoggerFactory;
 
@@ -59,156 +61,213 @@ class FoundItemServiceTest {
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
-    void createFoundItemWithPhoto_shouldUseVenueFromJwtForStaff() {
+    void createFoundItem_shouldUseVenueFromJwtForStaff() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
+        UUID jwtUserId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
+        UUID requestReporterId = UUID.randomUUID();
         LocalDateTime foundAt = LocalDateTime.of(2026, 5, 12, 14, 30);
-        MockMultipartFile photo = new MockMultipartFile(
-                "photo",
-                "bag.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "photo-bytes".getBytes()
-        );
 
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 foundAt,
                 requestVenueId,
-                reporterId
+                requestReporterId,
+                null
         );
 
-        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
-        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
-                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId, jwtUserId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
 
         assertEquals(jwtVenueId, captor.getValue().getVenueId());
+        assertEquals(jwtUserId, captor.getValue().getReporterId());
         assertEquals(ItemStatus.STORED, captor.getValue().getStatus());
+        assertNull(captor.getValue().getPhotoKey());
         assertNull(captor.getValue().getLocation());
         assertNull(captor.getValue().getAttributes());
         assertEquals(jwtVenueId, response.venueId());
-        verify(eventPublisher).publishFoundItemLogged(captor.getValue());
+        assertEquals(jwtUserId, response.reporterId());
+        assertNull(response.photoKey());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
-    void createFoundItemWithPhoto_shouldPersistGeneratedPhotoKey() {
+    void createFoundItem_shouldUseJwtUserIdWhenReporterIdIsMissing() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
-        UUID requestVenueId = UUID.randomUUID();
-        UUID reporterId = UUID.randomUUID();
-        MockMultipartFile photo = new MockMultipartFile(
-                "photo",
-                "bag.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "photo-bytes".getBytes()
-        );
+        UUID userId = UUID.randomUUID();
+
         CreateFoundItemRequest request = new CreateFoundItemRequest(
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
-                requestVenueId,
-                reporterId
+                UUID.randomUUID(),
+                null,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
-        when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
-        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
-                .thenReturn(Optional.empty());
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId, userId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository).save(captor.capture());
 
-        assertEquals("found-items/2026/05/generated.jpg", captor.getValue().getPhotoKey());
-        assertEquals("found-items/2026/05/generated.jpg", response.photoKey());
+        assertEquals(userId, captor.getValue().getReporterId());
+        assertEquals(userId, response.reporterId());
     }
 
     @Test
-    void createFoundItemWithPhoto_shouldPopulateAttributesAndLocationFromGenAiWhenAvailable() {
+    void createFoundItem_shouldPersistWithoutPhotoKey() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
+        UUID jwtUserId = UUID.randomUUID();
         UUID requestVenueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                requestVenueId,
+                reporterId,
+                null
+        );
+
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FoundItemResponse response = service.createFoundItem(request, staffJwt(jwtVenueId, jwtUserId));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository).save(captor.capture());
+
+        assertNull(captor.getValue().getPhotoKey());
+        assertNull(response.photoKey());
+    }
+
+    @Test
+    void createFoundItem_shouldAllowAdminReporterOverride() {
+        FoundItemService service = service();
+
+        UUID requestVenueId = UUID.randomUUID();
+        UUID requestReporterId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                requestVenueId,
+                requestReporterId,
+                null
+        );
+
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        FoundItemResponse response = service.createFoundItem(request, adminJwt(UUID.randomUUID()));
+
+        ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
+        verify(foundItemRepository).save(captor.capture());
+
+        assertEquals(requestVenueId, captor.getValue().getVenueId());
+        assertEquals(requestReporterId, captor.getValue().getReporterId());
+        assertEquals(requestReporterId, response.reporterId());
+    }
+
+    @Test
+    void updateFoundItemPhoto_shouldPopulateAttributesAndLocationFromGenAiWhenAvailable() {
+        FoundItemService service = service();
+
+        UUID jwtVenueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
+        FoundItem existingItem = new FoundItem(
+                null,
+                "Schwarzer Rucksack neben Buehne 2",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                null,
+                ItemStatus.STORED,
+                jwtVenueId,
+                reporterId,
+                new ItemAttributes(null, null, null, List.of())
+        );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
                 "bag.jpg",
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        // Create requests no longer carry operator attributes or a location
-        // hint, so the best-effort GenAI extraction branch owns both.
-        CreateFoundItemRequest request = new CreateFoundItemRequest(
-                "Schwarzer Rucksack neben Buehne 2",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                requestVenueId,
-                reporterId
-        );
-        ItemAttributes extracted = new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"));
 
+        ItemAttributes extractedAttrs = new ItemAttributes("Bag", null, "Black", List.of());
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
-        when(attributeExtractionService.extractWithLocation(request.intakeText(), "found-items/2026/05/generated.jpg"))
-                .thenReturn(Optional.of(new ExtractionResult(extracted, "neben Buehne 2")));
+        when(attributeExtractionService.extractWithLocation(
+                existingItem.getIntakeText(),
+                "found-items/2026/05/generated.jpg"
+        ))
+                .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, "neben Buehne 2")));
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoundItemResponse response = service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+        Optional<FoundItemResponse> response = service.updateFoundItemPhoto(id, photo, staffJwt(jwtVenueId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
-        assertEquals("neben Buehne 2", captor.getValue().getLocation());
-        assertEquals("Bag", response.attributes().category());
-        assertEquals("Nike", response.attributes().brand());
-        assertEquals("Black", response.attributes().color());
-        assertEquals(List.of("Roter Anhaenger"), response.attributes().marks());
-        verify(eventPublisher).publishFoundItemLogged(argThat(item -> item.getAttributes() == extracted));
+        FoundItem persisted = captor.getValue();
+        assertTrue(response.isPresent());
+        assertEquals("found-items/2026/05/generated.jpg", response.get().photoKey());
+        assertEquals("neben Buehne 2", persisted.getLocation());
+        assertEquals("Bag", persisted.getAttributes().getCategory());
+        verify(eventPublisher).publishFoundItemCreated(existingItem);
     }
 
     @Test
-    void shouldLeaveLocationNullWhenGenAiFindsNone() {
+    void updateFoundItemPhoto_shouldLeaveLocationNullWhenGenAiFindsNone() {
         FoundItemService service = service();
 
         UUID jwtVenueId = UUID.randomUUID();
-        UUID requestVenueId = UUID.randomUUID();
         UUID reporterId = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
+        FoundItem existingItem = new FoundItem(
+                null,
+                "Found a wallet",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                null,
+                ItemStatus.STORED,
+                jwtVenueId,
+                reporterId,
+                new ItemAttributes(null, null, null, List.of())
+        );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
                 "wallet.jpg",
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        CreateFoundItemRequest request = new CreateFoundItemRequest(
-                "Found a wallet",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                requestVenueId,
-                reporterId
-        );
 
         // Extraction succeeds but carries no location -> location stays null.
         ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, "Brown", List.of());
 
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
         when(foundItemRepository.save(any(FoundItem.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(attributeExtractionService.extractWithLocation(any(), any()))
                 .thenReturn(Optional.of(new ExtractionResult(extractedAttrs, null)));
 
-        service.createFoundItem(request, photo, staffJwt(jwtVenueId));
+        service.updateFoundItemPhoto(id, photo, staffJwt(jwtVenueId));
 
         ArgumentCaptor<FoundItem> captor = ArgumentCaptor.forClass(FoundItem.class);
         verify(foundItemRepository, times(2)).save(captor.capture());
         assertNull(captor.getValue().getLocation());
+        verify(eventPublisher).publishFoundItemCreated(existingItem);
     }
 
     @Test
@@ -251,12 +310,13 @@ class FoundItemServiceTest {
         FoundItemService service = service();
 
         UUID venueId = UUID.randomUUID();
-        when(foundItemRepository.findDailyBuckets(venueId, null)).thenReturn(List.of(
+        UUID reporterId = UUID.randomUUID();
+        when(foundItemRepository.findDailyBuckets(venueId, null, reporterId)).thenReturn(List.of(
                 bucket(java.time.LocalDate.of(2026, 5, 19), 2),
                 bucket(java.time.LocalDate.of(2026, 5, 20), 1)
         ));
 
-        var histogram = service.getFoundItemHistogram(null, staffJwt(venueId));
+        var histogram = service.getFoundItemHistogram(null, null, reporterId, staffJwt(venueId));
 
         assertEquals(2, histogram.perDay().size());
         assertEquals(java.time.LocalDate.of(2026, 5, 19), histogram.perDay().get(0).bucketStart());
@@ -264,6 +324,7 @@ class FoundItemServiceTest {
         assertEquals(1, histogram.perWeek().size());
         assertEquals(java.time.LocalDate.of(2026, 5, 18), histogram.perWeek().get(0).bucketStart());
         assertEquals(3, histogram.perMonth().get(0).count());
+        verify(foundItemRepository).findDailyBuckets(venueId, null, reporterId);
     }
 
     @Test
@@ -273,6 +334,7 @@ class FoundItemServiceTest {
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
         FoundItem existingItem = foundItem(venueId);
+        UUID originalReporterId = existingItem.getReporterId();
 
         UpdateFoundItemRequest request = new UpdateFoundItemRequest(
                 "Neue Beschreibung",
@@ -294,6 +356,7 @@ class FoundItemServiceTest {
         assertTrue(response.isPresent());
         assertEquals(ItemStatus.RESERVED, response.get().status());
         assertEquals(venueId, response.get().venueId());
+        assertEquals(originalReporterId, response.get().reporterId());
         assertEquals("photo-123", response.get().photoKey());
         verify(foundItemRepository).save(existingItem);
         ArgumentCaptor<FoundItem> publishedItem = ArgumentCaptor.forClass(FoundItem.class);
@@ -301,7 +364,47 @@ class FoundItemServiceTest {
         assertSame(existingItem, publishedItem.getValue());
         assertEquals("Neue Beschreibung", publishedItem.getValue().getIntakeText());
         assertEquals(ItemStatus.RESERVED, publishedItem.getValue().getStatus());
-        verify(eventPublisher, never()).publishFoundItemLogged(any());
+        verify(eventPublisher, never()).publishFoundItemCreated(any());
+    }
+
+    @Test
+    void updateFoundItem_shouldNotPublishUpdateBeforePhotoUpload() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem existingItem = new FoundItem(
+                null,
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ItemStatus.STORED,
+                venueId,
+                UUID.randomUUID(),
+                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+        );
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateFoundItemRequest request = new UpdateFoundItemRequest(
+                "Neue Beschreibung",
+                LocalDateTime.of(2026, 5, 12, 18, 45),
+                "Neuer Ort",
+                ItemStatus.RESERVED,
+                venueId,
+                UUID.randomUUID(),
+                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+        );
+
+        Optional<FoundItemResponse> response =
+                service.updateFoundItem(id, request, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertNull(response.get().photoKey());
+        verify(eventPublisher, never()).publishFoundItemUpdated(any());
+        verify(eventPublisher, never()).publishFoundItemCreated(any());
     }
 
     @Test
@@ -409,6 +512,43 @@ class FoundItemServiceTest {
         assertEquals(501, exception.getStatusCode().value());
     }
 
+    @Test
+    void getPublicFoundItemDetail_shouldReturnLimitedInfoAndSignedUrlForMatchingVenue() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+        FoundItem foundItem = foundItem(venueId);
+        ReflectionTestUtils.setField(foundItem, "id", id);
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem));
+        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10)))).thenReturn(signedUrl);
+
+        Optional<PublicFoundItemResponse> response = service.getPublicFoundItemDetail(id, venueId);
+
+        assertTrue(response.isPresent());
+        assertEquals(id, response.get().id());
+        assertEquals("Schwarzer Rucksack", response.get().description());
+        assertEquals("Neben Buehne 2", response.get().locationHint());
+        assertEquals("Bag", response.get().attributes().category());
+        assertEquals(signedUrl, response.get().photoUrl());
+    }
+
+    @Test
+    void getPublicFoundItemDetail_shouldReturnEmptyForWrongVenue() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(UUID.randomUUID())));
+
+        Optional<PublicFoundItemResponse> response = service.getPublicFoundItemDetail(id, UUID.randomUUID());
+
+        assertTrue(response.isEmpty());
+        verify(photoStorage, never()).signedUrl(any(), any());
+    }
+
     private FoundItemService service() {
         return new FoundItemService(
                 foundItemRepository,
@@ -425,7 +565,8 @@ class FoundItemServiceTest {
                 "Schwarzer Rucksack",
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 venueId,
-                reporterId
+                reporterId,
+                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -451,6 +592,25 @@ class FoundItemServiceTest {
                 .header("alg", "none")
                 .claim("roles", List.of("STAFF"))
                 .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt staffJwt(UUID venueId, UUID userId) {
+        return Jwt.withTokenValue("token")
+                .subject(userId.toString())
+                .header("alg", "none")
+                .claim("user_id", userId.toString())
+                .claim("roles", List.of("STAFF"))
+                .claim("venue_id", venueId.toString())
+                .build();
+    }
+
+    private Jwt adminJwt(UUID userId) {
+        return Jwt.withTokenValue("token")
+                .subject(userId.toString())
+                .header("alg", "none")
+                .claim("user_id", userId.toString())
+                .claim("roles", List.of("ADMIN"))
                 .build();
     }
 

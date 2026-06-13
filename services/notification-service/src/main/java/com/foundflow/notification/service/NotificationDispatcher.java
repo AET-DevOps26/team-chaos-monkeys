@@ -2,7 +2,10 @@ package com.foundflow.notification.service;
 
 import com.foundflow.notification.domain.Notification;
 import com.foundflow.notification.repository.NotificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -12,6 +15,8 @@ import java.util.UUID;
 
 @Service
 public class NotificationDispatcher {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationDispatcher.class);
 
     private static final String DEFAULT_LANGUAGE = "en";
     private static final String DEFAULT_HEADER = "FoundFlow";
@@ -23,6 +28,10 @@ public class NotificationDispatcher {
     private static final String PICKUP_CONFIRMATION_SUBJECT = "Your FoundFlow pickup is scheduled";
     private static final String PICKUP_CONFIRMATION_BODY_PREFIX =
             "Use this link to change or cancel your pickup: ";
+
+    private static final String PASSWORD_RESET_SUBJECT = "Reset your FoundFlow password";
+    private static final String PASSWORD_RESET_BODY_PREFIX =
+            "Use this link to reset your FoundFlow password: ";
 
     private final NotificationRepository notificationRepository;
     private final JavaMailSender mailSender;
@@ -63,6 +72,17 @@ public class NotificationDispatcher {
         sendAndMarkSent(notification);
     }
 
+    public void dispatchPasswordReset(String recipient, UUID venueId, String resetUrl) {
+        Notification notification = persist(
+                null,
+                venueId,
+                recipient,
+                PASSWORD_RESET_SUBJECT,
+                PASSWORD_RESET_BODY_PREFIX + resetUrl
+        );
+        sendAndMarkSent(notification);
+    }
+
     private Notification persist(
             UUID matchId,
             UUID venueId,
@@ -88,7 +108,17 @@ public class NotificationDispatcher {
         message.setTo(notification.getRecipientAddress());
         message.setSubject(notification.getSubject());
         message.setText(notification.getBody());
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException exception) {
+            log.warn(
+                    "Notification email send failed; persisted notification id={} recipient={}",
+                    notification.getId(),
+                    notification.getRecipientAddress(),
+                    exception
+            );
+            return;
+        }
         notification.setSentAt(LocalDateTime.now());
         notificationRepository.save(notification);
     }

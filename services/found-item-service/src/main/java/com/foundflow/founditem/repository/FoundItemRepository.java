@@ -29,6 +29,7 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, UUID> {
                     FROM found_items
                     WHERE (CAST(:venueId AS uuid) IS NULL OR venue_id = CAST(:venueId AS uuid))
                       AND (:status IS NULL OR status = :status)
+                      AND (CAST(:reporterId AS uuid) IS NULL OR reporter_id = CAST(:reporterId AS uuid))
                     GROUP BY CAST(found_at AS DATE)
                     ORDER BY CAST(found_at AS DATE)
                     """,
@@ -36,6 +37,7 @@ public interface FoundItemRepository extends JpaRepository<FoundItem, UUID> {
     )
     List<BucketCountView> findDailyBuckets(
             @Param("venueId") UUID venueId,
-            @Param("status") String status
+            @Param("status") String status,
+            @Param("reporterId") UUID reporterId
     );
 }

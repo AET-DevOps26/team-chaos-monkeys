@@ -1,6 +1,6 @@
 package com.foundflow.matching.messaging;
 
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
@@ -46,10 +46,10 @@ class IntakeEventListenerTest {
     }
 
     @Test
-    void onFoundItemLogged_shouldTriggerCandidateSearch() {
+    void onFoundItemCreated_shouldTriggerCandidateSearch() {
         CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
         IntakeEventListener listener = new IntakeEventListener(candidateMatchingService, new SimpleMeterRegistry());
-        FoundItemLoggedEvent event = new FoundItemLoggedEvent(
+        FoundItemCreatedEvent event = new FoundItemCreatedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
                 UUID.randomUUID(),
@@ -63,7 +63,7 @@ class IntakeEventListenerTest {
                 new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
         );
 
-        listener.onFoundItemLogged(event);
+        listener.onFoundItemCreated(event);
 
         verify(candidateMatchingService).findCandidatesForFoundItem(event);
     }

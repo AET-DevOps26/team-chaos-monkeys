@@ -125,6 +125,7 @@ cd deploy
 ```bash
 cd ansible
 export OPENAI_API_KEY=sk-...
+export INTERNAL_SERVICE_TOKEN="$(openssl rand -hex 32)"
 ansible-playbook \
   -i "$(terraform -chdir=../terraform output -raw public_ip)," \
   --user azureuser \
@@ -135,9 +136,9 @@ cd ..
 ```
 
 Installs Docker + compose plugin, rsyncs the repo, templates `.env` with
-`OPENAI_API_KEY`, pulls images, starts the stack, and waits for the gateway
-to return 200. Re-running against the same VM is a near-no-op when nothing
-changed.
+`OPENAI_API_KEY` and `INTERNAL_SERVICE_TOKEN`, pulls images, starts the stack,
+and waits for the gateway to return 200. Re-running against the same VM is a
+near-no-op when nothing changed.
 
 > `scripts/bootstrap.sh` is the legacy bash path. Still works, kept as a
 > one-shot debug helper — the Ansible playbook is the primary entrypoint.
@@ -162,6 +163,8 @@ Everything from `.env.example` (Postgres credentials × 7, `DEV_ADMIN_*`,
 `GRAFANA_ADMIN_*`), plus on the VM:
 
 - `OPENAI_API_KEY` — required (Ollama is excluded on the VM)
+- `INTERNAL_SERVICE_TOKEN` — required shared token for internal
+  service-to-service endpoints.
 - `IMAGE_REGISTRY` — defaults to `ghcr.io/aet-devops26/team-chaos-monkeys`.
   Only set if you pushed images to a different registry.
 - `GENAI_PROVIDER=openai` is set in the prod override; you don't need to set
@@ -177,6 +180,16 @@ ssh tum-azure 'cd ~/foundflow && sudo docker compose \
   -f docker-compose.yml -f deploy/docker-compose.prod.yml pull && \
   sudo docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d'
 ```
+
+### RabbitMQ queue renames
+
+The matching consumers declare durable queues. If a deploy changes a durable
+queue name on a broker with persistent storage, the old queue remains until it
+is drained or deleted explicitly. For this branch, the found-item matching queue
+was renamed from `matching.found-item-logged.v1` to
+`matching.found-item-created.v1`; drain/delete the old queue on persistent
+brokers after the rollout. For disposable local stacks, recreate the broker
+volume with `docker compose down -v` before starting the stack again.
 
 ## Deploy via CI
 

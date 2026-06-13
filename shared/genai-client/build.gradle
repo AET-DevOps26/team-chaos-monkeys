@@ -64,7 +64,7 @@ def genaiClientDir = layout.buildDirectory.dir('generated/genai-client').get().a
 openApiGenerate {
     generatorName = 'java'
     library = 'webclient'
-    inputSpec = "${rootDir}/../../api/openapi.yaml"
+    inputSpec = file("${rootDir}/../../api/openapi.yaml").toURI().toString()
     outputDir = genaiClientDir.absolutePath
     modelPackage = 'com.foundflow.genai.client.model'
     generateApiTests = false

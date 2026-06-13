@@ -9,9 +9,6 @@ import com.foundflow.lostitem.domain.ReportStatus;
 import com.foundflow.lostitem.service.LostReportService;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoUrlResponse;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Encoding;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
@@ -25,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/lost-items", "/api/lost-reports"})
+@RequestMapping("/api/lost-items")
 public class LostReportController {
 
     private final LostReportService lostReportService;
@@ -34,21 +31,13 @@ public class LostReportController {
         this.lostReportService = lostReportService;
     }
 
-    @Operation(requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = @Content(
-                    mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
-                    encoding = @Encoding(name = "request", contentType = MediaType.APPLICATION_JSON_VALUE)
-            )
-    ))
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<LostReportResponse> createLostReportWithPhoto(
-            @Valid @RequestPart("request") CreateLostReportRequest request,
-            @RequestPart(value = "photo", required = false) MultipartFile photo,
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LostReportResponse> createLostReport(
+            @Valid @RequestBody CreateLostReportRequest request,
             JwtAuthenticationToken authentication
     ) {
         LostReportResponse response = lostReportService.createLostReport(
                 request,
-                photo,
                 authentication == null ? null : authentication.getToken()
         );
         return ResponseEntity
@@ -115,7 +104,11 @@ public class LostReportController {
             @RequestPart("photo") MultipartFile photo,
             JwtAuthenticationToken authentication
     ) {
-        return lostReportService.updateLostReportPhoto(id, photo, authentication.getToken())
+        return lostReportService.updateLostReportPhoto(
+                        id,
+                        photo,
+                        authentication == null ? null : authentication.getToken()
+                )
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

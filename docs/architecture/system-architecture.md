@@ -56,7 +56,7 @@ Behind the edge, the gateway routes:
 | External path | Target |
 | --- | --- |
 | `/api/auth/**`, `/api/users/**` | `auth-service:8081` |
-| `/api/lost-items/**`, `/api/lost-reports/**` | `lost-item-service:8082` |
+| `/api/lost-items/**` | `lost-item-service:8082` |
 | `/api/found-items/**` | `found-item-service:8083` |
 | `/api/matches/**` | `matching-service:8084` |
 | `/api/notifications/**` | `notification-service:8085` |
@@ -77,10 +77,6 @@ Bypassing the gateway does not bypass service security.
   validating or enriching matches.
 - Operations calls count endpoints in found/lost/matching services for KPIs and
   forwards the caller's bearer token.
-
-`/api/lost-items` is the canonical lost-report API path. `/api/lost-reports`
-is a legacy compatibility route currently still supported by the service and
-gateway.
 
 ### Events
 

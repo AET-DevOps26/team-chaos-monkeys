@@ -80,6 +80,7 @@ jobs:
         if: ${{ inputs.action == 'apply' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
           BREVO_SMTP_USERNAME: ${{ secrets.BREVO_SMTP_USERNAME }}
           BREVO_SMTP_PASSWORD: ${{ secrets.BREVO_SMTP_PASSWORD }}
           BREVO_MAIL_FROM: ${{ secrets.BREVO_MAIL_FROM }}

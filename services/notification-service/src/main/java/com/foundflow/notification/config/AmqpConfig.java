@@ -45,6 +45,11 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue passwordResetRequestedQueue() {
+        return new Queue(FoundFlowEventRouting.NOTIFICATION_PASSWORD_RESETS_QUEUE, true);
+    }
+
+    @Bean
     public Binding matchInviteRequestedBinding(
             Queue matchInviteRequestedQueue,
             TopicExchange domainEventsExchange
@@ -62,6 +67,16 @@ public class AmqpConfig {
         return BindingBuilder.bind(pickupConfirmationRequestedQueue)
                 .to(domainEventsExchange)
                 .with(FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED);
+    }
+
+    @Bean
+    public Binding passwordResetRequestedBinding(
+            Queue passwordResetRequestedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(passwordResetRequestedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.PASSWORD_RESET_REQUESTED);
     }
 
     @Bean

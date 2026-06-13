@@ -87,6 +87,7 @@ class Match {
   - foundItemId: UUID
   - lostReportId: UUID
   - venueId: UUID
+  - recipientEmail: String
   - status: MatchStatus
   - attributeScore: float
   - semanticScore: float

@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +42,7 @@ class ItemEmbeddingRepositoryIT {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
+                .placeholders(Map.of("embedding_dim", "768"))
                 .load();
         flyway.migrate();
 
@@ -64,6 +66,7 @@ class ItemEmbeddingRepositoryIT {
                 itemId,
                 venueId,
                 "Bag",
+                "guest@example.com",
                 randomUnitVector(),
                 "Black backpack | category: Bag"
         ));
@@ -78,11 +81,11 @@ class ItemEmbeddingRepositoryIT {
         UUID venueId = UUID.randomUUID();
 
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Bag", null,
                 randomUnitVector(), "first"
         ));
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Wallet",
+                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Wallet", "guest@example.com",
                 randomUnitVector(), "second"
         ));
 
@@ -93,6 +96,11 @@ class ItemEmbeddingRepositoryIT {
         );
         assertThat(rowCount).isEqualTo(1);
         assertThat(repository.findTextSource(ItemType.LOST, itemId)).contains("second");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT contact_email FROM item_embeddings WHERE item_type = 'LOST' AND item_id = ?",
+                String.class,
+                itemId
+        )).isEqualTo("guest@example.com");
     }
 
     @Test
@@ -108,22 +116,22 @@ class ItemEmbeddingRepositoryIT {
 
         // Found item, same venue, very close to query
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, nearFoundId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, nearFoundId, venueId, "Bag", null,
                 unitVector(0.99f, 0.14f), "near"
         ));
         // Found item, same venue, orthogonal to query
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, farFoundId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, farFoundId, venueId, "Bag", null,
                 unitVector(0.0f, 1.0f), "far"
         ));
         // Found item, DIFFERENT venue, should not appear
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, wrongVenueFoundId, otherVenueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, wrongVenueFoundId, otherVenueId, "Bag", null,
                 unitVector(1.0f, 0.0f), "wrong-venue"
         ));
         // LOST in same venue, should not appear when searching FOUND
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, sameTypeIgnoredId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.LOST, sameTypeIgnoredId, venueId, "Bag", "lost@example.com",
                 unitVector(1.0f, 0.0f), "wrong-type"
         ));
 

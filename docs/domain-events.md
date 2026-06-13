@@ -31,9 +31,10 @@ Fields:
 - `lostAt`
 - `location`
 - `status`
+- `contactEmail`
 - `attributes`
 
-The payload intentionally does not include guest contact data. Consumers that need private contact details must ask the owning service through an authorized API.
+The payload includes the guest contact email because matching owns the asynchronous match-invite path and cannot rely on a user JWT during RabbitMQ consumption. Consumers must treat the field as PII, avoid logging it, and only copy it into storage that is needed for the invite workflow.
 
 ### `lost-report.updated.v1`
 
@@ -81,21 +82,25 @@ Fields match `found-item.logged.v1`. The event is emitted after a normal found-i
 
 Publisher: `matching-service`
 
-First consumer: none yet (intended for `notification-service`).
+First consumer: `matching-service`, queue `matching.match-candidate-created.v1`.
 
 Payload type: `MatchCandidateCreatedEvent`
 
 Fields:
 
 - `eventId`
-- `version`
 - `occurredAt`
 - `matchId`
 - `lostReportId`
 - `foundItemId`
 - `venueId`
+- `recipientEmail`
 - `attributeScore`
 - `semanticScore`
 - `combinedScore`
 
-Emitted whenever the matching pipeline persists a `Match` row whose `combinedScore >= foundflow.matching.threshold` (default `0.55`). The event is re-emitted on score updates for existing PENDING matches; consumers must be idempotent on `matchId`. Matches in `CONFIRMED` or `REJECTED` status are never re-emitted.
+Emitted whenever the matching pipeline persists a new `Match` row whose `combinedScore >= foundflow.matching.threshold` (default `0.55`). Existing PENDING matches are re-emitted only when at least one score changes by `foundflow.matching.republish-score-delta` (default `0.01`). Consumers must be idempotent on `matchId`; the auto-invite consumer checks the local match email log and will not send a second invite for a match that already has one. Matches in `CONFIRMED` or `REJECTED` status are never re-emitted.
+
+Auto-invite uses `foundflow.matching.auto-invite-threshold` (default `0.85`) so it is stricter than candidate creation. It does not gate on the asynchronous verify-match verdict today because verification completes after candidate creation; staff review remains the path for candidates below the auto-invite threshold.
+
+Matching also validates incoming embedding length before inserting into `item_embeddings`. The expected length is `foundflow.matching.embedding-dim`, sourced from `EMBEDDING_DIMENSIONS` by default and aligned with the `vector(768)` migration default.

@@ -27,6 +27,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -70,6 +71,7 @@ public class LostReportService {
         this.attributeExtractionService = attributeExtractionService;
     }
 
+    @Transactional
     public LostReportResponse createLostReport(
             CreateLostReportRequest request,
             Jwt jwt
@@ -77,6 +79,7 @@ public class LostReportService {
         return createLostReport(request, null, jwt);
     }
 
+    @Transactional
     public LostReportResponse createLostReport(
             CreateLostReportRequest request,
             MultipartFile photo,
@@ -153,6 +156,7 @@ public class LostReportService {
                 .map(this::toResponse);
     }
 
+    @Transactional
     public Optional<LostReportResponse> updateLostReport(
             UUID id,
             UpdateLostReportRequest request,
@@ -184,6 +188,7 @@ public class LostReportService {
                 });
     }
 
+    @Transactional
     public Optional<LostReportResponse> updateLostReportPhoto(
             UUID id,
             MultipartFile photo,

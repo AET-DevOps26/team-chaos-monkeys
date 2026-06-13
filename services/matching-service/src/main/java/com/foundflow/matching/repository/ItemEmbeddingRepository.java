@@ -35,13 +35,14 @@ public class ItemEmbeddingRepository {
         Timestamp now = Timestamp.from(Instant.now());
         jdbcTemplate.update(
                 """
-                INSERT INTO item_embeddings (id, item_type, item_id, venue_id, category, embedding, text_source, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO item_embeddings (id, item_type, item_id, venue_id, category, contact_email, embedding, text_source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (item_type, item_id) DO UPDATE
                 SET embedding = EXCLUDED.embedding,
                     text_source = EXCLUDED.text_source,
                     venue_id = EXCLUDED.venue_id,
                     category = EXCLUDED.category,
+                    contact_email = EXCLUDED.contact_email,
                     updated_at = EXCLUDED.updated_at
                 """,
                 embedding.id(),
@@ -49,6 +50,7 @@ public class ItemEmbeddingRepository {
                 embedding.itemId(),
                 embedding.venueId(),
                 embedding.category(),
+                normalizeEmail(embedding.contactEmail()),
                 new PGvector(embedding.embedding()),
                 embedding.textSource(),
                 now,
@@ -65,7 +67,7 @@ public class ItemEmbeddingRepository {
         PGvector query = new PGvector(embedding);
         return jdbcTemplate.query(
                 """
-                SELECT item_id, category, text_source, embedding <=> ? AS distance
+                SELECT item_id, category, contact_email, text_source, embedding <=> ? AS distance
                 FROM item_embeddings
                 WHERE item_type = ? AND venue_id = ?
                 ORDER BY embedding <=> ?
@@ -75,7 +77,8 @@ public class ItemEmbeddingRepository {
                         rs.getObject(1, UUID.class),
                         rs.getString(2),
                         rs.getString(3),
-                        rs.getFloat(4)
+                        rs.getString(4),
+                        rs.getFloat(5)
                 ),
                 query,
                 oppositeType.name(),
@@ -83,5 +86,9 @@ public class ItemEmbeddingRepository {
                 query,
                 k
         );
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase();
     }
 }

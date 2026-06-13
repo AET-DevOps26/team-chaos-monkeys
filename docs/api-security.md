@@ -257,7 +257,7 @@ Match statuses:
 | `GET` | `/api/matches/histogram` | optional `foundItem`, `lostItem`, `status`, optional `venueId` for admins | Same as list |
 | `GET` | `/api/matches/{id}` | - | Resource venue check |
 | `PUT` | `/api/matches/{id}` | - | Resource venue check |
-| `POST` | `/api/matches/{id}/public-link` | - | Resource venue check; creates a seven-day public match magic link and stores a local email-log entry |
+| `POST` | `/api/matches/{id}/public-link` | optional recipient email | Resource venue check; creates a seven-day public match magic link and stores a local email-log entry. If omitted, the lost report's stored contact email is used. Existing match invites are returned instead of re-sent. |
 | `GET` | `/api/matches/public-link-email-log` | optional `recipient` | Staff/ops see own venue only; admins see all; local/test outbox for the first magic-link email |
 | `GET` | `/api/matches/public/{token}` | - | Public magic link scoped to one match |
 | `PUT` | `/api/matches/public/match-links/{token}/confirm` | - | Public magic link scoped to one match; sets status to `CONFIRMED` |

@@ -27,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -70,6 +71,7 @@ public class FoundItemService {
         this.attributeExtractionService = attributeExtractionService;
     }
 
+    @Transactional
     public FoundItemResponse createFoundItem(
             CreateFoundItemRequest request,
             MultipartFile photo,
@@ -133,6 +135,7 @@ public class FoundItemService {
                 .map(this::toResponse);
     }
 
+    @Transactional
     public Optional<FoundItemResponse> updateFoundItem(
             UUID id,
             UpdateFoundItemRequest request,
@@ -164,6 +167,7 @@ public class FoundItemService {
                 });
     }
 
+    @Transactional
     public Optional<FoundItemResponse> updateFoundItemPhoto(
             UUID id,
             MultipartFile photo,

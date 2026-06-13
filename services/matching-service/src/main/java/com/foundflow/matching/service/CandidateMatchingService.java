@@ -23,6 +23,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -45,6 +48,8 @@ public class CandidateMatchingService {
 
     private final int topK;
     private final float threshold;
+    private final float republishScoreDelta;
+    private final int expectedEmbeddingDim;
 
     public CandidateMatchingService(
             ItemEmbeddingRepository itemEmbeddingRepository,
@@ -54,7 +59,9 @@ public class CandidateMatchingService {
             MatchVerificationService verificationService,
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
-            @Value("${foundflow.matching.threshold:0.55}") float threshold
+            @Value("${foundflow.matching.threshold:0.55}") float threshold,
+            @Value("${foundflow.matching.republish-score-delta:0.01}") float republishScoreDelta,
+            @Value("${foundflow.matching.embedding-dim:768}") int expectedEmbeddingDim
     ) {
         this.itemEmbeddingRepository = itemEmbeddingRepository;
         this.matchRepository = matchRepository;
@@ -64,43 +71,53 @@ public class CandidateMatchingService {
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
+        this.republishScoreDelta = republishScoreDelta;
+        this.expectedEmbeddingDim = expectedEmbeddingDim;
     }
 
+    @Transactional
     public void findCandidatesForLostReport(LostReportCreatedEvent event) {
         processIntake(
                 ItemType.LOST,
                 event.lostReportId(),
                 event.venueId(),
+                event.contactEmail(),
                 event.description(),
                 event.attributes()
         );
     }
 
+    @Transactional
     public void findCandidatesForLostReportUpdate(LostReportUpdatedEvent event) {
         processIntake(
                 ItemType.LOST,
                 event.lostReportId(),
                 event.venueId(),
+                event.contactEmail(),
                 event.description(),
                 event.attributes()
         );
     }
 
+    @Transactional
     public void findCandidatesForFoundItem(FoundItemLoggedEvent event) {
         processIntake(
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
+                null,
                 event.description(),
                 event.attributes()
         );
     }
 
+    @Transactional
     public void findCandidatesForFoundItemUpdate(FoundItemUpdatedEvent event) {
         processIntake(
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
+                null,
                 event.description(),
                 event.attributes()
         );
@@ -110,6 +127,17 @@ public class CandidateMatchingService {
             ItemType itemType,
             UUID itemId,
             UUID venueId,
+            String description,
+            ItemAttributesPayload attributes
+    ) {
+        processIntake(itemType, itemId, venueId, null, description, attributes);
+    }
+
+    void processIntake(
+            ItemType itemType,
+            UUID itemId,
+            UUID venueId,
+            String contactEmail,
             String description,
             ItemAttributesPayload attributes
     ) {
@@ -142,6 +170,7 @@ public class CandidateMatchingService {
                 itemId,
                 venueId,
                 ownCategory,
+                itemType == ItemType.LOST ? normalizeEmail(contactEmail) : null,
                 embedding,
                 embeddingText
         ));
@@ -171,31 +200,34 @@ public class CandidateMatchingService {
 
             UUID lostReportId = itemType == ItemType.LOST ? itemId : candidate.itemId();
             UUID foundItemId = itemType == ItemType.LOST ? candidate.itemId() : itemId;
+            String recipientEmail = itemType == ItemType.LOST ? contactEmail : candidate.contactEmail();
 
-            Match persisted = upsertMatch(
+            UpsertedMatch persisted = upsertMatch(
                     lostReportId,
                     foundItemId,
                     venueId,
+                    recipientEmail,
                     attributeScore,
                     semanticScore,
                     combinedScore
             );
 
-            if (persisted != null) {
-                eventPublisher.publishMatchCandidateCreated(persisted);
+            if (persisted != null && persisted.shouldPublish()) {
+                eventPublisher.publishMatchCandidateCreated(persisted.match());
                 String ownText = embeddingText;
                 String otherText = candidate.textSource();
                 String lostText = itemType == ItemType.LOST ? ownText : otherText;
                 String foundText = itemType == ItemType.LOST ? otherText : ownText;
-                verificationService.verifyAsync(persisted.getId(), lostText, foundText);
+                runAfterCommitOrNow(() -> verificationService.verifyAsync(persisted.match().getId(), lostText, foundText));
             }
         }
     }
 
-    private Match upsertMatch(
+    private UpsertedMatch upsertMatch(
             UUID lostReportId,
             UUID foundItemId,
             UUID venueId,
+            String recipientEmail,
             float attributeScore,
             float semanticScore,
             float combinedScore
@@ -210,30 +242,64 @@ public class CandidateMatchingService {
             if (match.getStatus() != MatchStatus.PENDING) {
                 return null;
             }
-            match.setAttributeScore(attributeScore);
-            match.setSemanticScore(semanticScore);
-            match.setCombinedScore(combinedScore);
-            return matchRepository.save(match);
+            boolean materialScoreChange = scoreChanged(match, attributeScore, semanticScore, combinedScore);
+            String normalizedEmail = normalizeEmail(recipientEmail);
+            boolean contactChanged = normalizedEmail != null
+                    && !Objects.equals(normalizedEmail, match.getRecipientEmail());
+            if (!materialScoreChange && !contactChanged) {
+                return new UpsertedMatch(match, false);
+            }
+            if (materialScoreChange) {
+                match.setAttributeScore(attributeScore);
+                match.setSemanticScore(semanticScore);
+                match.setCombinedScore(combinedScore);
+            }
+            if (contactChanged) {
+                match.setRecipientEmail(normalizedEmail);
+            }
+            return new UpsertedMatch(matchRepository.save(match), materialScoreChange);
         }
 
         Match fresh = new Match(
                 foundItemId,
                 lostReportId,
                 venueId,
+                normalizeEmail(recipientEmail),
                 MatchStatus.PENDING,
                 attributeScore,
                 semanticScore,
                 combinedScore,
                 LocalDateTime.now()
         );
-        return matchRepository.save(fresh);
+        return new UpsertedMatch(matchRepository.save(fresh), true);
     }
 
-    private static float[] toFloatArray(EmbedResponse response) {
+    private boolean scoreChanged(
+            Match match,
+            float attributeScore,
+            float semanticScore,
+            float combinedScore
+    ) {
+        return Math.abs(match.getAttributeScore() - attributeScore) >= republishScoreDelta
+                || Math.abs(match.getSemanticScore() - semanticScore) >= republishScoreDelta
+                || Math.abs(match.getCombinedScore() - combinedScore) >= republishScoreDelta;
+    }
+
+    private float[] toFloatArray(EmbedResponse response) {
         if (response == null || response.getEmbeddings() == null || response.getEmbeddings().isEmpty()) {
             throw new IllegalStateException("GenAI /embed returned no embeddings.");
         }
         List<Float> first = response.getEmbeddings().get(0);
+        if (first.size() != expectedEmbeddingDim) {
+            log.error(
+                    "GenAI /embed returned {} dimensions but matching expects {}.",
+                    first.size(),
+                    expectedEmbeddingDim
+            );
+            throw new IllegalStateException(
+                    "Embedding dimension mismatch: expected " + expectedEmbeddingDim + " but got " + first.size()
+            );
+        }
         float[] vector = new float[first.size()];
         for (int i = 0; i < first.size(); i++) {
             vector[i] = first.get(i);
@@ -271,5 +337,27 @@ public class CandidateMatchingService {
             }
         }
         return String.join(" | ", parts);
+    }
+
+    private static String normalizeEmail(String email) {
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase();
+    }
+
+    private void runAfterCommitOrNow(Runnable action) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
+    }
+
+    private record UpsertedMatch(Match match, boolean shouldPublish) {
     }
 }

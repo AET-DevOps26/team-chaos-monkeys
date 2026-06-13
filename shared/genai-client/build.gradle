@@ -60,11 +60,12 @@ test {
 // Generated sources live under build/generated/genai-client and are
 // regenerated on every compile. Not committed.
 def genaiClientDir = layout.buildDirectory.dir('generated/genai-client').get().asFile
+def openApiSpec = file("${rootDir}/../../api/openapi.yaml")
 
 openApiGenerate {
     generatorName = 'java'
     library = 'webclient'
-    inputSpec = "${rootDir}/../../api/openapi.yaml"
+    inputSpec = openApiSpec.toURI().toString()
     outputDir = genaiClientDir.absolutePath
     modelPackage = 'com.foundflow.genai.client.model'
     generateApiTests = false

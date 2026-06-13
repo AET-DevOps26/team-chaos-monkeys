@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -41,6 +42,7 @@ class CandidateMatchingServiceTest {
 
     private static final int TOP_K = 20;
     private static final float THRESHOLD = 0.55f;
+    private static final int EMBEDDING_DIM = 2;
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
     private MatchRepository matchRepository;
@@ -64,7 +66,9 @@ class CandidateMatchingServiceTest {
                 verificationService,
                 new SimpleMeterRegistry(),
                 TOP_K,
-                THRESHOLD
+                THRESHOLD,
+                0.01f,
+                EMBEDDING_DIM
         );
     }
 
@@ -78,7 +82,7 @@ class CandidateMatchingServiceTest {
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.1f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -94,6 +98,7 @@ class CandidateMatchingServiceTest {
         assertThat(persisted.getAttributeScore()).isEqualTo(1.0f);
         assertThat(persisted.getSemanticScore()).isEqualTo(0.9f);
         assertThat(persisted.getCombinedScore()).isEqualTo(0.9f);
+        assertThat(persisted.getRecipientEmail()).isEqualTo("guest@example.com");
 
         verify(eventPublisher).publishMatchCandidateCreated(persisted);
         verify(verificationService).verifyAsync(
@@ -108,15 +113,34 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.6f))); // semantic=0.4, combined=0.4
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.6f))); // semantic=0.4, combined=0.4
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
                 .thenReturn(Optional.empty());
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Backpack"));
 
         verify(matchRepository, never()).save(any(Match.class));
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void embeddingDimensionMismatch_failsBeforeInsert() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
+                .thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+
+        assertThatThrownBy(() -> service.findCandidatesForLostReport(
+                lostReportEvent(lostReportId, venueId, "Bag", "Backpack")
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected 2 but got 1");
+
+        verify(itemEmbeddingRepository, never()).upsert(any(ItemEmbedding.class));
         verifyNoInteractions(eventPublisher);
     }
 
@@ -128,10 +152,10 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Very high semantic similarity (distance 0.02) but categories differ → combined = 0.0
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", "test text source", 0.02f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.02f)));
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
 
@@ -154,6 +178,7 @@ class CandidateMatchingServiceTest {
                 Instant.now(),
                 "Front desk",
                 "OPEN",
+                "guest@example.com",
                 new ItemAttributesPayload("Bag", null, null, List.of())
         );
         String stored = CandidateMatchingService.buildEmbeddingText(
@@ -182,9 +207,9 @@ class CandidateMatchingServiceTest {
                 1.0f, 0.6f, 0.6f, LocalDateTime.now().minusHours(1));
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.of(existing));
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -197,6 +222,30 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
+    void existingPendingMatch_withImmaterialScoreChange_isNotRepublished() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        Match existing = new Match(foundItemId, lostReportId, venueId, MatchStatus.PENDING,
+                1.0f, 0.95f, 0.95f, LocalDateTime.now().minusHours(1));
+        existing.setRecipientEmail("guest@example.com");
+
+        when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.049f)));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
+                .thenReturn(Optional.of(existing));
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Bag"));
+
+        verify(matchRepository, never()).save(any(Match.class));
+        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(verificationService);
+    }
+
+    @Test
     void existingConfirmedMatch_isNeverTouched() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
@@ -206,9 +255,9 @@ class CandidateMatchingServiceTest {
                 1.0f, 0.6f, 0.6f, LocalDateTime.now().minusDays(1));
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", "test text source", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.of(confirmed));
 
@@ -227,9 +276,9 @@ class CandidateMatchingServiceTest {
 
         when(itemEmbeddingRepository.findTextSource(ItemType.FOUND, foundItemId))
                 .thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(lostReportId, "Bag", "test text source", 0.05f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(lostReportId, "Bag", "guest@example.com", "test text source", 0.05f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -247,6 +296,7 @@ class CandidateMatchingServiceTest {
         verify(matchRepository).save(captor.capture());
         assertThat(captor.getValue().getLostReportId()).isEqualTo(lostReportId);
         assertThat(captor.getValue().getFoundItemId()).isEqualTo(foundItemId);
+        assertThat(captor.getValue().getRecipientEmail()).isEqualTo("guest@example.com");
     }
 
     @Test
@@ -257,6 +307,7 @@ class CandidateMatchingServiceTest {
         LostReportCreatedEvent event = new LostReportCreatedEvent(
                 UUID.randomUUID(), Instant.now(),
                 lostReportId, venueId, null, null, Instant.now(), null, "OPEN",
+                null,
                 null
         );
 
@@ -273,7 +324,7 @@ class CandidateMatchingServiceTest {
         UUID venueId = UUID.randomUUID();
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of());
 
@@ -291,7 +342,7 @@ class CandidateMatchingServiceTest {
         UUID venueId = UUID.randomUUID();
 
         when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
-        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f));
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of());
 
@@ -342,6 +393,7 @@ class CandidateMatchingServiceTest {
                 Instant.now(),
                 "Front desk",
                 "OPEN",
+                "guest@example.com",
                 new ItemAttributesPayload(category, null, null, List.of())
         );
     }

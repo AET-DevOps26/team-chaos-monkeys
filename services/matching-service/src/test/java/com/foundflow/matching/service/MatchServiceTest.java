@@ -5,9 +5,12 @@ import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
+import com.foundflow.matching.client.LostReportContactReference;
+import com.foundflow.matching.domain.MatchEmailLog;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
+import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
 import com.foundflow.matching.repository.BucketCountView;
@@ -339,12 +342,14 @@ class MatchServiceTest {
         Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
         ReflectionTestUtils.setField(match, "id", matchId);
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.empty());
         when(magicLinkService.createMatchViewToken(matchId, venueId, "lost@example.com"))
                 .thenReturn("public-token");
 
         var response = matchService.createPublicMatchLink(
                 matchId,
-                new com.foundflow.matching.dto.CreatePublicMatchLinkRequest("lost@example.com"),
+                new CreatePublicMatchLinkRequest("lost@example.com"),
                 staffJwt(venueId)
         );
 
@@ -358,6 +363,139 @@ class MatchServiceTest {
                 matchId,
                 "http://localhost:8080/api/matches/public/public-token"
         );
+    }
+
+    @Test
+    void createPublicMatchLink_withoutEmail_shouldDefaultToLostReportContactEmail() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), lostReportId, venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.empty());
+        when(lostItemClient.getLostReportContact(eq(lostReportId), any(Jwt.class)))
+                .thenReturn(new LostReportContactReference(lostReportId, venueId, "Guest@Example.com"));
+        when(matchRepository.save(match)).thenReturn(match);
+        when(magicLinkService.createMatchViewToken(matchId, venueId, "guest@example.com"))
+                .thenReturn("public-token");
+
+        Optional<com.foundflow.matching.dto.PublicMatchLinkResponse> response =
+                matchService.createPublicMatchLink(matchId, null, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertEquals("public-token", response.get().token());
+        assertEquals("guest@example.com", match.getRecipientEmail());
+        verify(matchEmailSender).sendPublicMatchLink(
+                "guest@example.com",
+                venueId,
+                matchId,
+                "http://localhost:8080/api/matches/public/public-token"
+        );
+    }
+
+    @Test
+    void createPublicMatchLink_shouldReturnExistingLinkWithoutSendingDuplicate() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.of(new MatchEmailLog(
+                        "lost@example.com",
+                        venueId,
+                        matchId,
+                        "subject",
+                        "body",
+                        "http://localhost:8080/api/matches/public/existing-token",
+                        LocalDateTime.now()
+                )));
+
+        var response = matchService.createPublicMatchLink(
+                matchId,
+                new CreatePublicMatchLinkRequest("lost@example.com"),
+                staffJwt(venueId)
+        );
+
+        assertTrue(response.isPresent());
+        assertEquals("existing-token", response.get().token());
+        assertEquals("http://localhost:8080/api/pickups/public/existing-token", response.get().pickupUrl());
+        verifyNoInteractions(magicLinkService);
+        verifyNoInteractions(matchEmailSender);
+    }
+
+    @Test
+    void createAutomaticPublicMatchLink_shouldSendOnceForPendingMatchWithRecipient() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        match.setRecipientEmail("guest@example.com");
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.empty());
+        when(magicLinkService.createMatchViewToken(matchId, venueId, "guest@example.com"))
+                .thenReturn("public-token");
+
+        var response = matchService.createAutomaticPublicMatchLink(matchId, null);
+
+        assertTrue(response.isPresent());
+        verify(matchEmailSender).sendPublicMatchLink(
+                "guest@example.com",
+                venueId,
+                matchId,
+                "http://localhost:8080/api/matches/public/public-token"
+        );
+    }
+
+    @Test
+    void createAutomaticPublicMatchLink_shouldSkipWhenInviteAlreadyExists() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.of(new MatchEmailLog(
+                        "lost@example.com",
+                        venueId,
+                        matchId,
+                        "subject",
+                        "body",
+                        "http://localhost:8080/api/matches/public/existing-token",
+                        LocalDateTime.now()
+                )));
+
+        var response = matchService.createAutomaticPublicMatchLink(matchId, "lost@example.com");
+
+        assertTrue(response.isPresent());
+        assertEquals("existing-token", response.get().token());
+        verifyNoInteractions(magicLinkService);
+        verifyNoInteractions(matchEmailSender);
+    }
+
+    @Test
+    void createAutomaticPublicMatchLink_shouldSkipWhenRecipientMissing() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING, LocalDateTime.now());
+        ReflectionTestUtils.setField(match, "id", matchId);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchEmailLogRepository.findFirstByMatchIdOrderBySentAtDesc(matchId))
+                .thenReturn(Optional.empty());
+
+        var response = matchService.createAutomaticPublicMatchLink(matchId, null);
+
+        assertTrue(response.isEmpty());
+        verifyNoInteractions(magicLinkService);
+        verifyNoInteractions(matchEmailSender);
     }
 
     @Test

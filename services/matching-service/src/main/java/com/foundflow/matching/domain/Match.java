@@ -30,6 +30,9 @@ public class Match {
     @Column(name = "venue_id")
     private UUID venueId;
 
+    @Column(name = "recipient_email")
+    private String recipientEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MatchStatus status;
@@ -77,9 +80,25 @@ public class Match {
             float combinedScore,
             LocalDateTime createdAt
     ) {
+        this(foundItemId, lostReportId, venueId, null, status, attributeScore, semanticScore,
+                combinedScore, createdAt);
+    }
+
+    public Match(
+            UUID foundItemId,
+            UUID lostReportId,
+            UUID venueId,
+            String recipientEmail,
+            MatchStatus status,
+            float attributeScore,
+            float semanticScore,
+            float combinedScore,
+            LocalDateTime createdAt
+    ) {
         this.foundItemId = foundItemId;
         this.lostReportId = lostReportId;
         this.venueId = venueId;
+        this.recipientEmail = recipientEmail;
         this.status = status;
         this.attributeScore = attributeScore;
         this.semanticScore = semanticScore;
@@ -101,6 +120,10 @@ public class Match {
 
     public UUID getVenueId() {
         return venueId;
+    }
+
+    public String getRecipientEmail() {
+        return recipientEmail;
     }
 
     public MatchStatus getStatus() {
@@ -133,6 +156,10 @@ public class Match {
 
     public void setVenueId(UUID venueId) {
         this.venueId = venueId;
+    }
+
+    public void setRecipientEmail(String recipientEmail) {
+        this.recipientEmail = recipientEmail;
     }
 
     public void setStatus(MatchStatus status) {

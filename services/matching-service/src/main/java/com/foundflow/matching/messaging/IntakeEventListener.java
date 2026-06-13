@@ -96,7 +96,7 @@ public class IntakeEventListener {
             action.run();
         } catch (RestClientException exception) {
             log.warn(
-                    "Skipping candidate search for {} event {} after GenAI error: {}",
+                    "Candidate search failed for {} event {} after GenAI error; Rabbit retry/DLQ policy will apply: {}",
                     eventType,
                     eventId,
                     exception.getMessage()
@@ -105,6 +105,7 @@ public class IntakeEventListener {
                     .tag("event_type", eventType)
                     .register(meterRegistry)
                     .increment();
+            throw exception;
         }
     }
 }

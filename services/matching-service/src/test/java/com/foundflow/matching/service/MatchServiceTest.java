@@ -188,12 +188,43 @@ class MatchServiceTest {
         assertEquals("public-token", response.get().token());
         assertEquals("http://localhost:8080/api/matches/public/public-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/public-token", response.get().pickupUrl());
+        assertEquals("public-token", match.getPublicLinkToken());
+        assertEquals("lost@example.com", match.getPublicLinkRecipientEmail());
+        assertNotNull(match.getPublicLinkIssuedAt());
         verify(matchInviteEventPublisher).publishMatchInviteRequested(
                 matchId,
                 "lost@example.com",
                 venueId,
                 "http://localhost:8080/api/matches/public/public-token"
         );
+    }
+
+    @Test
+    void createPublicMatchLink_shouldReturnExistingLinkWithoutPublishingDuplicate() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING);
+        ReflectionTestUtils.setField(match, "id", matchId);
+        match.setRecipientEmail("lost@example.com");
+        match.setPublicLinkToken("existing-token");
+        match.setPublicLinkRecipientEmail("lost@example.com");
+        match.setPublicLinkIssuedAt(LocalDateTime.now().minusMinutes(5));
+
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        var response = matchService.createPublicMatchLink(
+                matchId,
+                new CreatePublicMatchLinkRequest("lost@example.com"),
+                staffJwt(venueId)
+        );
+
+        assertTrue(response.isPresent());
+        assertEquals("existing-token", response.get().token());
+        assertEquals("http://localhost:8080/api/matches/public/existing-token", response.get().matchUrl());
+        assertEquals("http://localhost:8080/api/pickups/public/existing-token", response.get().pickupUrl());
+        verify(matchRepository, never()).save(any(Match.class));
+        verifyNoInteractions(magicLinkService, matchInviteEventPublisher);
     }
 
     @Test
@@ -269,6 +300,28 @@ class MatchServiceTest {
                 venueId,
                 "http://localhost:8080/api/matches/public/public-token"
         );
+    }
+
+    @Test
+    void createAutomaticPublicMatchLink_shouldReturnExistingLinkWithoutPublishingDuplicate() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING);
+        ReflectionTestUtils.setField(match, "id", matchId);
+        match.setRecipientEmail("guest@example.com");
+        match.setPublicLinkToken("existing-token");
+        match.setPublicLinkRecipientEmail("guest@example.com");
+        match.setPublicLinkIssuedAt(LocalDateTime.now().minusMinutes(5));
+
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        var response = matchService.createAutomaticPublicMatchLink(matchId, null);
+
+        assertTrue(response.isPresent());
+        assertEquals("existing-token", response.get().token());
+        verify(matchRepository, never()).save(any(Match.class));
+        verifyNoInteractions(magicLinkService, matchInviteEventPublisher);
     }
 
     @Test

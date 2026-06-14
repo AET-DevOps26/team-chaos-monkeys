@@ -267,7 +267,7 @@ public class CandidateMatchingService {
             if (contactChanged) {
                 match.setRecipientEmail(normalizedEmail);
             }
-            return new UpsertedMatch(matchRepository.save(match), materialScoreChange);
+            return new UpsertedMatch(matchRepository.save(match), materialScoreChange || contactChanged);
         }
 
         Match fresh = new Match(

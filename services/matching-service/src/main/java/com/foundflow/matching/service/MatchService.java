@@ -377,9 +377,12 @@ public class MatchService {
 
     private PublicMatchLinkResponse createPublicMatchLink(Match match, String recipient) {
         String normalizedRecipient = normalizeEmail(recipient);
+        if (hasReusablePublicLink(match, normalizedRecipient)) {
+            return toPublicMatchLinkResponse(match.getPublicLinkToken());
+        }
+
         if (!Objects.equals(match.getRecipientEmail(), normalizedRecipient)) {
             match.setRecipientEmail(normalizedRecipient);
-            matchRepository.save(match);
         }
 
         String token = magicLinkService.createMatchViewToken(
@@ -388,6 +391,10 @@ public class MatchService {
                 normalizedRecipient
         );
         String matchUrl = publicBaseUrl + "/api/matches/public/" + token;
+        match.setPublicLinkToken(token);
+        match.setPublicLinkRecipientEmail(normalizedRecipient);
+        match.setPublicLinkIssuedAt(LocalDateTime.now());
+        matchRepository.save(match);
         matchInviteEventPublisher.publishMatchInviteRequested(
                 match.getId(),
                 normalizedRecipient,
@@ -397,6 +404,19 @@ public class MatchService {
         return new PublicMatchLinkResponse(
                 token,
                 matchUrl,
+                pickupUrl(token)
+        );
+    }
+
+    private boolean hasReusablePublicLink(Match match, String recipient) {
+        return hasText(match.getPublicLinkToken())
+                && Objects.equals(normalizeEmail(match.getPublicLinkRecipientEmail()), recipient);
+    }
+
+    private PublicMatchLinkResponse toPublicMatchLinkResponse(String token) {
+        return new PublicMatchLinkResponse(
+                token,
+                publicBaseUrl + "/api/matches/public/" + token,
                 pickupUrl(token)
         );
     }

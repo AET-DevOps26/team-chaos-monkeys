@@ -33,6 +33,15 @@ public class Match {
     @Column(name = "recipient_email")
     private String recipientEmail;
 
+    @Column(name = "public_link_token")
+    private String publicLinkToken;
+
+    @Column(name = "public_link_recipient_email")
+    private String publicLinkRecipientEmail;
+
+    @Column(name = "public_link_issued_at")
+    private LocalDateTime publicLinkIssuedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MatchStatus status;
@@ -126,6 +135,18 @@ public class Match {
         return recipientEmail;
     }
 
+    public String getPublicLinkToken() {
+        return publicLinkToken;
+    }
+
+    public String getPublicLinkRecipientEmail() {
+        return publicLinkRecipientEmail;
+    }
+
+    public LocalDateTime getPublicLinkIssuedAt() {
+        return publicLinkIssuedAt;
+    }
+
     public MatchStatus getStatus() {
         return status;
     }
@@ -160,6 +181,18 @@ public class Match {
 
     public void setRecipientEmail(String recipientEmail) {
         this.recipientEmail = recipientEmail;
+    }
+
+    public void setPublicLinkToken(String publicLinkToken) {
+        this.publicLinkToken = publicLinkToken;
+    }
+
+    public void setPublicLinkRecipientEmail(String publicLinkRecipientEmail) {
+        this.publicLinkRecipientEmail = publicLinkRecipientEmail;
+    }
+
+    public void setPublicLinkIssuedAt(LocalDateTime publicLinkIssuedAt) {
+        this.publicLinkIssuedAt = publicLinkIssuedAt;
     }
 
     public void setStatus(MatchStatus status) {

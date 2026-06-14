@@ -99,6 +99,9 @@ class Match {
   lostReportId: UUID
   venueId: UUID
   recipientEmail: String
+  publicLinkToken: String
+  publicLinkRecipientEmail: String
+  publicLinkIssuedAt: LocalDateTime
   status: MatchStatus
   attributeScore: float
   semanticScore: float

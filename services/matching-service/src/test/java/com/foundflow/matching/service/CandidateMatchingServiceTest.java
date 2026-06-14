@@ -248,6 +248,30 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
+    void existingPendingMatch_withContactChange_isRepublished() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        Match existing = new Match(foundItemId, lostReportId, venueId, MatchStatus.PENDING,
+                1.0f, 0.95f, 0.95f, LocalDateTime.now().minusHours(1));
+
+        when(itemEmbeddingRepository.findTextSource(any(), any())).thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.05f)));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostReportId, foundItemId))
+                .thenReturn(Optional.of(existing));
+        when(matchRepository.save(existing)).thenReturn(existing);
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Bag"));
+
+        assertThat(existing.getRecipientEmail()).isEqualTo("guest@example.com");
+        verify(matchRepository).save(existing);
+        verify(eventPublisher).publishMatchCandidateCreated(existing);
+    }
+
+    @Test
     void existingConfirmedMatch_isNeverTouched() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();

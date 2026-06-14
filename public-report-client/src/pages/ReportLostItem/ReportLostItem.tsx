@@ -3,8 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
-import { useCreateLostReportWithPhoto } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import type { CreateLostReportRequest, CreateLostReportWithPhotoBody } from '@/api/lost-items/model'
+import {
+  useCreateLostReport,
+  useUpdateLostReportPhoto,
+} from '@/api/lost-items/lost-report-controller/lost-report-controller'
+import type { CreateLostReportRequest } from '@/api/lost-items/model'
 
 // The venue is supplied by the route (/report/<venueId>), typically via a
 // per-venue QR link. Validate it looks like a UUID before submitting so a
@@ -27,7 +30,15 @@ export default function ReportLostItem() {
     defaultValues: { description: '', contactEmail: '', lostAt: '', photo: null },
   })
 
-  const { mutate, isPending, isError, error } = useCreateLostReportWithPhoto()
+  // The backend split intake into two endpoints: create the report (JSON),
+  // then upload the photo (multipart) against the returned id. Sequence them
+  // here so the report is still created even if the photo upload fails.
+  const createReport = useCreateLostReport()
+  const uploadPhoto = useUpdateLostReportPhoto()
+
+  const isPending = createReport.isPending || uploadPhoto.isPending
+  const isError = createReport.isError || uploadPhoto.isError
+  const error = createReport.error ?? uploadPhoto.error
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -42,7 +53,7 @@ export default function ReportLostItem() {
     return () => URL.revokeObjectURL(url)
   }, [photo])
 
-  const onSubmit = (data: ReportLostItemInput) => {
+  const onSubmit = async (data: ReportLostItemInput) => {
     if (!hasValidVenue) return
     const payload: CreateLostReportRequest = {
       description: data.description,
@@ -53,22 +64,31 @@ export default function ReportLostItem() {
       lostAt: data.lostAt,
       venueId,
     }
-    // `photo` is optional; pass `undefined` (not `null`) when none was
-    // picked so the generated FormData builder omits the photo part.
-    const body: CreateLostReportWithPhotoBody = {
-      request: payload,
-      photo: data.photo ?? undefined,
+
+    let report
+    try {
+      report = await createReport.mutateAsync({ data: payload })
+    } catch {
+      // creation failed; error is surfaced via `isError` below
+      return
     }
-    mutate(
-      { data: body },
-      {
-        onSuccess: (response) => {
-          navigate('/confirmation', {
-            state: { report: response },
-          })
-        },
-      },
-    )
+
+    // Photo is optional and uploaded in a second request keyed by the new
+    // report id. If it fails the report still exists, so surface the error
+    // but don't block confirmation.
+    let finalReport = report
+    if (data.photo && report.id) {
+      try {
+        finalReport = await uploadPhoto.mutateAsync({
+          id: report.id,
+          data: { photo: data.photo },
+        })
+      } catch {
+        // keep the created report; the photo error is shown via `isError`
+      }
+    }
+
+    navigate('/confirmation', { state: { report: finalReport } })
   }
 
   return (

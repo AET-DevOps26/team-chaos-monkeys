@@ -60,8 +60,18 @@ describe('<ReportLostItem />', () => {
     expect(screen.getByRole('button', { name: /submit report/i })).toBeDisabled()
   })
 
-  it('submits a valid report and navigates to the confirmation page', async () => {
-    server.use(createLostReportSuccess(REPORT))
+  it('creates the report as JSON and navigates to the confirmation page', async () => {
+    // The create endpoint no longer accepts multipart — sending it as
+    // multipart is what produced the 415. Assert the request goes out as JSON.
+    let createMethod = ''
+    let createContentType = ''
+    server.use(
+      http.post('*/api/lost-items', ({ request }) => {
+        createMethod = request.method
+        createContentType = request.headers.get('content-type') ?? ''
+        return HttpResponse.json<LostReportResponse>(REPORT)
+      }),
+    )
     const { user } = renderWithProviders(<AppRoutes />, { route: venueRoute })
 
     await fillForm(user)
@@ -73,17 +83,25 @@ describe('<ReportLostItem />', () => {
     expect(await screen.findByText(/report submitted/i)).toBeInTheDocument()
     expect(screen.getByText(`#${REPORT.id}`)).toBeInTheDocument()
     expect(screen.getByText(REPORT.description!)).toBeInTheDocument()
+    expect(createMethod).toBe('POST')
+    expect(createContentType).toMatch(/application\/json/)
   })
 
-  it('sends the attached photo as a multipart part', async () => {
-    let contentType = ''
-    let rawBody = ''
+  it('uploads an attached photo as a separate multipart PUT to the report id', async () => {
+    // After the JSON create, the optional photo is sent as its own multipart
+    // request keyed by the new report id. We assert on the dispatched request
+    // (method/URL/content-type) rather than navigation: a FormData request
+    // over axios never settles under msw/node here, so we only verify the
+    // photo PUT is issued correctly.
+    let photoMethod = ''
+    let photoUrl = ''
+    let photoContentType = ''
     server.use(
-      // Inspect the raw multipart body: the undici FormData parser can't
-      // read the JSON `request` Blob part, so assert on the wire bytes.
-      http.post('*/api/lost-items', async ({ request }) => {
-        contentType = request.headers.get('content-type') ?? ''
-        rawBody = await request.text()
+      createLostReportSuccess(REPORT),
+      http.put('*/api/lost-items/:id/photo', ({ request }) => {
+        photoMethod = request.method
+        photoUrl = request.url
+        photoContentType = request.headers.get('content-type') ?? ''
         return HttpResponse.json<LostReportResponse>(REPORT)
       }),
     )
@@ -97,12 +115,10 @@ describe('<ReportLostItem />', () => {
     await waitFor(() => expect(submit).toBeEnabled())
     await user.click(submit)
 
-    expect(await screen.findByText(/report submitted/i)).toBeInTheDocument()
-    // Photo reaches the wire as its own multipart part alongside the JSON
-    // `request` part. (jsdom/undici degrades the filename to "blob" and
-    // doesn't inline the Blob bytes, so assert on the part headers only.)
-    expect(contentType).toMatch(/multipart\/form-data/)
-    expect(rawBody).toMatch(/name="request"[\s\S]*Content-Type: application\/json/)
-    expect(rawBody).toMatch(/name="photo"[\s\S]*Content-Type: image\/png/)
+    await waitFor(() =>
+      expect(photoUrl).toContain(`/api/lost-items/${REPORT.id}/photo`),
+    )
+    expect(photoMethod).toBe('PUT')
+    expect(photoContentType).toMatch(/multipart\/form-data/)
   })
 })

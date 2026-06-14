@@ -6,34 +6,6 @@
  */
 import * as zod from 'zod';
 
-export const getLostReportPhotoParams = zod.object({
-  "id": zod.uuid()
-})
-
-
-export const updateLostReportPhotoParams = zod.object({
-  "id": zod.uuid()
-})
-
-export const updateLostReportPhotoBody = zod.object({
-  "photo": zod.instanceof(File)
-})
-
-
-export const getLostReportPhoto1Params = zod.object({
-  "id": zod.uuid()
-})
-
-
-export const updateLostReportPhoto1Params = zod.object({
-  "id": zod.uuid()
-})
-
-export const updateLostReportPhoto1Body = zod.object({
-  "photo": zod.instanceof(File)
-})
-
-
 export const getLostReportByIdParams = zod.object({
   "id": zod.uuid()
 })
@@ -63,32 +35,17 @@ export const updateLostReportBody = zod.object({
 })
 
 
-export const getLostReportById1Params = zod.object({
+export const getLostReportPhotoParams = zod.object({
   "id": zod.uuid()
 })
 
 
-export const updateLostReport1Params = zod.object({
+export const updateLostReportPhotoParams = zod.object({
   "id": zod.uuid()
 })
 
-
-
-
-
-export const updateLostReport1Body = zod.object({
-  "description": zod.string().min(1),
-  "lostAt": zod.iso.datetime({}),
-  "location": zod.string().optional(),
-  "status": zod.enum(['OPEN', 'MATCHED', 'CLOSED', 'COLLECTED']),
-  "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(1),
-  "attributes": zod.object({
-  "category": zod.string().optional(),
-  "brand": zod.string().optional(),
-  "color": zod.string().optional(),
-  "marks": zod.array(zod.string()).optional()
-}).optional()
+export const updateLostReportPhotoBody = zod.object({
+  "photo": zod.instanceof(File)
 })
 
 
@@ -97,75 +54,33 @@ export const getAllLostReportsQueryParams = zod.object({
 })
 
 
-export const createLostReportWithPhotoBodyRequestDescriptionMin = 0;
-export const createLostReportWithPhotoBodyRequestDescriptionMax = 2000;
+export const createLostReportBodyDescriptionMin = 0;
+export const createLostReportBodyDescriptionMax = 2000;
 
-export const createLostReportWithPhotoBodyRequestLocationMin = 0;
-export const createLostReportWithPhotoBodyRequestLocationMax = 255;
+export const createLostReportBodyLocationMin = 0;
+export const createLostReportBodyLocationMax = 255;
 
-export const createLostReportWithPhotoBodyRequestContactEmailMin = 0;
-export const createLostReportWithPhotoBodyRequestContactEmailMax = 255;
+export const createLostReportBodyContactEmailMin = 0;
+export const createLostReportBodyContactEmailMax = 255;
 
 
 
-export const createLostReportWithPhotoBody = zod.object({
-  "request": zod.object({
-  "description": zod.string().min(createLostReportWithPhotoBodyRequestDescriptionMin).max(createLostReportWithPhotoBodyRequestDescriptionMax),
+export const createLostReportBody = zod.object({
+  "description": zod.string().min(createLostReportBodyDescriptionMin).max(createLostReportBodyDescriptionMax),
   "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReportWithPhotoBodyRequestLocationMin).max(createLostReportWithPhotoBodyRequestLocationMax).optional(),
+  "location": zod.string().min(createLostReportBodyLocationMin).max(createLostReportBodyLocationMax).optional(),
   "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReportWithPhotoBodyRequestContactEmailMin).max(createLostReportWithPhotoBodyRequestContactEmailMax),
+  "contactEmail": zod.email().min(createLostReportBodyContactEmailMin).max(createLostReportBodyContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
 }).optional()
-}),
-  "photo": zod.instanceof(File).optional()
-})
-
-
-export const getAllLostReports1QueryParams = zod.object({
-  "status": zod.enum(['OPEN', 'MATCHED', 'CLOSED', 'COLLECTED']).optional()
-})
-
-
-export const createLostReportWithPhoto1BodyRequestDescriptionMin = 0;
-export const createLostReportWithPhoto1BodyRequestDescriptionMax = 2000;
-
-export const createLostReportWithPhoto1BodyRequestLocationMin = 0;
-export const createLostReportWithPhoto1BodyRequestLocationMax = 255;
-
-export const createLostReportWithPhoto1BodyRequestContactEmailMin = 0;
-export const createLostReportWithPhoto1BodyRequestContactEmailMax = 255;
-
-
-
-export const createLostReportWithPhoto1Body = zod.object({
-  "request": zod.object({
-  "description": zod.string().min(createLostReportWithPhoto1BodyRequestDescriptionMin).max(createLostReportWithPhoto1BodyRequestDescriptionMax),
-  "lostAt": zod.iso.datetime({}),
-  "location": zod.string().min(createLostReportWithPhoto1BodyRequestLocationMin).max(createLostReportWithPhoto1BodyRequestLocationMax).optional(),
-  "venueId": zod.uuid().optional(),
-  "contactEmail": zod.email().min(createLostReportWithPhoto1BodyRequestContactEmailMin).max(createLostReportWithPhoto1BodyRequestContactEmailMax),
-  "attributes": zod.object({
-  "category": zod.string().optional(),
-  "brand": zod.string().optional(),
-  "color": zod.string().optional(),
-  "marks": zod.array(zod.string()).optional()
-}).optional()
-}),
-  "photo": zod.instanceof(File).optional()
 })
 
 
 export const getLostReportPhotoUrlParams = zod.object({
-  "id": zod.uuid()
-})
-
-
-export const getLostReportPhotoUrl1Params = zod.object({
   "id": zod.uuid()
 })
 
@@ -176,19 +91,7 @@ export const getLostReportHistogramQueryParams = zod.object({
 })
 
 
-export const getLostReportHistogram1QueryParams = zod.object({
-  "status": zod.enum(['OPEN', 'MATCHED', 'CLOSED', 'COLLECTED']).optional(),
-  "venueId": zod.uuid().optional()
-})
-
-
 export const countLostReportsQueryParams = zod.object({
-  "status": zod.enum(['OPEN', 'MATCHED', 'CLOSED', 'COLLECTED']).optional(),
-  "venueId": zod.uuid().optional()
-})
-
-
-export const countLostReports1QueryParams = zod.object({
   "status": zod.enum(['OPEN', 'MATCHED', 'CLOSED', 'COLLECTED']).optional(),
   "venueId": zod.uuid().optional()
 })

@@ -2,22 +2,21 @@ package com.foundflow.founditem.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record CreateFoundItemRequest(
-        String description,
+        @Size(max = 2000)
+        String intakeText,
 
         @NotNull
         LocalDateTime foundAt,
 
-        String locationHint,
-
         @NotNull
         UUID venueId,
 
-        @NotNull
         UUID reporterId,
 
         @Valid

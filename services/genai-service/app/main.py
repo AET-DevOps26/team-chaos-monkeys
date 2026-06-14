@@ -18,7 +18,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api import diagnostic, embed, extract, health, verify
+from app.api import answer, diagnostic, embed, extract, health, verify
 from app.config import Settings
 from app.errors import register_exception_handlers
 from app.metrics import build_info
@@ -32,6 +32,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.settings = settings
     app.state.llm = build_provider(settings)
     build_info.info({"provider": settings.provider})
+
+    # Startup probe — verify the configured embed model produces the configured dim.
+    # Hard-fail on mismatch: better a crashlooping container than silent data corruption.
+    try:
+        probe = await app.state.llm.embed(text="probe")
+    except Exception as e:
+        raise RuntimeError(
+            f"genai-service startup probe failed: {e!r} "
+            f"(provider={settings.provider}, embed_model={settings.openai_embed_model if settings.provider == 'openai' else settings.ollama_embed_model})"
+        ) from e
+
+    actual_dim = len(probe)
+    if actual_dim != settings.embedding_dimensions:
+        raise RuntimeError(
+            f"Embedding dim mismatch at startup: configured={settings.embedding_dimensions}, "
+            f"actual={actual_dim} (provider={settings.provider}). "
+            f"Check EMBEDDING_DIMENSIONS / OPENAI_EMBED_MODEL / OLLAMA_EMBED_MODEL."
+        )
+    app.state.embed_dimensions_actual = actual_dim
+
     try:
         yield
     finally:
@@ -62,4 +82,5 @@ app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
 app.include_router(verify.router)
+app.include_router(answer.router)
 app.include_router(diagnostic.router)

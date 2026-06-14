@@ -1,21 +1,30 @@
 import { Routes, Route } from 'react-router-dom'
+import Dashboard from '@/pages/Dashboard'
 import FoundItemIntake from '@/pages/FoundItemIntake'
 import FoundItemsOverview from '@/pages/FoundItemsOverview'
 import LostReportsOverview from '@/pages/LostReportsOverview'
-import ReportLostItem from '@/pages/public/ReportLostItem'
-import ReportConfirmation from '@/pages/public/ReportLostItem/ReportConfirmation'
 import Login from '@/pages/Login'
 import RequireAuth from '@/auth/RequireAuth'
 import Layout from '@/components/Layout/Layout'
 
+// The public guest report surface (/report) now lives in its own deployable
+// micro-frontend (public-report-client), routed by the edge/ingress.
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/report" element={<ReportLostItem />} />
-      <Route path="/report/confirmation" element={<ReportConfirmation />} />
       <Route
         path="/"
+        element={
+          <RequireAuth>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/intake"
         element={
           <RequireAuth>
             <Layout>

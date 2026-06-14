@@ -28,4 +28,12 @@ class GatewaySecurityTest {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
+
+    @Test
+    void legacyLostReportsAlias_shouldNotBePubliclyPermitted() {
+        webTestClient.post()
+                .uri("/api/lost-reports")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
 }

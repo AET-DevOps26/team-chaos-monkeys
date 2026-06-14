@@ -4,8 +4,8 @@ import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CountResponse;
 import com.foundflow.matching.dto.HistogramResponse;
-import com.foundflow.matching.dto.MatchEmailLogResponse;
 import com.foundflow.matching.dto.MatchResponse;
+import com.foundflow.matching.dto.PublicFoundItemResponse;
 import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
 import com.foundflow.matching.domain.MatchStatus;
@@ -123,17 +123,16 @@ public class MatchController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/public-link-email-log")
-    public ResponseEntity<List<MatchEmailLogResponse>> getPublicMatchEmailLog(
-            @RequestParam(required = false) String recipient,
-            JwtAuthenticationToken authentication
-    ) {
-        return ResponseEntity.ok(matchService.getPublicMatchEmailLog(recipient, authentication.getToken()));
-    }
-
     @GetMapping("/public/{token}")
     public ResponseEntity<MatchResponse> getPublicMatch(@PathVariable String token) {
         return matchService.getPublicMatch(token)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/public/{token}/found-item")
+    public ResponseEntity<PublicFoundItemResponse> getPublicFoundItem(@PathVariable String token) {
+        return matchService.getPublicFoundItem(token)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

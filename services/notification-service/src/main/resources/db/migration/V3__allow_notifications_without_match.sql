@@ -1,0 +1,2 @@
+ALTER TABLE notifications
+ALTER COLUMN match_id DROP NOT NULL;

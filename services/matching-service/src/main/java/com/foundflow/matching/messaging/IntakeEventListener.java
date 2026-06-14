@@ -1,7 +1,7 @@
 package com.foundflow.matching.messaging;
 
 import com.foundflow.events.FoundFlowEventRouting;
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
@@ -62,15 +62,15 @@ public class IntakeEventListener {
     }
 
     @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE)
-    public void onFoundItemLogged(FoundItemLoggedEvent event) {
+    public void onFoundItemCreated(FoundItemCreatedEvent event) {
         log.info(
-                "Received FoundItemLogged event {} for foundItem={} venue={}",
+                "Received FoundItemCreated event {} for foundItem={} venue={}",
                 event.eventId(),
                 event.foundItemId(),
                 event.venueId()
         );
         runCandidateSearch(
-                "FoundItemLogged",
+                "FoundItemCreated",
                 event.eventId(),
                 () -> candidateMatchingService.findCandidatesForFoundItem(event)
         );

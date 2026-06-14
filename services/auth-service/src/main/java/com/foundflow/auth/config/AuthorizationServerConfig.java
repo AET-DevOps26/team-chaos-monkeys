@@ -3,6 +3,7 @@ package com.foundflow.auth.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -58,10 +59,29 @@ public class AuthorizationServerConfig {
                                 .requestMatchers(
                                         "/api/auth/login",
                                         "/api/auth/refresh",
-                                        "/api/auth/logout"
+                                        "/api/auth/logout",
+                                        "/api/auth/password-reset/request",
+                                        "/api/auth/password-reset/confirm"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/users")
+                                .hasAnyRole("ADMIN", "OPS_MANAGER")
+                                .requestMatchers(HttpMethod.GET, "/api/users")
+                                .hasAnyRole("ADMIN", "OPS_MANAGER")
+                                .requestMatchers(HttpMethod.GET, "/api/users/by-email")
+                                .hasAnyRole("ADMIN", "OPS_MANAGER")
                                 .requestMatchers(
-                                        "/api/users",
+                                        HttpMethod.GET,
+                                        "/api/users/*"
+                                ).authenticated()
+                                .requestMatchers(
+                                        HttpMethod.PUT,
+                                        "/api/users/*"
+                                ).authenticated()
+                                .requestMatchers(
+                                        HttpMethod.DELETE,
+                                        "/api/users/*"
+                                ).authenticated()
+                                .requestMatchers(
                                         "/api/users/**"
                                 ).hasAnyRole("ADMIN", "OPS_MANAGER")
                                 .anyRequest().authenticated()

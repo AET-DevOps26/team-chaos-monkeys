@@ -1,5 +1,6 @@
 package com.foundflow.matching.client;
 
+import com.foundflow.matching.dto.PublicFoundItemResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,14 +16,21 @@ import java.util.UUID;
 public class FoundItemClient {
 
     private final RestClient restClient;
+    private final String internalToken;
 
     public FoundItemClient(
             @Value("${foundflow.services.found-item.base-url:http://found-item-service:8083}")
-            String baseUrl
+            String baseUrl,
+            @Value("${foundflow.internal.token}")
+            String internalToken
     ) {
+        if (internalToken == null || internalToken.isBlank()) {
+            throw new IllegalStateException("foundflow.internal.token must be configured.");
+        }
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .build();
+        this.internalToken = internalToken;
     }
 
     public ItemVenueReference getFoundItem(UUID id, Jwt jwt) {
@@ -46,6 +54,37 @@ public class FoundItemClient {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Found item does not exist.");
         } catch (HttpClientErrorException.Forbidden exception) {
             throw new AccessDeniedException("No access to this found item.", exception);
+        }
+    }
+
+    public PublicFoundItemResponse getPublicFoundItemDetail(UUID id, UUID venueId) {
+        try {
+            PublicFoundItemResponse response = restClient
+                    .get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/internal/found-items/{id}/public-detail")
+                            .queryParam("venueId", venueId)
+                            .build(id))
+                    .header("X-FoundFlow-Internal-Token", internalToken)
+                    .retrieve()
+                    .body(PublicFoundItemResponse.class);
+
+            if (response == null || response.photoUrl() == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Found item service returned no public photo URL."
+                );
+            }
+
+            return response;
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Public found item detail does not exist.");
+        } catch (HttpClientErrorException exception) {
+            throw new ResponseStatusException(
+                    exception.getStatusCode(),
+                    "Could not load public found item detail.",
+                    exception
+            );
         }
     }
 }

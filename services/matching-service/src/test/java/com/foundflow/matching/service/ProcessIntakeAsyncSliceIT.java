@@ -41,6 +41,7 @@ class ProcessIntakeAsyncSliceIT {
 
     private static final int TOP_K = 20;
     private static final float THRESHOLD = 0.55f;
+    private static final int EMBEDDING_DIM = 2;
     private static final long SLOW_VERIFY_MS = 3_000L;
 
     private ItemEmbeddingRepository itemEmbeddingRepository;
@@ -106,7 +107,7 @@ class ProcessIntakeAsyncSliceIT {
                 TOP_K,
                 THRESHOLD,
                 0.01f,
-                2
+                EMBEDDING_DIM
         );
     }
 

@@ -85,3 +85,16 @@ groups:
         annotations:
           summary: "RabbitMQ DLQ {{ $labels.queue }} has messages"
           description: "Dead-letter queue {{ $labels.queue }} has had ready messages for at least 2 minutes."
+
+  - name: foundflow-consumers
+    rules:
+      - alert: NotificationSendDropsElevated
+        expr: |
+          sum by (event_type) (
+            increase(notifications_send_failures_total[15m])
+          ) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "notification-service dropping {{ $labels.event_type }} sends"
+          description: "More than 3 notification sends for {{ $labels.event_type }} hit the recoverer (ack-and-drop after retries) in the last 15 minutes."

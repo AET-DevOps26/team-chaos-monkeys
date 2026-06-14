@@ -2,12 +2,18 @@ package com.foundflow.matching.config;
 
 import com.foundflow.events.DomainEventMessageConverterFactory;
 import com.foundflow.events.FoundFlowEventRouting;
+import com.foundflow.matching.service.EmbeddingDimensionMismatchException;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.listener.ConditionalRejectingErrorHandler;
+import org.springframework.amqp.rabbit.listener.ConditionalRejectingErrorHandler.DefaultExceptionStrategy;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.amqp.autoconfigure.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,7 +42,7 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Queue foundItemLoggedQueue() {
+    public Queue foundItemCreatedQueue() {
         return consumerQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
     }
 
@@ -61,7 +67,7 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Queue foundItemLoggedDlq() {
+    public Queue foundItemCreatedDlq() {
         return deadLetterQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
     }
 
@@ -96,13 +102,13 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Binding foundItemLoggedBinding(
-            Queue foundItemLoggedQueue,
+    public Binding foundItemCreatedBinding(
+            Queue foundItemCreatedQueue,
             TopicExchange domainEventsExchange
     ) {
-        return BindingBuilder.bind(foundItemLoggedQueue)
+        return BindingBuilder.bind(foundItemCreatedQueue)
                 .to(domainEventsExchange)
-                .with(FoundFlowEventRouting.FOUND_ITEM_LOGGED);
+                .with(FoundFlowEventRouting.FOUND_ITEM_CREATED);
     }
 
     @Bean
@@ -138,8 +144,8 @@ public class AmqpConfig {
     }
 
     @Bean
-    public Binding foundItemLoggedDlqBinding(TopicExchange deadLetterExchange) {
-        return deadLetterBinding(foundItemLoggedDlq(), deadLetterExchange,
+    public Binding foundItemCreatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(foundItemCreatedDlq(), deadLetterExchange,
                 FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
     }
 
@@ -158,6 +164,34 @@ public class AmqpConfig {
     @Bean
     public MessageConverter jsonMessageConverter(JsonMapper jsonMapper) {
         return DomainEventMessageConverterFactory.create(jsonMapper);
+    }
+
+    @Bean
+    public ConditionalRejectingErrorHandler rabbitListenerErrorHandler() {
+        return new ConditionalRejectingErrorHandler(new DefaultExceptionStrategy() {
+            @Override
+            public boolean isFatal(Throwable t) {
+                Throwable cur = t;
+                while (cur != null) {
+                    if (cur instanceof EmbeddingDimensionMismatchException) {
+                        return true;
+                    }
+                    cur = cur.getCause();
+                }
+                return super.isFatal(t);
+            }
+        });
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            SimpleRabbitListenerContainerFactoryConfigurer configurer,
+            ConnectionFactory connectionFactory
+    ) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        configurer.configure(factory, connectionFactory);
+        factory.setErrorHandler(rabbitListenerErrorHandler());
+        return factory;
     }
 
     private Queue consumerQueue(String queueName) {

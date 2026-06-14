@@ -1,6 +1,6 @@
 # Team Chaos Monkeys — FoundFlow
 
-Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. FoundFlow is a cloud-native lost-and-found platform for hospitality and event venues — see [`docs/problem-statement.md`](docs/problem-statement.md) for the domain framing and [`docs/architecture.md`](docs/architecture.md) for the system design.
+Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. FoundFlow is a cloud-native lost-and-found platform for hospitality and event venues — see [`docs/product/problem-statement.md`](docs/product/problem-statement.md) for the domain framing and [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) for the system design.
 
 ## Team
 
@@ -14,14 +14,21 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 
 ## Run locally
 
-The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, and an Ollama LLM runtime — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
+The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
 
 ```bash
 cp .env.example .env          # one-time, gitignored
+# Set OPENAI_API_KEY in .env from the shared Bitwarden entry
 docker compose up --build     # builds and starts everything
 ```
 
-First boot pulls Ollama models, which takes a few minutes; subsequent boots reuse the cached models in a Docker volume. Once `docker compose ps` shows everything healthy:
+On a fresh machine, expect the first image build and startup to take roughly
+**10-15 minutes**, depending on CPU, memory, and network speed. Subsequent starts
+are significantly faster because Docker reuses downloaded images and build
+layers. The frontend may become reachable before the backend services are ready;
+wait until the login request succeeds before evaluating the application.
+
+The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 
 | URL | What it is |
 |---|---|
@@ -33,27 +40,36 @@ First boot pulls Ollama models, which takes a few minutes; subsequent boots reus
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
 | http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
 | http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
+| http://localhost:8025 | Mailpit — captured outbound email (local/CI SMTP sink; nothing reaches the real Brevo account) |
 
 `auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 
-To stop and clean up volumes: `docker compose down -v`.
+To stop and clean up volumes: `docker compose down -v --remove-orphans`.
+The orphan cleanup also removes services that existed on the branch where the
+stack was started but are absent after switching branches.
 
 ### Provider switch for GenAI
 
-`GENAI_PROVIDER=local` (default) talks to the bundled Ollama container with the chat/embed models named in `.env`. Setting `GENAI_PROVIDER=openai` with an `OPENAI_API_KEY` switches to OpenAI without changing any code paths.
+`GENAI_PROVIDER=openai` is the default and requires `OPENAI_API_KEY` from the shared Bitwarden entry. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
+
+```bash
+docker compose --profile ollama up --build
+```
+
+The first Ollama run downloads the configured models into the persistent `ollama-models` volume.
 
 ## Architecture
 
 The system is **event-driven with synchronous edges**:
 
 - **REST/JSON** carries user-facing commands and queries from the frontend, public magic-link flows for match confirmation and pickup scheduling, and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
-- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ (planned — wired in a later milestone; see [`docs/architecture.md`](docs/architecture.md)).
+- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
 
 Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules, booked pickups, and local pickup-email logs.
 
-Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/api-security.md`](docs/api-security.md).
+Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md).
 
-Photo storage uses a shared abstraction so the same code targets MinIO locally and Azure Blob in the cloud (planned; not implemented yet) — design rationale in [`docs/photo-storage.md`](docs/photo-storage.md).
+Photo storage uses a shared abstraction so the same code targets MinIO locally and Azure Blob in the cloud — design rationale in [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md).
 
 ## Repository layout
 
@@ -62,7 +78,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 ├── api/
 │   └── openapi.yaml            — GenAI service contract (Spring paths land via #61)
 ├── client/                     — React + Vite + TypeScript frontend
-├── docs/                       — architecture, problem statement, security model
+├── docs/                       — architecture/, course/, product/, deployment/, research/, diagrams/
 ├── services/
 │   ├── gateway-service/        — Spring Cloud Gateway, edge routing
 │   ├── auth-service/           — OAuth2 authorization server + user management
@@ -71,7 +87,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 │   ├── matching-service/       — pgvector-backed match candidates
 │   ├── pickup-service/         — pickup schedules, public pickup booking, local email logs
 │   ├── notification-service/   — guest pickup notifications
-│   ├── operations-service/     — staff profiles + venue KPIs
+│   ├── operations-service/     — venue records + KPI aggregation
 │   └── genai-service/          — Python 3.12 + FastAPI; extraction, embedding, verification
 ├── shared/
 │   └── common-domain/          — shared domain types
@@ -122,7 +138,7 @@ Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-c
 
 ### Devcontainer
 
-`.devcontainer/` defines a VS Code dev container with all three toolchains (Java 21, Node 22, Python 3.12) pre-installed. The container is the *toolbox*; the runtime stack (databases, services, Ollama) is still launched separately with `docker compose up` against the host Docker socket.
+`.devcontainer/` defines a VS Code dev container with all three toolchains (Java 21, Node 22, Python 3.12) pre-installed. The container is the *toolbox*; the runtime stack is still launched separately with `docker compose up` against the host Docker socket. Ollama is available through the optional `ollama` Compose profile.
 
 ## API contract
 
@@ -143,7 +159,7 @@ If a host port clashes with something else on your machine (e.g. another project
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
 - **Releases:** `main` is reserved for release PRs from `development`; the automated deploy on merge is planned (see below) but not wired up yet.
 - **CI** (`.github/workflows/ci.yml`): runs on every PR — Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
-- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned via Helm charts under `infra/` (to be added in a later milestone).
+- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned; Helm charts already live under `infra/helm/`, and the remaining work is wiring automated deploys.
 
 ## Observability
 
@@ -158,8 +174,9 @@ Every Spring service exposes `/actuator/prometheus` (Micrometer); `genai-service
 
 ## Documentation index
 
-- [`docs/problem-statement.md`](docs/problem-statement.md) — domain framing
-- [`docs/architecture.md`](docs/architecture.md) — system design and UML
-- [`docs/api-security.md`](docs/api-security.md) — roles, claims, endpoint permissions
-- [`docs/photo-storage.md`](docs/photo-storage.md) — storage abstraction shared by lost/found item services
-- [`docs/task-description.md`](docs/task-description.md) — original course brief (do not edit)
+- [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/product/problem-statement.md`](docs/product/problem-statement.md) — domain framing
+- [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) — system design (diagrams under `docs/diagrams/`)
+- [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md) — roles, claims, endpoint permissions
+- [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md) — storage abstraction shared by lost/found item services
+- [`docs/course/requirements.md`](docs/course/requirements.md) — course requirements & grading

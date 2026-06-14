@@ -43,6 +43,7 @@ class ItemEmbeddingRepositoryIT {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .placeholders(Map.of("embedding_dim", "768"))
+                .cleanDisabled(false)
                 .load();
         flyway.migrate();
 

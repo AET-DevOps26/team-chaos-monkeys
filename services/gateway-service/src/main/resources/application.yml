@@ -25,7 +25,7 @@ spring:
             - id: lost-item-service
               uri: http://lost-item-service:8082
               predicates:
-                - Path=/api/lost-items/**,/api/lost-reports/**
+                - Path=/api/lost-items/**
 
             - id: found-item-service
               uri: http://found-item-service:8083

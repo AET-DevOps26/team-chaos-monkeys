@@ -1,5 +1,6 @@
 param(
     [string]$GatewayBaseUrl = "http://localhost:8080",
+    [string]$MailpitBaseUrl = "http://localhost:8025",
     [string]$AdminEmail = "admin@foundflow.local",
     [string]$AdminPassword = "admin12345"
 )
@@ -20,6 +21,16 @@ $E2E_PHOTO_BYTES = [System.IO.File]::ReadAllBytes(
 $E2E_PHOTO_MEDIA_TYPE = "image/jpeg"
 $E2E_PHOTO_FILE_NAME = "e2e-photo.jpg"
 
+function Read-ResponseBody {
+    param([System.Net.Http.HttpResponseMessage]$Response)
+
+    if ($null -eq $Response -or $null -eq $Response.Content) {
+        return ""
+    }
+
+    return $Response.Content.ReadAsStringAsync().Result
+}
+
 function Assert-Status {
     param(
         [System.Net.Http.HttpResponseMessage]$Response,
@@ -27,41 +38,130 @@ function Assert-Status {
         [string]$Label
     )
 
+    if ($null -eq $Response) {
+        throw "$Label expected HTTP $Expected but did not receive an HTTP response."
+    }
+
     $actual = [int]$Response.StatusCode
     if ($actual -ne $Expected) {
-        $body = ""
-        if ($null -ne $Response.Content) {
-            $body = $Response.Content.ReadAsStringAsync().Result
-        }
+        $body = Read-ResponseBody $Response
         throw "$Label expected HTTP $Expected but got $actual. Body: $body"
     }
 
     Write-Host "[OK] $Label -> HTTP $actual"
 }
 
+function Wait-ForStatus {
+    param(
+        [string]$Url,
+        [int]$Expected,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = Invoke-WebRequest `
+                -Uri $Url `
+                -Method GET `
+                -UseBasicParsing
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = [string]$response.Content
+
+            if ($lastStatus -eq $Expected) {
+                Write-Host "[OK] $Label -> HTTP $lastStatus"
+                return $response
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+            if ($_.Exception.Response) {
+                $lastStatus = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label expected HTTP $Expected but did not become ready within $TimeoutSeconds seconds. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
 function Get-TokenPair {
     param(
         [string]$Username,
-        [string]$Password
+        [string]$Password,
+        [int]$TimeoutSeconds = 20
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+    $requestBody = @{
+        email = $Username
+        password = $Password
+    } | ConvertTo-Json -Depth 8
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $tokenResponse = Invoke-WebRequest `
+                -Uri "$GatewayBaseUrl/api/auth/login" `
+                -Method POST `
+                -ContentType "application/json" `
+                -Body $requestBody `
+                -UseBasicParsing
+            $lastStatus = [int]$tokenResponse.StatusCode
+            $lastBody = [string]$tokenResponse.Content
+
+            if ($lastStatus -ge 200 -and $lastStatus -lt 300) {
+                $tokens = $lastBody | ConvertFrom-Json
+                if ($tokens.expiresIn -ne 1800) {
+                    throw "Login for $Username should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
+                }
+
+                return $tokens
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+            if ($_.Exception.Response) {
+                $lastStatus = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "Login failed for $Username after retrying for $TimeoutSeconds seconds. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
+function Assert-LoginRejected {
+    param(
+        [string]$Username,
+        [string]$Password,
+        [string]$Label
     )
 
     $client = [System.Net.Http.HttpClient]::new()
-    $tokenResponse = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
         email = $Username
         password = $Password
     })).Result
-    $tokenBody = $tokenResponse.Content.ReadAsStringAsync().Result
 
-    if (-not $tokenResponse.IsSuccessStatusCode) {
-        throw "Login failed for $Username. Body: $tokenBody"
-    }
-
-    $tokens = $tokenBody | ConvertFrom-Json
-    if ($tokens.expiresIn -ne 1800) {
-        throw "Login for $Username should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
-    }
-
-    return $tokens
+    Assert-Status $response 401 $Label
 }
 
 function Refresh-TokenPair {
@@ -71,13 +171,28 @@ function Refresh-TokenPair {
     $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
         refreshToken = $RefreshToken
     })).Result
-    $body = $response.Content.ReadAsStringAsync().Result
+    $body = Read-ResponseBody $response
 
-    if (-not $response.IsSuccessStatusCode) {
-        throw "Refresh token request failed. Body: $body"
+    if ($null -eq $response) {
+        throw "Refresh token request failed. No HTTP response was received."
     }
 
-    $tokens = $body | ConvertFrom-Json
+    if (-not $response.IsSuccessStatusCode) {
+        $status = [int]$response.StatusCode
+        throw "Refresh token request failed. HTTP $status. Body: $body"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        $status = [int]$response.StatusCode
+        throw "Refresh token request succeeded with HTTP $status but returned an empty body."
+    }
+
+    try {
+        $tokens = $body | ConvertFrom-Json
+    } catch {
+        throw "Refresh token request returned invalid JSON. Body: $body. Error: $($_.Exception.Message)"
+    }
+
     if ($tokens.expiresIn -ne 1800) {
         throw "Refresh should return a 30 minute access token. Expected expiresIn 1800 but got $($tokens.expiresIn)."
     }
@@ -141,12 +256,31 @@ function EmptyContent {
 function Read-Json {
     param([System.Net.Http.HttpResponseMessage]$Response)
 
-    $body = $Response.Content.ReadAsStringAsync().Result
+    $body = Read-ResponseBody $Response
     if ([string]::IsNullOrWhiteSpace($body)) {
         return $null
     }
 
-    return $body | ConvertFrom-Json
+    $parsed = $body | ConvertFrom-Json
+    return $parsed
+}
+
+function Decode-JwtPayload {
+    param([string]$Token)
+
+    $parts = $Token.Split(".")
+    if ($parts.Count -lt 2) {
+        throw "JWT should contain a payload segment."
+    }
+
+    $payload = $parts[1].Replace("-", "+").Replace("_", "/")
+    $padding = (4 - ($payload.Length % 4)) % 4
+    if ($padding -gt 0) {
+        $payload = $payload + ("=" * $padding)
+    }
+
+    $json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload))
+    return $json | ConvertFrom-Json
 }
 
 function Post-Json {
@@ -202,6 +336,17 @@ function Assert-GeneratedPhotoKey {
     }
 }
 
+function Assert-NoPhotoKey {
+    param(
+        [object]$Item,
+        [string]$Label
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$Item.photoKey)) {
+        throw "$Label should not have a photoKey before photo upload. Actual: $($Item.photoKey)"
+    }
+}
+
 function Assert-SignedPhotoUrl {
     param(
         [object]$Body,
@@ -219,9 +364,157 @@ function Assert-SignedPhotoUrl {
     }
 }
 
+# notification-service consumes password-reset / match-invite /
+# pickup-confirmation events
+# asynchronously from RabbitMQ; the persist happens on the first attempt of
+# the listener, before SMTP is touched, so the row shows up shortly after the
+# triggering action returns. Poll until one matching the URL marker arrives,
+# then return its body so the caller can regex out the URL.
+function Wait-ForNotification {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$Email,
+        [string]$UrlMarker,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+    $lastNotificationCount = 0
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = $Client.GetAsync(
+                "$GatewayBaseUrl/api/notifications?email=$([System.Uri]::EscapeDataString($Email))"
+            ).Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
+            }
+
+            if ($response.IsSuccessStatusCode -and -not [string]::IsNullOrWhiteSpace($lastBody)) {
+                $parsedNotifications = $lastBody | ConvertFrom-Json
+                $notifications = @($parsedNotifications)
+                $lastNotificationCount = $notifications.Count
+                $matching = $notifications | Where-Object {
+                    $_.body -and $_.body.Contains($UrlMarker)
+                } | Select-Object -First 1
+                if ($matching) {
+                    return $matching
+                }
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "Timed out waiting for notification to $Email whose body contains '$UrlMarker'. Last HTTP status: $lastStatus. Parsed notifications: $lastNotificationCount. Last error: $lastError. Last body: $bodyPreview"
+}
+
+function Wait-ForUserDeleted {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$UserId,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = $Client.GetAsync("$GatewayBaseUrl/api/users/$UserId").Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
+            }
+
+            if ($lastStatus -eq 404) {
+                Write-Host "[OK] $Label -> HTTP 404"
+                return
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label timed out waiting for user $UserId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
+# A persisted notifications row only proves the listener ran; it does NOT prove
+# the email left the service. notification-service sends to the Mailpit sink in
+# local + CI (issue #219), so query Mailpit's REST API to confirm the message
+# was actually accepted by the SMTP server -- and, by extension, that 0 mail
+# reached the real Brevo account. Poll because the send happens just after the
+# row is persisted.
+function Wait-ForMailpitMessage {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$Recipient,
+        [string]$Subject,
+        [int]$TimeoutSeconds = 15
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $response = $Client.GetAsync("$MailpitBaseUrl/api/v1/messages?limit=200").Result
+        if ($response.IsSuccessStatusCode) {
+            $payload = Read-Json $response
+            $matching = $payload.messages | Where-Object {
+                $_.Subject -eq $Subject -and
+                (@($_.To | Where-Object { $_.Address -eq $Recipient }).Count -gt 0)
+            } | Select-Object -First 1
+            if ($matching) {
+                return $matching
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for Mailpit to capture a '$Subject' email to $Recipient."
+}
+
+function Extract-MagicLinkUrl {
+    param(
+        [string]$Body,
+        [string]$UrlMarker
+    )
+
+    $regex = "https?://\S+$([regex]::Escape($UrlMarker))\S+"
+    $match = [regex]::Match($Body, $regex)
+    if (-not $match.Success) {
+        throw "Could not extract magic-link URL with marker '$UrlMarker' from body: $Body"
+    }
+    return $match.Value
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
+
+# Mailpit's REST API is unauthenticated and not behind the gateway.
+$mailpitClient = [System.Net.Http.HttpClient]::new()
 
 $health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
 Assert-Status $health 200 "Gateway health is public"
@@ -232,8 +525,10 @@ Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
 $gatewayApiDocs = $publicClient.GetAsync("$GatewayBaseUrl/v3/api-docs").Result
 Assert-Status $gatewayApiDocs 200 "Gateway OpenAPI docs are public"
 
-$authHealth = $publicClient.GetAsync("$GatewayBaseUrl/auth/actuator/health").Result
-Assert-Status $authHealth 200 "Proxied auth health endpoint is public"
+$authHealth = Wait-ForStatus `
+    -Url "$GatewayBaseUrl/auth/actuator/health" `
+    -Expected 200 `
+    -Label "Proxied auth health endpoint is public"
 
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
@@ -252,13 +547,24 @@ $publicLostReportRequest = @{
         marks = @("E2E")
     }
 }
-$publicLostReport = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $publicLostReportRequest)
-).Result
+$publicLostReport = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $publicLostReportRequest
 Assert-Status $publicLostReport 201 "Public lost-item report can be created without token"
 $publicLostReportBody = Read-Json $publicLostReport
-Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item multipart create"
+Assert-NoPhotoKey $publicLostReportBody "Public lost-item JSON create"
+
+$publicLostPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $publicLostPhotoUpload 200 "Public lost-item photo can be uploaded after create"
+$publicLostReportBody = Read-Json $publicLostPhotoUpload
+Assert-GeneratedPhotoKey $publicLostReportBody "lost-reports/" "Public lost-item photo upload"
+
+$publicLostPhotoReplace = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $publicLostPhotoReplace 401 "Public lost-item photo replacement is rejected"
 
 $publicLostPhoto = $publicClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo").Result
 Assert-Status $publicLostPhoto 401 "Public client cannot read lost-item photo"
@@ -269,10 +575,21 @@ $adminTokens = Get-TokenPair $AdminEmail $AdminPassword
 $adminTokens = Refresh-TokenPair $adminTokens.refreshToken
 $adminClient = New-GatewayClient $adminTokens.accessToken
 
+$lostMultipartCreate = $adminClient.PostAsync(
+    "$GatewayBaseUrl/api/lost-items",
+    (MultipartItemContent $publicLostReportRequest)
+).Result
+Assert-Status $lostMultipartCreate 415 "Lost-item create rejects multipart payload"
+
 $users = $adminClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $users 200 "Admin can list users"
 $usersByEmail = $adminClient.GetAsync("$GatewayBaseUrl/api/users/by-email?email=$([System.Uri]::EscapeDataString($AdminEmail))").Result
 Assert-Status $usersByEmail 200 "Admin can load user by email"
+$adminUser = Read-Json $usersByEmail
+$adminTokenPayload = Decode-JwtPayload $adminTokens.accessToken
+if ($adminTokenPayload.sub -ne $adminUser.id -or $adminTokenPayload.user_id -ne $adminUser.id) {
+    throw "Admin access token should identify the user by UUID. Expected $($adminUser.id), got sub=$($adminTokenPayload.sub), user_id=$($adminTokenPayload.user_id)."
+}
 
 $suffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
 $venueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
@@ -283,6 +600,16 @@ $venueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
 Assert-Status $venueResponse 201 "Admin can create venue"
 $venue = Read-Json $venueResponse
 $venueId = $venue.id
+
+$publicVenues = $publicClient.GetAsync("$GatewayBaseUrl/api/venues/public").Result
+Assert-Status $publicVenues 200 "Public client can list venue directory"
+$publicVenuesBody = @(Read-Json $publicVenues)
+if (@($publicVenuesBody | Where-Object { $_.venueId -eq $venueId -and $_.name -eq $venue.name }).Count -ne 1) {
+    throw "Public venue directory should contain created venue. Body: $($publicVenuesBody | ConvertTo-Json -Depth 8)"
+}
+if (@($publicVenuesBody | Where-Object { $null -ne $_.tone -or $null -ne $_.defaultLanguage }).Count -gt 0) {
+    throw "Public venue directory should not expose internal venue fields. Body: $($publicVenuesBody | ConvertTo-Json -Depth 8)"
+}
 
 $venueById = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/$venueId").Result
 Assert-Status $venueById 200 "Admin can load venue by id"
@@ -300,6 +627,10 @@ $opsUser = Read-Json $opsResponse
 
 $opsTokens = Get-TokenPair $opsEmail $opsPassword
 $opsClient = New-GatewayClient $opsTokens.accessToken
+$opsTokenPayload = Decode-JwtPayload $opsTokens.accessToken
+if ($opsTokenPayload.sub -ne $opsUser.id -or $opsTokenPayload.user_id -ne $opsUser.id) {
+    throw "OPS_MANAGER access token should identify the user by UUID. Expected $($opsUser.id), got sub=$($opsTokenPayload.sub), user_id=$($opsTokenPayload.user_id)."
+}
 
 $opsUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users").Result
 Assert-Status $opsUsers 200 "OPS_MANAGER can list own venue users"
@@ -309,10 +640,11 @@ if (($opsUsersBody | Where-Object { $_.venueId -ne $venueId }).Count -gt 0) {
 }
 
 $staffEmail = "staff-$suffix@foundflow.local"
+$staffPassword = "staff12345"
 $staffResponse = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
     email = $staffEmail
     role = "STAFF"
-    password = "staff12345"
+    password = $staffPassword
     venueId = "22222222-2222-2222-2222-222222222222"
 }
 Assert-Status $staffResponse 200 "OPS_MANAGER can create STAFF"
@@ -321,7 +653,109 @@ if ($staff.venueId -ne $venueId) {
     throw "OPS_MANAGER-created staff should receive own venueId. Expected $venueId but got $($staff.venueId)."
 }
 
-$staffTokens = Get-TokenPair $staffEmail "staff12345"
+$adminFilteredUsers = $adminClient.GetAsync("$GatewayBaseUrl/api/users?venueId=$venueId&role=STAFF").Result
+Assert-Status $adminFilteredUsers 200 "Admin can filter users by venue and role"
+$adminFilteredUsersBody = @(Read-Json $adminFilteredUsers)
+if (@($adminFilteredUsersBody | Where-Object { $_.id -eq $staff.id }).Count -ne 1) {
+    throw "Admin filtered user list should contain created staff. Body: $($adminFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+if (@($adminFilteredUsersBody | Where-Object { $_.venueId -ne $venueId -or $_.role -ne "STAFF" }).Count -gt 0) {
+    throw "Admin filtered user list contains users outside requested venue or role. Body: $($adminFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+
+$opsFilteredUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users?role=STAFF").Result
+Assert-Status $opsFilteredUsers 200 "OPS_MANAGER can filter own venue users by role"
+$opsFilteredUsersBody = @(Read-Json $opsFilteredUsers)
+if (@($opsFilteredUsersBody | Where-Object { $_.id -eq $staff.id }).Count -ne 1) {
+    throw "OPS_MANAGER filtered user list should contain created staff. Body: $($opsFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+if (@($opsFilteredUsersBody | Where-Object { $_.venueId -ne $venueId -or $_.role -ne "STAFF" }).Count -gt 0) {
+    throw "OPS_MANAGER filtered user list contains users outside own venue or role. Body: $($opsFilteredUsersBody | ConvertTo-Json -Depth 8)"
+}
+
+$opsOtherVenueUsers = $opsClient.GetAsync("$GatewayBaseUrl/api/users?venueId=22222222-2222-2222-2222-222222222222").Result
+Assert-Status $opsOtherVenueUsers 403 "OPS_MANAGER cannot filter users outside own venue"
+
+$staffTokens = Get-TokenPair $staffEmail $staffPassword
+$staffClient = New-GatewayClient $staffTokens.accessToken
+
+$staffVenueRead = $staffClient.GetAsync("$GatewayBaseUrl/api/venues/$venueId").Result
+Assert-Status $staffVenueRead 200 "STAFF can load own venue"
+
+$opsVenueUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/venues/$venueId", (JsonContent @{
+    name = "E2E Venue updated $suffix"
+    tone = "focused"
+    defaultLanguage = "de"
+})).Result
+Assert-Status $opsVenueUpdate 200 "OPS_MANAGER can update own venue"
+
+$staffVenueUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/venues/$venueId", (JsonContent @{
+    name = "E2E Venue staff update $suffix"
+    tone = "staff"
+    defaultLanguage = "de"
+})).Result
+Assert-Status $staffVenueUpdate 403 "STAFF cannot update venue"
+
+$staffVenueDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/venues/$venueId").Result
+Assert-Status $staffVenueDelete 403 "STAFF cannot delete venue"
+
+$staffListUsers = $staffClient.GetAsync("$GatewayBaseUrl/api/users").Result
+Assert-Status $staffListUsers 403 "STAFF cannot list users"
+
+$staffSelfRead = $staffClient.GetAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
+Assert-Status $staffSelfRead 200 "STAFF can load itself by id"
+
+$staffOpsRead = $staffClient.GetAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
+Assert-Status $staffOpsRead 404 "STAFF cannot load another user by id"
+
+$staffOpsUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($opsUser.id)", (JsonContent @{
+    email = $opsEmail
+    role = "OPS_MANAGER"
+})).Result
+Assert-Status $staffOpsUpdate 403 "STAFF cannot update another user by id"
+
+$staffSelfUpdate = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($staff.id)", (JsonContent @{
+    email = $staffEmail
+    role = "STAFF"
+})).Result
+Assert-Status $staffSelfUpdate 200 "STAFF can update itself without role change"
+
+$staffSelfPromote = $staffClient.PutAsync("$GatewayBaseUrl/api/users/$($staff.id)", (JsonContent @{
+    email = $staffEmail
+    role = "OPS_MANAGER"
+})).Result
+Assert-Status $staffSelfPromote 403 "STAFF cannot promote itself"
+
+$oldStaffRefreshToken = $staffTokens.refreshToken
+$staffResetPassword = "staff-reset12345"
+$passwordResetRequest = Post-Json $publicClient "$GatewayBaseUrl/api/auth/password-reset/request" @{
+    email = $staffEmail
+}
+Assert-Status $passwordResetRequest 204 "Public password-reset request returns no content"
+
+$passwordResetNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $staffEmail `
+    -UrlMarker "/reset-password?token="
+$passwordResetUrl = Extract-MagicLinkUrl `
+    -Body $passwordResetNotification.body `
+    -UrlMarker "/reset-password?token="
+$passwordResetUri = [System.Uri]::new($passwordResetUrl)
+if (-not $passwordResetUri.Query.StartsWith("?token=")) {
+    throw "Password-reset URL should contain token query parameter. Actual: $passwordResetUrl"
+}
+$passwordResetToken = [System.Uri]::UnescapeDataString($passwordResetUri.Query.Substring("?token=".Length))
+
+$passwordResetConfirm = Post-Json $publicClient "$GatewayBaseUrl/api/auth/password-reset/confirm" @{
+    token = $passwordResetToken
+    newPassword = $staffResetPassword
+}
+Assert-Status $passwordResetConfirm 204 "Public password-reset confirm accepts notification token"
+Assert-LoginRejected $staffEmail $staffPassword "Old STAFF password is rejected after password reset"
+Assert-RefreshRejected $oldStaffRefreshToken "Password reset revokes old STAFF refresh token"
+
+$staffPassword = $staffResetPassword
+$staffTokens = Get-TokenPair $staffEmail $staffPassword
 $staffClient = New-GatewayClient $staffTokens.accessToken
 
 $adminCreateByOps = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
@@ -332,15 +766,45 @@ $adminCreateByOps = Post-Json $opsClient "$GatewayBaseUrl/api/users" @{
 }
 Assert-Status $adminCreateByOps 403 "OPS_MANAGER cannot create ADMIN"
 
-$opsSelfDelete = $opsClient.DeleteAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
-Assert-Status $opsSelfDelete 403 "OPS_MANAGER cannot delete itself"
+$opsSelfRead = $opsClient.GetAsync("$GatewayBaseUrl/api/users/$($opsUser.id)").Result
+Assert-Status $opsSelfRead 200 "OPS_MANAGER can load itself by id"
+
+$deleteVenueSuffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
+$deleteVenueResponse = Post-Json $adminClient "$GatewayBaseUrl/api/venues" @{
+    name = "E2E Deletable Venue $deleteVenueSuffix"
+    tone = "friendly"
+    defaultLanguage = "de"
+}
+Assert-Status $deleteVenueResponse 201 "Admin can create venue for deletion cleanup test"
+$deleteVenue = Read-Json $deleteVenueResponse
+$deleteVenueId = $deleteVenue.id
+
+$deletedVenueUserEmail = "venue-deleted-$deleteVenueSuffix@foundflow.local"
+$deletedVenueUserPassword = "deleted12345"
+$deletedVenueUserResponse = Post-Json $adminClient "$GatewayBaseUrl/api/users" @{
+    email = $deletedVenueUserEmail
+    role = "STAFF"
+    password = $deletedVenueUserPassword
+    venueId = $deleteVenueId
+}
+Assert-Status $deletedVenueUserResponse 200 "Admin can create STAFF in venue cleanup test"
+$deletedVenueUser = Read-Json $deletedVenueUserResponse
+$deletedVenueUserTokens = Get-TokenPair $deletedVenueUserEmail $deletedVenueUserPassword
+
+$deleteVenueResult = $adminClient.DeleteAsync("$GatewayBaseUrl/api/venues/$deleteVenueId").Result
+Assert-Status $deleteVenueResult 204 "Admin can delete venue for user cleanup"
+
+Wait-ForUserDeleted `
+    -Client $adminClient `
+    -UserId $($deletedVenueUser.id) `
+    -Label "Venue deletion removes assigned auth users"
+Assert-LoginRejected $deletedVenueUserEmail $deletedVenueUserPassword "Deleted-venue STAFF login is rejected"
+Assert-RefreshRejected $deletedVenueUserTokens.refreshToken "Deleted-venue STAFF refresh token is rejected"
 
 $foundRequest = @{
-    description = "E2E found item"
+    intakeText = "E2E found item near the desk"
     foundAt = "2026-05-19T15:45:00"
-    locationHint = "Desk"
     venueId = "33333333-3333-3333-3333-333333333333"
-    reporterId = "44444444-4444-4444-4444-444444444444"
     attributes = @{
         category = "Bag"
         brand = "Test"
@@ -348,16 +812,30 @@ $foundRequest = @{
         marks = @("E2E")
     }
 }
-$foundResponse = $opsClient.PostAsync(
+$foundMultipartCreate = $opsClient.PostAsync(
     "$GatewayBaseUrl/api/found-items",
     (MultipartItemContent $foundRequest)
 ).Result
+Assert-Status $foundMultipartCreate 415 "Found-item create rejects multipart payload"
+
+$foundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" $foundRequest
 Assert-Status $foundResponse 201 "OPS_MANAGER can create found item in own venue"
 $foundItem = Read-Json $foundResponse
 if ($foundItem.venueId -ne $venueId) {
     throw "Found item should use OPS_MANAGER venueId. Expected $venueId but got $($foundItem.venueId)."
 }
-Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item multipart create"
+if ($foundItem.reporterId -ne $opsUser.id) {
+    throw "Found item should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($foundItem.reporterId)."
+}
+Assert-NoPhotoKey $foundItem "Found-item JSON create"
+
+$foundInitialPhotoUpload = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $foundInitialPhotoUpload 200 "OPS_MANAGER can upload found-item photo after create"
+$foundItem = Read-Json $foundInitialPhotoUpload
+Assert-GeneratedPhotoKey $foundItem "found-items/" "Found-item photo upload"
 
 $foundPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)/photo").Result
 Assert-Status $foundPhoto 200 "OPS_MANAGER can read found-item photo"
@@ -376,9 +854,9 @@ Assert-Status $publicFoundPhotoUrl 401 "Public client cannot request found-item 
 
 $foundJsonUpdate = $opsClient.PutAsync("$GatewayBaseUrl/api/found-items/$($foundItem.id)", (JsonContent @{
     photoKey = "attacker-controlled-found-photo-key"
-    description = "E2E found item JSON update"
+    intakeText = "E2E found item JSON update"
     foundAt = "2026-05-19T15:46:00"
-    locationHint = "Desk updated"
+    location = "Desk updated"
     status = "STORED"
     venueId = "33333333-3333-3333-3333-333333333333"
     reporterId = "44444444-4444-4444-4444-444444444444"
@@ -420,13 +898,18 @@ $lostRequest = @{
         marks = @("E2E")
     }
 }
-$lostResponse = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $lostRequest)
-).Result
+$lostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $lostRequest
 Assert-Status $lostResponse 201 "Public lost item can be created for test venue"
 $lostItem = Read-Json $lostResponse
-Assert-GeneratedPhotoKey $lostItem "lost-reports/" "Lost-item multipart create"
+Assert-NoPhotoKey $lostItem "Lost-item JSON create"
+
+$lostInitialPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $lostInitialPhotoUpload 200 "Public lost-item photo can be uploaded after create"
+$lostItem = Read-Json $lostInitialPhotoUpload
+Assert-GeneratedPhotoKey $lostItem "lost-reports/" "Lost-item photo upload"
 
 $lostPhoto = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/$($lostItem.id)/photo").Result
 Assert-Status $lostPhoto 200 "OPS_MANAGER can read lost-item photo"
@@ -483,6 +966,13 @@ Assert-Status $foundHistogramResponse 200 "OPS_MANAGER can read found-item histo
 $foundHistogramBody = Read-Json $foundHistogramResponse
 if (@($foundHistogramBody.perDay).Count -lt 1) {
     throw "Found-item histogram should contain at least one daily bucket."
+}
+
+$foundReporterHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/found-items/histogram?status=STORED&reporterId=$($foundItem.reporterId)").Result
+Assert-Status $foundReporterHistogramResponse 200 "OPS_MANAGER can filter found-item histogram by reporterId"
+$foundReporterHistogramBody = Read-Json $foundReporterHistogramResponse
+if (@($foundReporterHistogramBody.perDay).Count -lt 1) {
+    throw "Found-item reporter histogram should contain at least one daily bucket."
 }
 
 $lostCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/count?status=OPEN").Result
@@ -576,14 +1066,25 @@ if ([string]::IsNullOrWhiteSpace($publicMatchLink.token)) {
     throw "Public match link should contain a token."
 }
 
-$matchEmailLogResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/matches/public-link-email-log?recipient=$([System.Uri]::EscapeDataString($lostItem.contactEmail))"
-).Result
-Assert-Status $matchEmailLogResponse 200 "OPS_MANAGER can read public match email log"
-$matchEmailLogs = @(Read-Json $matchEmailLogResponse)
-if ($matchEmailLogs.Count -lt 1 -or [string]::IsNullOrWhiteSpace($matchEmailLogs[0].magicLink)) {
-    throw "Public match email log should expose the first magic link for tests."
+# notification-service writes a row with the match magic link in body when it
+# consumes the MatchInviteRequested event. Poll until it appears so we can
+# verify the URL embedded in body matches the token returned by /public-link.
+$matchInviteNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/matches/public/"
+$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/api/matches/public/"
+if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
+    throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
 }
+
+# Confirm the match-invite email actually reached the SMTP sink (Mailpit), proving
+# the send path works and that test mail never touches the real Brevo account.
+Wait-ForMailpitMessage `
+    -Client $mailpitClient `
+    -Recipient $lostItem.contactEmail `
+    -Subject "FoundFlow may have found your item" | Out-Null
+Write-Host "[OK] Mailpit captured the match-invite email to $($lostItem.contactEmail)"
 
 $publicMatchResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)").Result
 Assert-Status $publicMatchResponse 200 "Public match link can load match"
@@ -591,6 +1092,16 @@ $publicMatch = Read-Json $publicMatchResponse
 if ($publicMatch.id -ne $match.id) {
     throw "Public match response should return the linked match."
 }
+$publicFoundItemResponse = $publicClient.GetAsync("$GatewayBaseUrl/api/matches/public/$($publicMatchLink.token)/found-item").Result
+Assert-Status $publicFoundItemResponse 200 "Public match link can load found-item detail"
+$publicFoundItem = Read-Json $publicFoundItemResponse
+if ($publicFoundItem.id -ne $foundItem.id) {
+    throw "Public found-item response should expose the linked found item for guest confirmation."
+}
+if ([string]::IsNullOrWhiteSpace($publicFoundItem.photoUrl)) {
+    throw "Public found-item response should include a signed found-item photo URL."
+}
+Assert-SignedPhotoUrl ([pscustomobject]@{ url = $publicFoundItem.photoUrl }) "Public match found-item photo URL"
 
 $publicConfirmResponse = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/matches/public/match-links/$($publicMatchLink.token)/confirm",
@@ -618,16 +1129,15 @@ if ([string]::IsNullOrWhiteSpace($publicPickup.manageUrl)) {
     throw "Public pickup response should include a manageUrl."
 }
 
-$pickupEmailLogResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/pickups/email-log?recipient=$([System.Uri]::EscapeDataString($lostItem.contactEmail))"
-).Result
-Assert-Status $pickupEmailLogResponse 200 "OPS_MANAGER can read pickup email log"
-$pickupEmailLogs = @(Read-Json $pickupEmailLogResponse)
-if ($pickupEmailLogs.Count -lt 1 -or [string]::IsNullOrWhiteSpace($pickupEmailLogs[0].magicLink)) {
-    throw "Pickup email log should expose the manage magic link for tests."
-}
-
-$manageLink = $pickupEmailLogs[0].magicLink
+# Same poll-then-regex pattern for the pickup-confirmation notification. The
+# extracted URL is the manage link the public client uses to update/cancel.
+$pickupConfirmationNotification = Wait-ForNotification `
+    -Client $opsClient `
+    -Email $lostItem.contactEmail `
+    -UrlMarker "/api/pickups/public/"
+$manageLink = Extract-MagicLinkUrl `
+    -Body $pickupConfirmationNotification.body `
+    -UrlMarker "/api/pickups/public/"
 $publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
     pickupAt = $pickupSlot0930
     email = $lostItem.contactEmail
@@ -644,13 +1154,11 @@ if (@($staffPickups | Where-Object { $_.id -eq $publicPickup.id }).Count -ne 1) 
 $publicPickupDeleteResponse = $publicClient.DeleteAsync($manageLink).Result
 Assert-Status $publicPickupDeleteResponse 204 "Public pickup manage link can cancel pickup"
 
-$matchListResponse = $opsClient.GetAsync(
-    "$GatewayBaseUrl/api/matches?foundItem=$($foundItem.id)&lostItem=$($lostItem.id)&status=PENDING"
-).Result
-Assert-Status $matchListResponse 200 "OPS_MANAGER can list filtered matches"
-$matchListBody = Read-Json $matchListResponse
-if (@($matchListBody).Count -ne 0) {
-    throw "Pending match list should be empty after public confirmation."
+$confirmedMatchResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
+Assert-Status $confirmedMatchResponse 200 "OPS_MANAGER can load confirmed match by id"
+$confirmedMatch = Read-Json $confirmedMatchResponse
+if ($confirmedMatch.status -ne "CONFIRMED") {
+    throw "Manual match should be CONFIRMED after public confirmation. Actual status: $($confirmedMatch.status)."
 }
 
 $matchCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/count?status=CONFIRMED").Result
@@ -711,6 +1219,9 @@ if ($notificationUpdated.language -ne "en" -or $notificationUpdated.sentAt -ne "
     throw "Notification update should persist changed language and sentAt."
 }
 
+$publicBlueprintRead = $publicClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
+Assert-Status $publicBlueprintRead 401 "Public client cannot list notification blueprints"
+
 $blueprintsRead = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
 Assert-Status $blueprintsRead 200 "OPS_MANAGER can list notification blueprints"
 
@@ -726,17 +1237,21 @@ $opsBlueprintUpdate = $opsClient.PutAsync(
 ).Result
 Assert-Status $opsBlueprintUpdate 202 "OPS_MANAGER can update notification blueprints"
 
-$kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis/$venueId").Result
+$kpis = $adminClient.GetAsync("$GatewayBaseUrl/api/venues/kpis?venueId=$venueId").Result
 Assert-Status $kpis 200 "Admin can read venue KPIs"
 $kpiBody = Read-Json $kpis
 if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBody.totalMatches -lt 1) {
     throw "Venue KPIs should include created found/lost/match data. Body: $($kpiBody | ConvertTo-Json -Depth 5)"
 }
 
-# Issue #128 — GenAI attribute extraction wires through to persistence.
+# Issue #128 - GenAI attribute extraction wires through to persistence.
 # CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
 # ItemAttributes JSON ({"category":"jacket",...}) so we can assert
-# extraction actually ran end-to-end.
+# extraction actually ran end-to-end. Under a real provider
+# (GENAI_PROVIDER=openai|local) the category value depends on the model,
+# so we relax to a presence check - the contract is "extraction ran and
+# populated a non-empty category", not the specific value.
+$genaiProvider = if ($env:GENAI_PROVIDER) { $env:GENAI_PROVIDER } else { 'fake' }
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"
@@ -744,38 +1259,64 @@ $extractionLostRequest = @{
     venueId = $venueId
     contactEmail = "extract-$suffix@example.com"
 }
-$extractionLostResponse = $publicClient.PostAsync(
-    "$GatewayBaseUrl/api/lost-items",
-    (MultipartItemContent $extractionLostRequest)
-).Result
-Assert-Status $extractionLostResponse 201 "Lost-item create runs GenAI extraction"
+$extractionLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" $extractionLostRequest
+Assert-Status $extractionLostResponse 201 "Lost-item create accepts missing attributes before photo upload"
 $extractionLostItem = Read-Json $extractionLostResponse
+Assert-NoPhotoKey $extractionLostItem "Lost-item GenAI JSON create"
 
-# GenAI extraction happens after the response is sent in the current
-# implementation? No - it's inline. The fake provider is synchronous and
-# returns immediately, so the response body already carries attributes.
-if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
-    throw "GenAI extraction did not populate attributes on lost-item. Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+$extractionLostPhotoUpload = $publicClient.PutAsync(
+    "$GatewayBaseUrl/api/lost-items/$($extractionLostItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $extractionLostPhotoUpload 200 "Lost-item photo upload runs GenAI extraction"
+$extractionLostItem = Read-Json $extractionLostPhotoUpload
+
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on lost-item (fake provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionLostItem.attributes -or [string]::IsNullOrWhiteSpace($extractionLostItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on lost-item ($genaiProvider provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Lost-item GenAI extraction populated category='$($extractionLostItem.attributes.category)' ($genaiProvider provider)"
 }
-Write-Host "[OK] Lost-item GenAI extraction populated category='jacket'"
 
 $extractionFoundRequest = @{
-    description = "E2E found item without attributes"
+    intakeText = "E2E found item without attributes"
     foundAt = "2026-05-19T16:05:00"
-    locationHint = "GenAI extraction"
     venueId = "33333333-3333-3333-3333-333333333333"
-    reporterId = "44444444-4444-4444-4444-444444444444"
 }
-$extractionFoundResponse = $opsClient.PostAsync(
-    "$GatewayBaseUrl/api/found-items",
-    (MultipartItemContent $extractionFoundRequest)
-).Result
-Assert-Status $extractionFoundResponse 201 "Found-item create runs GenAI extraction"
+$extractionFoundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" $extractionFoundRequest
+Assert-Status $extractionFoundResponse 201 "Found-item create accepts missing attributes before photo upload"
 $extractionFoundItem = Read-Json $extractionFoundResponse
-if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
-    throw "GenAI extraction did not populate attributes on found-item. Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+if ($extractionFoundItem.reporterId -ne $opsUser.id) {
+    throw "Found-item extraction create should use OPS_MANAGER user id as reporterId when omitted. Expected $($opsUser.id) but got $($extractionFoundItem.reporterId)."
 }
-Write-Host "[OK] Found-item GenAI extraction populated category='jacket'"
+Assert-NoPhotoKey $extractionFoundItem "Found-item GenAI JSON create"
+
+$extractionFoundPhotoUpload = $opsClient.PutAsync(
+    "$GatewayBaseUrl/api/found-items/$($extractionFoundItem.id)/photo",
+    (PhotoOnlyContent)
+).Result
+Assert-Status $extractionFoundPhotoUpload 200 "Found-item photo upload runs GenAI extraction"
+$extractionFoundItem = Read-Json $extractionFoundPhotoUpload
+
+if ($genaiProvider -eq 'fake') {
+    if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
+        throw "GenAI extraction did not populate canned 'jacket' on found-item (fake provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='jacket' (fake provider)"
+} else {
+    if ($null -eq $extractionFoundItem.attributes -or [string]::IsNullOrWhiteSpace($extractionFoundItem.attributes.category)) {
+        throw "GenAI extraction did not populate a non-empty attributes.category on found-item ($genaiProvider provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    }
+    Write-Host "[OK] Found-item GenAI extraction populated category='$($extractionFoundItem.attributes.category)' ($genaiProvider provider)"
+}
+
+$staffSelfDelete = $staffClient.DeleteAsync("$GatewayBaseUrl/api/users/$($staff.id)").Result
+Assert-Status $staffSelfDelete 204 "STAFF can delete itself"
 
 Logout-RefreshToken $opsTokens.refreshToken
 Logout-RefreshToken $adminTokens.refreshToken

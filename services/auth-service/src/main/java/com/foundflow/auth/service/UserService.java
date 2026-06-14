@@ -4,11 +4,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.foundflow.auth.domain.Role;
@@ -48,17 +49,47 @@ public class UserService {
     }
 
     public List<UserResponse> getAllUsers(Jwt jwt) {
-        if (isAdmin(jwt)) {
-            return userRepository.findAll()
-                    .stream()
-                    .map(this::toResponse)
-                    .toList();
-        }
+        return getAllUsers(null, null, jwt);
+    }
 
-        return userRepository.findByVenueId(getVenueId(jwt))
+    public List<UserResponse> getAllUsers(UUID venueId, Role role, Jwt jwt) {
+        return findAccessibleUsers(venueId, role, jwt)
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private List<User> findAccessibleUsers(UUID venueId, Role role, Jwt jwt) {
+        if (isAdmin(jwt)) {
+            return findUsers(venueId, role);
+        }
+
+        if (!isOpsManager(jwt)) {
+            throw new AccessDeniedException("Only admins and ops managers can list users.");
+        }
+
+        UUID ownVenueId = getVenueId(jwt);
+        if (venueId != null && !venueId.equals(ownVenueId)) {
+            throw new AccessDeniedException("No access to users outside your venue.");
+        }
+
+        return findUsers(ownVenueId, role);
+    }
+
+    private List<User> findUsers(UUID venueId, Role role) {
+        if (venueId != null && role != null) {
+            return userRepository.findByVenueIdAndRole(venueId, role);
+        }
+
+        if (venueId != null) {
+            return userRepository.findByVenueId(venueId);
+        }
+
+        if (role != null) {
+            return userRepository.findByRole(role);
+        }
+
+        return userRepository.findAll();
     }
 
     public Optional<UserResponse> getUserById(UUID id, Jwt jwt) {
@@ -81,6 +112,10 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     verifyUserAccess(user, jwt);
+                    if (!isAdmin(jwt) && isCurrentUser(user, jwt) && request.role() != user.getRole()) {
+                        throw new AccessDeniedException("Users cannot change their own role.");
+                    }
+
                     if (!isAdmin(jwt) && request.role() == Role.ADMIN) {
                         throw new AccessDeniedException("OPS_MANAGER cannot create or promote admins.");
                     }
@@ -100,14 +135,25 @@ public class UserService {
         return userRepository.findById(id)
                 .map(user -> {
                     verifyUserAccess(user, jwt);
-                    if (!isAdmin(jwt) && user.getEmail().equals(getCurrentUserEmail(jwt))) {
-                        throw new AccessDeniedException("OPS_MANAGER cannot delete itself.");
-                    }
-
                     userRepository.delete(user);
                     return true;
                 })
                 .orElse(false);
+    }
+
+    @Transactional
+    public long deleteUsersByVenue(UUID venueId) {
+        if (venueId == null) {
+            return 0;
+        }
+
+        List<User> users = userRepository.findByVenueId(venueId);
+        if (users.isEmpty()) {
+            return 0;
+        }
+
+        userRepository.deleteAll(users);
+        return users.size();
     }
 
     private UUID resolveCreateVenueId(CreateUserRequest request, Jwt jwt) {
@@ -130,6 +176,10 @@ public class UserService {
             return request.venueId();
         }
 
+        if (!isOpsManager(jwt)) {
+            throw new AccessDeniedException("Only admins and ops managers can create users.");
+        }
+
         if (request.role() == Role.ADMIN) {
             throw new AccessDeniedException("OPS_MANAGER cannot create admins.");
         }
@@ -142,7 +192,13 @@ public class UserService {
             return;
         }
 
-        if (user.getVenueId() == null || !user.getVenueId().equals(getVenueId(jwt))) {
+        if (isCurrentUser(user, jwt)) {
+            return;
+        }
+
+        if (!isOpsManager(jwt)
+                || user.getVenueId() == null
+                || !user.getVenueId().equals(getVenueId(jwt))) {
             throw new AccessDeniedException("No access to users outside your venue.");
         }
     }
@@ -152,11 +208,21 @@ public class UserService {
             return true;
         }
 
-        return user.getVenueId() != null && user.getVenueId().equals(getVenueId(jwt));
+        if (isCurrentUser(user, jwt)) {
+            return true;
+        }
+
+        return isOpsManager(jwt)
+                && user.getVenueId() != null
+                && user.getVenueId().equals(getVenueId(jwt));
     }
 
     private boolean isAdmin(Jwt jwt) {
         return hasRole(jwt, Role.ADMIN.name());
+    }
+
+    private boolean isOpsManager(Jwt jwt) {
+        return hasRole(jwt, Role.OPS_MANAGER.name());
     }
 
     private UUID getVenueId(Jwt jwt) {
@@ -169,12 +235,34 @@ public class UserService {
         return UUID.fromString(venueId);
     }
 
-    private String getCurrentUserEmail(Jwt jwt) {
+    private String getSubject(Jwt jwt) {
         if (jwt.getSubject() == null || jwt.getSubject().isBlank()) {
             throw new AccessDeniedException("Missing subject claim.");
         }
 
         return jwt.getSubject();
+    }
+
+    private boolean isCurrentUser(User user, Jwt jwt) {
+        Optional<UUID> currentUserId = getCurrentUserId(jwt);
+        if (currentUserId.isPresent()) {
+            return user.getId() != null && user.getId().equals(currentUserId.get());
+        }
+
+        return user.getEmail().equals(getSubject(jwt));
+    }
+
+    private Optional<UUID> getCurrentUserId(Jwt jwt) {
+        String userId = jwt.getClaimAsString("user_id");
+        if (userId == null || userId.isBlank()) {
+            userId = getSubject(jwt);
+        }
+
+        try {
+            return Optional.of(UUID.fromString(userId));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     private boolean hasRole(Jwt jwt, String role) {

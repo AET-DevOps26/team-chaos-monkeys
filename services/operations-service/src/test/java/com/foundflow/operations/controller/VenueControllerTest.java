@@ -1,6 +1,7 @@
 package com.foundflow.operations.controller;
 
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.dto.VenueResponse;
@@ -71,6 +72,21 @@ class VenueControllerTest {
     }
 
     @Test
+    void getPublicVenues_shouldReturnVenueDirectoryWithoutAuthentication() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        PublicVenueResponse response = new PublicVenueResponse(venueId, "Venue A");
+
+        when(venueService.getPublicVenues()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/venues/public"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].venueId").value(venueId.toString()))
+                .andExpect(jsonPath("$[0].name").value("Venue A"))
+                .andExpect(jsonPath("$[0].tone").doesNotExist())
+                .andExpect(jsonPath("$[0].defaultLanguage").doesNotExist());
+    }
+
+    @Test
     void getVenueById_shouldReturnVenueWhenExists() throws Exception {
         UUID id = UUID.randomUUID();
         VenueResponse response = new VenueResponse(id, "Chaos Arena", "friendly", "de");
@@ -93,7 +109,7 @@ class VenueControllerTest {
                 .thenReturn(Optional.of(response));
 
         mockMvc.perform(put("/api/venues/{id}", id)
-                        .with(staffPrincipal(id))
+                        .with(opsManagerPrincipal(id))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -118,16 +134,32 @@ class VenueControllerTest {
                 .andExpect(jsonPath("$.totalMatches").value(5))
                 .andExpect(jsonPath("$.pendingMatches").value(2));
 
-        mockMvc.perform(get("/api/venues/kpis/{id}", venueId)
-                        .with(staffPrincipal(venueId)))
+        mockMvc.perform(get("/api/venues/kpis")
+                        .param("venueId", venueId.toString())
+                        .with(adminPrincipal()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()));
     }
 
+    @Test
+    void legacyKpiPath_shouldNotBeMapped() throws Exception {
+        mockMvc.perform(get("/api/venues/kpis/{id}", UUID.randomUUID())
+                        .with(adminPrincipal()))
+                .andExpect(status().isNotFound());
+    }
+
     private org.springframework.test.web.servlet.request.RequestPostProcessor staffPrincipal(UUID venueId) {
+        return principal("STAFF", venueId);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor opsManagerPrincipal(UUID venueId) {
+        return principal("OPS_MANAGER", venueId);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor principal(String role, UUID venueId) {
         Jwt token = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .claim("roles", List.of("STAFF"))
+                .claim("roles", List.of(role))
                 .claim("venue_id", venueId.toString())
                 .build();
 

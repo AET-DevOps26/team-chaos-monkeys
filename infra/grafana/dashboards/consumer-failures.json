@@ -1,0 +1,64 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Consumer terminal-drop rate (events/s) — by service + event_type",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job, event_type) (rate(matching_candidate_search_skipped_total[5m]))",
+          "legendFormat": "{{job}} / {{event_type}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (job, event_type) (rate(notifications_send_failures_total[5m]))",
+          "legendFormat": "{{job}} / {{event_type}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Consumer terminal drops (cumulative) — by service + event_type",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 5 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job, event_type) (matching_candidate_search_skipped_total)",
+          "legendFormat": "{{job}} / {{event_type}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (job, event_type) (notifications_send_failures_total)",
+          "legendFormat": "{{job}} / {{event_type}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["foundflow", "consumers", "amqp"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "AMQP Consumers — Terminal Drops",
+  "uid": "foundflow-consumer-failures",
+  "version": 1,
+  "weekStart": ""
+}

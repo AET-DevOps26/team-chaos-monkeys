@@ -1,6 +1,6 @@
 package com.foundflow.matching.service;
 
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
@@ -49,7 +49,7 @@ public class CandidateMatchingService {
     private final int topK;
     private final float threshold;
     private final float republishScoreDelta;
-    private final int expectedEmbeddingDim;
+    private final int embeddingDim;
 
     public CandidateMatchingService(
             ItemEmbeddingRepository itemEmbeddingRepository,
@@ -61,7 +61,7 @@ public class CandidateMatchingService {
             @Value("${foundflow.matching.top-k:20}") int topK,
             @Value("${foundflow.matching.threshold:0.55}") float threshold,
             @Value("${foundflow.matching.republish-score-delta:0.01}") float republishScoreDelta,
-            @Value("${foundflow.matching.embedding-dim:768}") int expectedEmbeddingDim
+            @Value("${foundflow.matching.embedding-dim}") int embeddingDim
     ) {
         this.itemEmbeddingRepository = itemEmbeddingRepository;
         this.matchRepository = matchRepository;
@@ -72,7 +72,7 @@ public class CandidateMatchingService {
         this.topK = topK;
         this.threshold = threshold;
         this.republishScoreDelta = republishScoreDelta;
-        this.expectedEmbeddingDim = expectedEmbeddingDim;
+        this.embeddingDim = embeddingDim;
     }
 
     @Transactional
@@ -100,13 +100,13 @@ public class CandidateMatchingService {
     }
 
     @Transactional
-    public void findCandidatesForFoundItem(FoundItemLoggedEvent event) {
+    public void findCandidatesForFoundItem(FoundItemCreatedEvent event) {
         processIntake(
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
                 null,
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }
@@ -118,7 +118,7 @@ public class CandidateMatchingService {
                 event.foundItemId(),
                 event.venueId(),
                 null,
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }
@@ -163,6 +163,16 @@ public class CandidateMatchingService {
                 .description("Time to fetch an embedding from genai-service")
                 .register(meterRegistry)
                 .record(() -> toFloatArray(genaiClient.embed(embedRequest)));
+
+        if (embedding.length != embeddingDim) {
+            meterRegistry.counter("matching.embedding.dim_mismatch_total",
+                    "expected", String.valueOf(embeddingDim),
+                    "actual", String.valueOf(embedding.length)).increment();
+            throw new EmbeddingDimensionMismatchException(
+                    "Embedding from genai-service has " + embedding.length
+                            + " dims, expected " + embeddingDim
+                            + " for item " + itemType + " " + itemId);
+        }
 
         itemEmbeddingRepository.upsert(new ItemEmbedding(
                 UUID.randomUUID(),
@@ -290,16 +300,6 @@ public class CandidateMatchingService {
             throw new IllegalStateException("GenAI /embed returned no embeddings.");
         }
         List<Float> first = response.getEmbeddings().get(0);
-        if (first.size() != expectedEmbeddingDim) {
-            log.error(
-                    "GenAI /embed returned {} dimensions but matching expects {}.",
-                    first.size(),
-                    expectedEmbeddingDim
-            );
-            throw new IllegalStateException(
-                    "Embedding dimension mismatch: expected " + expectedEmbeddingDim + " but got " + first.size()
-            );
-        }
         float[] vector = new float[first.size()];
         for (int i = 0; i < first.size(); i++) {
             vector[i] = first.get(i);

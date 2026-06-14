@@ -8,9 +8,9 @@ import type { UpdateFoundItemRequestStatus } from './updateFoundItemRequestStatu
 import type { ItemAttributesDto } from './itemAttributesDto';
 
 export interface UpdateFoundItemRequest {
-  description?: string;
+  intakeText?: string;
   foundAt: string;
-  locationHint?: string;
+  location?: string;
   status: UpdateFoundItemRequestStatus;
   venueId: string;
   reporterId: string;

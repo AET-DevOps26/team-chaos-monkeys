@@ -31,34 +31,48 @@ class FoundItemRepositoryIT {
     void findDailyBuckets_filtersByVenueAndStatus_andOrdersByDay() {
         UUID venueId = UUID.randomUUID();
         UUID otherVenueId = UUID.randomUUID();
+        UUID reporterId = UUID.randomUUID();
+        UUID otherReporterId = UUID.randomUUID();
 
         repository.saveAll(List.of(
                 foundItem(
                         venueId,
+                        reporterId,
                         ItemStatus.STORED,
                         LocalDateTime.of(2026, 5, 19, 9, 15),
                         List.of("red tag")
                 ),
                 foundItem(
                         venueId,
+                        reporterId,
                         ItemStatus.STORED,
                         LocalDateTime.of(2026, 5, 19, 18, 45),
                         List.of("front pocket")
                 ),
                 foundItem(
                         venueId,
+                        reporterId,
                         ItemStatus.RETURNED,
                         LocalDateTime.of(2026, 5, 20, 10, 0),
                         List.of("ignored status")
                 ),
                 foundItem(
+                        venueId,
+                        otherReporterId,
+                        ItemStatus.STORED,
+                        LocalDateTime.of(2026, 5, 20, 11, 0),
+                        List.of("ignored reporter")
+                ),
+                foundItem(
                         otherVenueId,
+                        reporterId,
                         ItemStatus.STORED,
                         LocalDateTime.of(2026, 5, 18, 12, 0),
                         List.of("ignored venue")
                 ),
                 foundItem(
                         venueId,
+                        reporterId,
                         ItemStatus.STORED,
                         LocalDateTime.of(2026, 5, 20, 8, 30),
                         List.of("water bottle")
@@ -68,7 +82,8 @@ class FoundItemRepositoryIT {
         entityManager.flush();
         entityManager.clear();
 
-        List<BucketCountView> buckets = repository.findDailyBuckets(venueId, ItemStatus.STORED.name());
+        List<BucketCountView> buckets =
+                repository.findDailyBuckets(venueId, ItemStatus.STORED.name(), reporterId);
 
         assertThat(buckets)
                 .extracting(BucketCountView::getBucketStart, BucketCountView::getCount)
@@ -83,6 +98,7 @@ class FoundItemRepositoryIT {
         UUID venueId = UUID.randomUUID();
         FoundItem saved = repository.save(foundItem(
                 venueId,
+                UUID.randomUUID(),
                 ItemStatus.STORED,
                 LocalDateTime.of(2026, 5, 21, 14, 5),
                 List.of("silver zipper", "festival sticker")
@@ -104,6 +120,7 @@ class FoundItemRepositoryIT {
 
     private FoundItem foundItem(
             UUID venueId,
+            UUID reporterId,
             ItemStatus status,
             LocalDateTime foundAt,
             List<String> marks
@@ -115,7 +132,7 @@ class FoundItemRepositoryIT {
                 "North entrance",
                 status,
                 venueId,
-                UUID.randomUUID(),
+                reporterId,
                 new ItemAttributes("Bag", "Nike", "Black", marks)
         );
     }

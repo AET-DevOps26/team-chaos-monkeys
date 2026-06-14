@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/lost-items", "/api/lost-reports"})
+@RequestMapping("/api/lost-items")
 public class LostReportController {
 
     private final LostReportService lostReportService;
@@ -38,22 +38,6 @@ public class LostReportController {
     ) {
         LostReportResponse response = lostReportService.createLostReport(
                 request,
-                authentication == null ? null : authentication.getToken()
-        );
-        return ResponseEntity
-        .created(URI.create("/api/lost-items/" + response.id()))
-        .body(response);
-    }
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<LostReportResponse> createLostReportWithPhoto(
-            @Valid @RequestPart("request") CreateLostReportRequest request,
-            @RequestPart(value = "photo", required = false) MultipartFile photo,
-            JwtAuthenticationToken authentication
-    ) {
-        LostReportResponse response = lostReportService.createLostReport(
-                request,
-                photo,
                 authentication == null ? null : authentication.getToken()
         );
         return ResponseEntity
@@ -120,7 +104,11 @@ public class LostReportController {
             @RequestPart("photo") MultipartFile photo,
             JwtAuthenticationToken authentication
     ) {
-        return lostReportService.updateLostReportPhoto(id, photo, authentication.getToken())
+        return lostReportService.updateLostReportPhoto(
+                        id,
+                        photo,
+                        authentication == null ? null : authentication.getToken()
+                )
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

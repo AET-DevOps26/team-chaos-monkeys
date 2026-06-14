@@ -1,7 +1,8 @@
 services:
   gateway-service:
     build:
-      context: ./services/gateway-service
+      context: .
+      dockerfile: services/gateway-service/Dockerfile
     container_name: foundflow-gateway-service
     ports:
       - "8080:8080"
@@ -29,8 +30,16 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:?DEV_ADMIN_EMAIL is required}
       DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?DEV_ADMIN_PASSWORD is required}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      PASSWORD_RESET_TOKEN_MINUTES: ${PASSWORD_RESET_TOKEN_MINUTES:-30}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       auth-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   lost-item-service:
@@ -84,6 +93,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
       GENAI_BASE_URL: ${GENAI_BASE_URL:-http://genai-service:8000}
       GENAI_API_KEY: ${GENAI_INTERNAL_TOKEN:-}
       GENAI_ENABLED: ${GENAI_ENABLED:-true}
@@ -110,6 +120,7 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
       GENAI_BASE_URL: ${GENAI_BASE_URL:-http://genai-service:8000}
       GENAI_API_KEY: ${GENAI_INTERNAL_TOKEN:-}
       GENAI_ENABLED: ${GENAI_ENABLED:-true}
@@ -117,6 +128,8 @@ services:
       matching-db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      genai-service:
         condition: service_healthy
 
   notification-service:
@@ -135,19 +148,23 @@ services:
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
-      # Brevo SMTP — optional locally. Without creds the consumer persists the
-      # notifications row, the first send attempt fails authenticating with
-      # smtp-relay.brevo.com, the retry interceptor drops after three attempts,
-      # and notifications_send_failures_total tracks the drop.
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp-relay.brevo.com}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      # Mail defaults to the local Mailpit sink so test/demo sends never reach the
+      # shared Brevo account (every send to a fake recipient is a hard bounce that
+      # harms sender reputation). Mailpit needs SMTP auth + STARTTLS off. To send
+      # real mail through Brevo for a manual demo, set SPRING_MAIL_* in .env.
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-mailpit}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-1025}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
       SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_SMTP_AUTH: ${SPRING_MAIL_SMTP_AUTH:-false}
+      SPRING_MAIL_SMTP_STARTTLS: ${SPRING_MAIL_SMTP_STARTTLS:-false}
       FOUNDFLOW_MAIL_FROM: ${FOUNDFLOW_MAIL_FROM:-no-reply@foundflow.app}
     depends_on:
       notification-db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
 
   pickup-service:
@@ -182,8 +199,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://operations-db:5432/${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${OPERATIONS_DB_PASSWORD:?OPERATIONS_DB_PASSWORD is required}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
     depends_on:
       operations-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   ollama:
@@ -237,6 +260,22 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # Local/CI SMTP sink. notification-service delivers here by default (see its
+  # SPRING_MAIL_* env) so test and demo flows never hit the shared Brevo account.
+  # Web UI + REST API on 8025, SMTP on 1025. Captured mail: http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.30.1
+    container_name: foundflow-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   # One-shot sidecar: pulls the configured chat + embed models on startup,
   # then exits 0. Both this and `ollama` are behind the "ollama" profile —
   # default `docker compose up` skips them (no image pull, no daemon).
@@ -280,6 +319,12 @@ services:
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
       GENAI_TIMEOUT_SECONDS: ${GENAI_TIMEOUT_SECONDS:-30}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
 
   prometheus:
     image: prom/prometheus:v2.55.1
@@ -313,13 +358,34 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # Admin SPA. Internal only — reached through the edge proxy (mirrors the k8s
+  # ingress, where each frontend is a sibling Service behind one ingress).
   client:
     build:
       context: ./client
     container_name: foundflow-client
+    depends_on:
+      - gateway-service
+
+  # Unauthenticated guest report SPA, its own deployable micro-frontend.
+  public-report-client:
+    build:
+      context: ./public-report-client
+    container_name: foundflow-public-report-client
+    depends_on:
+      - gateway-service
+
+  # Single local entrypoint that mirrors the k8s ingress path routing:
+  #   /api → gateway-service, /report → public-report-client, / → client.
+  edge:
+    build:
+      context: ./edge
+    container_name: foundflow-edge
     ports:
       - "3000:80"
     depends_on:
+      - client
+      - public-report-client
       - gateway-service
 
   auth-db:

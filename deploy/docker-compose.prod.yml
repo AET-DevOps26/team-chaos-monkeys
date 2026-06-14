@@ -36,6 +36,19 @@ services:
 
   notification-service:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/notification-service:${IMAGE_TAG:-latest}
+    environment:
+      SPRING_MAIL_HOST: smtp-relay.brevo.com
+      SPRING_MAIL_PORT: 587
+      SPRING_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_SMTP_STARTTLS: "true"
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:?SPRING_MAIL_USERNAME is required on the VM}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:?SPRING_MAIL_PASSWORD is required on the VM}
+      FOUNDFLOW_MAIL_FROM: ${FOUNDFLOW_MAIL_FROM:?FOUNDFLOW_MAIL_FROM is required on the VM}
+    depends_on: !override
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   operations-service:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/operations-service:${IMAGE_TAG:-latest}
@@ -45,7 +58,14 @@ services:
 
   client:
     image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/client:${IMAGE_TAG:-latest}
-    # Expose the frontend on host port 80 so the VM's public IP serves the app directly.
+
+  public-report-client:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/public-report-client:${IMAGE_TAG:-latest}
+
+  # The edge proxy is the single public entrypoint on the VM (mirrors the k8s
+  # ingress): / → client, /report → public-report-client, /api → gateway-service.
+  edge:
+    image: ${IMAGE_REGISTRY:-ghcr.io/aet-devops26/team-chaos-monkeys}/edge:${IMAGE_TAG:-latest}
     ports: !override
       - "80:80"
 
@@ -64,4 +84,8 @@ services:
   ollama:
     profiles: ["never"]
   ollama-init:
+    profiles: ["never"]
+
+  # Production sends through Brevo; the local SMTP sink must not run on the VM.
+  mailpit:
     profiles: ["never"]

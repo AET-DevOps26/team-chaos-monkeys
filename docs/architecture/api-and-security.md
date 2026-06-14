@@ -39,7 +39,6 @@ The following endpoint groups are public:
 - `GET /actuator/health`
 - Swagger/OpenAPI endpoints exposed by services and aggregated by the gateway
 - `POST /api/lost-items`
-- `POST /api/lost-reports` legacy compatibility path; do not use for new clients
 - Public match magic-link endpoints under `/api/matches/public/**`
 - Public pickup magic-link endpoints under `/api/pickups/public/**`
 
@@ -98,7 +97,6 @@ Expected failures:
 | `/api/auth` | `auth-service` | Login, refresh, logout |
 | `/api/users` | `auth-service` | Admin/ops user management |
 | `/api/lost-items` | `lost-item-service` | Canonical lost-report API |
-| `/api/lost-reports` | `lost-item-service` | Legacy compatibility path; planned for removal once generated clients and callers no longer need it |
 | `/api/found-items` | `found-item-service` | Found-item intake and management |
 | `/api/matches` | `matching-service` | Match CRUD, public match links, match email log |
 | `/api/pickups` | `pickup-service` | Pickup schedules, pickups, public pickup links |

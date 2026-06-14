@@ -1,15 +1,18 @@
 # System Architecture
 
-FoundFlow is a microservice-based monorepo. The system is split into a React
-client, a Spring Cloud Gateway, seven Spring Boot business services, a Python
-GenAI service, shared Java libraries, and deployment/observability
-infrastructure.
+FoundFlow is a microservice-based monorepo. The system is split into two React
+single-page apps — an authenticated staff client (`/`) and an unauthenticated
+public report client (`/report`) — fronted by an edge proxy (compose) or the
+cluster ingress (k8s), a Spring Cloud Gateway, seven Spring Boot business
+services, a Python GenAI service, shared Java libraries, and
+deployment/observability infrastructure.
 
 ## Runtime Shape
 
 | Layer | Technology |
 | --- | --- |
-| Client | React, Vite, TypeScript |
+| Clients | Two React/Vite/TypeScript SPAs: staff client (`/`) and public report client (`/report`), each served as static assets by its own nginx |
+| Edge / Ingress | nginx `edge` container (compose) or Kubernetes ingress (k8s): path-routes `/`, `/report`, `/api` |
 | Gateway | Spring Cloud Gateway |
 | Backend services | Spring Boot 4.0.6, Java 21 |
 | GenAI | Python 3.12, FastAPI |
@@ -41,13 +44,19 @@ RabbitMQ events.
 
 ### External HTTP
 
-The browser talks to the gateway on port `8080` in local compose. The gateway
-routes:
+The single public entrypoint is the `edge` nginx container in local compose
+(host port `3000`) or the Kubernetes ingress in the cluster. Both apply the same
+path routing: `/` → staff client, `/report` → public report client, `/api/**` →
+gateway. The two client containers only serve static bundles; they hold no `/api`
+proxy of their own. The gateway is also reachable directly on port `8080` in
+compose for API/Swagger access.
+
+Behind the edge, the gateway routes:
 
 | External path | Target |
 | --- | --- |
 | `/api/auth/**`, `/api/users/**` | `auth-service:8081` |
-| `/api/lost-items/**`, `/api/lost-reports/**` | `lost-item-service:8082` |
+| `/api/lost-items/**` | `lost-item-service:8082` |
 | `/api/found-items/**` | `found-item-service:8083` |
 | `/api/matches/**` | `matching-service:8084` |
 | `/api/notifications/**` | `notification-service:8085` |
@@ -68,10 +77,6 @@ Bypassing the gateway does not bypass service security.
   validating or enriching matches.
 - Operations calls count endpoints in found/lost/matching services for KPIs and
   forwards the caller's bearer token.
-
-`/api/lost-items` is the canonical lost-report API path. `/api/lost-reports`
-is a legacy compatibility route currently still supported by the service and
-gateway.
 
 ### Events
 

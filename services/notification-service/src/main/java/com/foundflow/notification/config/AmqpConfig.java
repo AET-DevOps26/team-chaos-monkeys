@@ -45,6 +45,11 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue passwordResetRequestedQueue() {
+        return new Queue(FoundFlowEventRouting.NOTIFICATION_PASSWORD_RESETS_QUEUE, true);
+    }
+
+    @Bean
     public Binding matchInviteRequestedBinding(
             Queue matchInviteRequestedQueue,
             TopicExchange domainEventsExchange
@@ -65,28 +70,47 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Binding passwordResetRequestedBinding(
+            Queue passwordResetRequestedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(passwordResetRequestedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.PASSWORD_RESET_REQUESTED);
+    }
+
+    @Bean
     public MessageConverter jsonMessageConverter(JsonMapper jsonMapper) {
         return DomainEventMessageConverterFactory.create(jsonMapper);
     }
 
     @Bean
-    public Counter notificationsSendFailuresCounter(MeterRegistry meterRegistry) {
-        return Counter.builder(SEND_FAILURES_COUNTER)
-                .description("Notification email sends that exhausted all retries and were dropped.")
-                .register(meterRegistry);
-    }
-
-    @Bean
-    public MessageRecoverer notificationSendFailureRecoverer(Counter notificationsSendFailuresCounter) {
+    public MessageRecoverer notificationSendFailureRecoverer(MeterRegistry meterRegistry) {
         RejectAndDontRequeueRecoverer reject = new RejectAndDontRequeueRecoverer();
         return (message, cause) -> {
-            notificationsSendFailuresCounter.increment();
+            String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+            Counter.builder(SEND_FAILURES_COUNTER)
+                    .description("Notification email sends that exhausted all retries and were dropped.")
+                    .tag("event_type", eventTypeFor(routingKey))
+                    .register(meterRegistry)
+                    .increment();
             log.warn(
                     "Dropping notification message after exhausting retries: routingKey={}",
-                    message.getMessageProperties().getReceivedRoutingKey(),
+                    routingKey,
                     cause
             );
             reject.recover(message, cause);
+        };
+    }
+
+    static String eventTypeFor(String routingKey) {
+        if (routingKey == null) {
+            return "unknown";
+        }
+        return switch (routingKey) {
+            case FoundFlowEventRouting.MATCH_INVITE_REQUESTED -> "match-invite-requested";
+            case FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED -> "pickup-confirmation-requested";
+            default -> "unknown";
         };
     }
 

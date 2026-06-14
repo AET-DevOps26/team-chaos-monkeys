@@ -16,6 +16,8 @@ const SPECS = [
   { prefix: 'found-items', file: 'found-items.json' },
   { prefix: 'matches', file: 'matches.json' },
   { prefix: 'pickups', file: 'pickups.json' },
+  { prefix: 'venues', file: 'operations.json' },
+  { prefix: 'matches', file: 'matching.json' },
 ]
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -46,10 +48,24 @@ async function fetchSpec(prefix) {
 
 await mkdir(outDir, { recursive: true })
 
+const failures = []
+
 for (const { prefix, file } of SPECS) {
   process.stdout.write(`Fetching ${prefix} from ${GATEWAY}... `)
-  const spec = await fetchSpec(prefix)
-  const target = resolve(outDir, file)
-  await writeFile(target, JSON.stringify(spec, null, 2) + '\n')
-  process.stdout.write(`wrote ${target}\n`)
+  try {
+    const spec = await fetchSpec(prefix)
+    const target = resolve(outDir, file)
+    await writeFile(target, JSON.stringify(spec, null, 2) + '\n')
+    process.stdout.write(`wrote ${target}\n`)
+  } catch (err) {
+    // Keep going so one failing service doesn't block the rest; the existing
+    // committed snapshot for that service is left untouched (only written on 200).
+    process.stdout.write(`SKIPPED (${err.message})\n`)
+    failures.push(prefix)
+  }
+}
+
+if (failures.length > 0) {
+  process.stderr.write(`\nFailed to fetch: ${failures.join(', ')}. Existing snapshots kept.\n`)
+  process.exitCode = 1
 }

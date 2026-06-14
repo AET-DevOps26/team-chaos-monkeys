@@ -169,3 +169,29 @@ tests:
       - eval_time: 12m
         alertname: GenAIValidationErrorSpike
         exp_alerts: []
+
+  # NotificationSendDropsElevated: 1 drop/min for 15m → increase[15m] ≫ 3 → firing
+  - interval: 1m
+    input_series:
+      - series: 'notifications_send_failures_total{job="notification-service", event_type="match-invite-requested"}'
+        values: '0+1x16'                        # cumulative 0,1,…,16 — 15+ drops in the 15m window
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: NotificationSendDropsElevated
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              event_type: match-invite-requested
+            exp_annotations:
+              summary: "notification-service dropping match-invite-requested sends"
+              description: "More than 3 notification sends for match-invite-requested hit the recoverer (ack-and-drop after retries) in the last 15 minutes."
+
+  # NotificationSendDropsElevated: only 1 drop ever → increase[15m] ≈ 1 → no firing
+  - interval: 1m
+    input_series:
+      - series: 'notifications_send_failures_total{job="notification-service", event_type="pickup-confirmation-requested"}'
+        values: '0+1x2 2x14'                    # cumulative 0,1,2,2,…,2 — one drop, then steady
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: NotificationSendDropsElevated
+        exp_alerts: []

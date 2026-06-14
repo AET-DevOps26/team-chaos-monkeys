@@ -9,9 +9,9 @@ public record FoundItemUpdatedEvent(
         UUID foundItemId,
         UUID venueId,
         String photoKey,
-        String description,
+        String intakeText,
         Instant foundAt,
-        String locationHint,
+        String location,
         String status,
         UUID reporterId,
         ItemAttributesPayload attributes

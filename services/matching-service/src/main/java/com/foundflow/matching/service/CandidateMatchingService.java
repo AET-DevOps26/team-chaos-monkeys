@@ -1,6 +1,6 @@
 package com.foundflow.matching.service;
 
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
@@ -89,12 +89,12 @@ public class CandidateMatchingService {
         );
     }
 
-    public void findCandidatesForFoundItem(FoundItemLoggedEvent event) {
+    public void findCandidatesForFoundItem(FoundItemCreatedEvent event) {
         processIntake(
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }
@@ -104,7 +104,7 @@ public class CandidateMatchingService {
                 ItemType.FOUND,
                 event.foundItemId(),
                 event.venueId(),
-                event.description(),
+                event.intakeText(),
                 event.attributes()
         );
     }

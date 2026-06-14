@@ -118,6 +118,7 @@ services:
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: PHOTO_STORAGE_ACCESS_KEY, secret: foundflow-minio, key: accessKey }
       - { name: PHOTO_STORAGE_SECRET_KEY, secret: foundflow-minio, key: secretKey }
+      - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   matching-service:
@@ -136,6 +137,7 @@ services:
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
+      - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
 
   notification-service:
@@ -151,6 +153,8 @@ services:
       - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
       - { name: SPRING_MAIL_HOST, value: "smtp-relay.brevo.com" }
       - { name: SPRING_MAIL_PORT, value: "587" }
+      - { name: SPRING_MAIL_SMTP_AUTH, value: "true" }
+      - { name: SPRING_MAIL_SMTP_STARTTLS, value: "true" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq,    key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq,    key: password }
@@ -210,6 +214,21 @@ services:
       requests: { cpu: 50m,  memory: 64Mi }
       limits:   { cpu: 200m, memory: 128Mi }
 
+  # Unauthenticated guest report SPA, routed by the ingress at /report.
+  public-report-client:
+    kind: static
+    port: 80          # nginx in the image listens on 80
+    # nginx serves the bundle only under /report/ (Vite base), nothing at '/',
+    # so the static-default probe path of '/' would 404 and the pod never goes
+    # Ready. Probe the served prefix instead.
+    healthPath: /report/
+    metrics: false
+    public: true
+    replicas: 1
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi }
+      limits:   { cpu: 200m, memory: 128Mi }
+
 # One in-namespace Postgres instance per Spring service. Each gets:
 #   - StatefulSet with one replica (postgres:17, same image as docker-compose)
 #   - PVC of the requested size on global.storageClassName
@@ -254,7 +273,8 @@ rabbitmq:
     limits:   { cpu: 500m, memory: 512Mi }
   # Persistence is off by default: RabbitMQ here carries transient domain events
   # only — losing the queue contents on pod restart is acceptable. Flip to true
-  # and set storageSize if/when durable queues are introduced.
+  # and set storageSize for broker data survivability. Durable queues already
+  # exist; clean up old queues explicitly when durable queue names change.
   persistence:
     enabled: false
     storageSize: 1Gi
@@ -284,6 +304,9 @@ secrets:
   devAdminEmail: ""
   devAdminPassword: ""
   jwtRsaPrivateKey: ""
+  # Shared service-to-service token used by matching-service to call
+  # found-item-service internal endpoints. Required for those services to start.
+  internalServiceToken: ""
   # Magic-link HMAC signing secret. When empty the app falls back to the dev
   # default baked into application.properties — fine for demo, never for prod.
   magicLinkSecret: ""
@@ -315,4 +338,3 @@ grafana:
 monitoring:
   enabled: true
   prometheusReleaseLabel: kube-prometheus-stack
-

@@ -8,9 +8,9 @@ import java.util.UUID;
 public record FoundItemResponse(
         UUID id,
         String photoKey,
-        String description,
+        String intakeText,
         LocalDateTime foundAt,
-        String locationHint,
+        String location,
         ItemStatus status,
         UUID venueId,
         UUID reporterId,

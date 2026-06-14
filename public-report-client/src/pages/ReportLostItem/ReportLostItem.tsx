@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { reportLostItemSchema, type ReportLostItemInput } from './schema'
 import { useCreateLostReportWithPhoto } from '@/api/lost-items/lost-report-controller/lost-report-controller'
+import type { CreateLostReportRequest, CreateLostReportWithPhotoBody } from '@/api/lost-items/model'
 
-// TODO(FRND-122): temporary — the public form has no way to derive a venue yet.
-// Replace with a real source (route param from a per-venue QR link, query
-// string, or a public venue picker) before multi-venue rollout.
-const PLACEHOLDER_VENUE_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+// The venue is supplied by the route (/report/<venueId>), typically via a
+// per-venue QR link. Validate it looks like a UUID before submitting so a
+// mistyped link fails loudly here instead of at the backend.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default function ReportLostItem() {
   const navigate = useNavigate()
+  const { venueId } = useParams<{ venueId: string }>()
+  const hasValidVenue = !!venueId && UUID_RE.test(venueId)
   const {
     register,
     handleSubmit,
@@ -40,23 +43,27 @@ export default function ReportLostItem() {
   }, [photo])
 
   const onSubmit = (data: ReportLostItemInput) => {
-    // TODO: multipart upload for `data.photo` once the API accepts it;
-    // currently the file is collected for preview only and discarded here.
+    if (!hasValidVenue) return
+    const payload: CreateLostReportRequest = {
+      description: data.description,
+      contactEmail: data.contactEmail,
+      // `datetime-local` already gives ISO-8601 local time
+      // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
+      // intent is preserved instead of collapsed to UTC.
+      lostAt: data.lostAt,
+      venueId,
+    }
+    // `photo` is optional; pass `undefined` (not `null`) when none was
+    // picked so the generated FormData builder omits the photo part.
+    const body: CreateLostReportWithPhotoBody = {
+      request: payload,
+      photo: data.photo ?? undefined,
+    }
     mutate(
-      {
-        data: {
-          description: data.description,
-          contactEmail: data.contactEmail,
-          // `datetime-local` already gives ISO-8601 local time
-          // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
-          // intent is preserved instead of collapsed to UTC.
-          lostAt: data.lostAt,
-          venueId: PLACEHOLDER_VENUE_ID,
-        },
-      },
+      { data: body },
       {
         onSuccess: (response) => {
-          navigate('/report/confirmation', {
+          navigate('/confirmation', {
             state: { report: response },
           })
         },
@@ -69,6 +76,12 @@ export default function ReportLostItem() {
       <h1 className="mb-6 text-3xl font-medium text-text-h">
         Report a lost item
       </h1>
+
+      {!hasValidVenue && (
+        <p className="mb-6 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">
+          This report link is invalid. Please use the link or QR code provided at your venue.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
         <div className="flex flex-col gap-1">
@@ -144,7 +157,7 @@ export default function ReportLostItem() {
 
         <button
           type="submit"
-          disabled={!isValid || isPending}
+          disabled={!isValid || isPending || !hasValidVenue}
           className="mt-2 self-start rounded bg-accent px-5 py-2.5 font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? 'Submitting…' : 'Submit report'}

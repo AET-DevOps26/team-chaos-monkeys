@@ -1,6 +1,8 @@
 package com.foundflow.notification.config;
 
+import com.foundflow.events.FoundFlowEventRouting;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.aopalliance.intercept.MethodInterceptor;
@@ -18,24 +20,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class NotificationSendRetryInterceptorTest {
 
     @Test
-    void retryInterceptor_retriesUpTo3Times_thenInvokesRecovererAndIncrementsCounter() {
+    void retryInterceptor_retriesUpTo3Times_thenInvokesRecovererAndIncrementsCounterTaggedMatchInvite() {
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         AmqpConfig config = new AmqpConfig();
-        Counter counter = config.notificationsSendFailuresCounter(meterRegistry);
-        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(counter);
+        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(meterRegistry);
         MethodInterceptor interceptor = config.notificationSendRetryInterceptor(recoverer);
 
         AtomicInteger calls = new AtomicInteger();
         AlwaysFailingTarget target = new AlwaysFailingTarget(calls);
-        ProxyFactory factory = new ProxyFactory(target);
-        factory.addAdvice(interceptor);
-        FailingMessageHandler proxy = (FailingMessageHandler) factory.getProxy();
+        FailingMessageHandler proxy = proxyOf(target, interceptor);
 
-        Message message = new Message(
-                "{}".getBytes(),
-                new MessageProperties()
-        );
-        message.getMessageProperties().setReceivedRoutingKey("notification.match-invite-requested.v1");
+        Message message = messageWithRoutingKey(FoundFlowEventRouting.MATCH_INVITE_REQUESTED);
 
         // The container-facing exception type is "AmqpRejectAndDontRequeueException"
         // or "ListenerExecutionFailedException(\"Retry Policy Exhausted\")"
@@ -46,34 +41,84 @@ class NotificationSendRetryInterceptorTest {
         assertThat(calls.get())
                 .as("retry interceptor should invoke the target maxRetries times before recovering")
                 .isEqualTo(3);
-        assertThat(counter.count())
-                .as("notifications_send_failures_total increments once per terminal drop")
+        assertThat(counterCount(meterRegistry, "match-invite-requested"))
+                .as("counter increments once per terminal drop, tagged by event_type")
                 .isEqualTo(1.0);
+    }
+
+    @Test
+    void retryInterceptor_dropsForPickupRoutingKey_incrementsPickupTaggedCounter() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        AmqpConfig config = new AmqpConfig();
+        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(meterRegistry);
+        MethodInterceptor interceptor = config.notificationSendRetryInterceptor(recoverer);
+
+        FailingMessageHandler proxy = proxyOf(new AlwaysFailingTarget(new AtomicInteger()), interceptor);
+        Message message = messageWithRoutingKey(FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED);
+
+        assertThatThrownBy(() -> proxy.handleMessage(null, message)).isInstanceOf(Throwable.class);
+
+        assertThat(counterCount(meterRegistry, "pickup-confirmation-requested")).isEqualTo(1.0);
+        assertThatNoCounter(meterRegistry, "match-invite-requested");
+    }
+
+    @Test
+    void retryInterceptor_unknownRoutingKey_incrementsUnknownTaggedCounter() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        AmqpConfig config = new AmqpConfig();
+        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(meterRegistry);
+        MethodInterceptor interceptor = config.notificationSendRetryInterceptor(recoverer);
+
+        FailingMessageHandler proxy = proxyOf(new AlwaysFailingTarget(new AtomicInteger()), interceptor);
+        Message message = messageWithRoutingKey("something.unexpected.v1");
+
+        assertThatThrownBy(() -> proxy.handleMessage(null, message)).isInstanceOf(Throwable.class);
+
+        assertThat(counterCount(meterRegistry, "unknown")).isEqualTo(1.0);
     }
 
     @Test
     void retryInterceptor_doesNotInvokeRecovererWhenTargetSucceedsOnRetry() {
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         AmqpConfig config = new AmqpConfig();
-        Counter counter = config.notificationsSendFailuresCounter(meterRegistry);
-        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(counter);
+        MessageRecoverer recoverer = config.notificationSendFailureRecoverer(meterRegistry);
         MethodInterceptor interceptor = config.notificationSendRetryInterceptor(recoverer);
 
         AtomicInteger calls = new AtomicInteger();
         FailsOnceThenSucceedsTarget target = new FailsOnceThenSucceedsTarget(calls);
-        ProxyFactory factory = new ProxyFactory(target);
-        factory.addAdvice(interceptor);
-        FailingMessageHandler proxy = (FailingMessageHandler) factory.getProxy();
+        FailingMessageHandler proxy = proxyOf(target, interceptor);
 
-        Message message = new Message("{}".getBytes(), new MessageProperties());
-        message.getMessageProperties().setReceivedRoutingKey("notification.match-invite-requested.v1");
+        Message message = messageWithRoutingKey(FoundFlowEventRouting.MATCH_INVITE_REQUESTED);
 
         proxy.handleMessage(null, message);
 
         assertThat(calls.get()).isEqualTo(2);
-        assertThat(counter.count())
-                .as("recoverer should not run when retry succeeds")
-                .isEqualTo(0.0);
+        assertThatNoCounter(meterRegistry, "match-invite-requested");
+    }
+
+    private static FailingMessageHandler proxyOf(FailingMessageHandler target, MethodInterceptor interceptor) {
+        ProxyFactory factory = new ProxyFactory(target);
+        factory.addAdvice(interceptor);
+        return (FailingMessageHandler) factory.getProxy();
+    }
+
+    private static Message messageWithRoutingKey(String routingKey) {
+        Message message = new Message("{}".getBytes(), new MessageProperties());
+        message.getMessageProperties().setReceivedRoutingKey(routingKey);
+        return message;
+    }
+
+    private static double counterCount(SimpleMeterRegistry meterRegistry, String eventType) {
+        Counter counter = meterRegistry.get(AmqpConfig.SEND_FAILURES_COUNTER)
+                .tag("event_type", eventType)
+                .counter();
+        return counter.count();
+    }
+
+    private static void assertThatNoCounter(SimpleMeterRegistry meterRegistry, String eventType) {
+        assertThatThrownBy(() -> meterRegistry.get(AmqpConfig.SEND_FAILURES_COUNTER)
+                .tag("event_type", eventType)
+                .counter()).isInstanceOf(MeterNotFoundException.class);
     }
 
     // Mirrors the Spring AMQP listener container's call shape: the retry

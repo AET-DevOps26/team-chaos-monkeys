@@ -1,5 +1,6 @@
 .superpowers/
 docs/superpowers/plans/
+docs/superpowers/specs/
 
 # Per-developer compose customization (port overrides, debug mounts, etc.).
 # Copy docker-compose.override.yml.example to start.

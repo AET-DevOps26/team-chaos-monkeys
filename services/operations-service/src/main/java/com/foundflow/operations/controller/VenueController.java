@@ -1,6 +1,7 @@
 package com.foundflow.operations.controller;
 
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.dto.VenueResponse;
@@ -48,21 +49,23 @@ public class VenueController {
         return ResponseEntity.ok(venueService.getAllVenues(authentication.getToken()));
     }
 
-    @GetMapping("/kpis")
-    public ResponseEntity<VenueKpiResponse> getVenueKpis(
-            JwtAuthenticationToken authentication
-    ) {
-        return ResponseEntity.ok(venueKpiService.getKpis(authentication.getToken()));
+    @GetMapping("/public")
+    public ResponseEntity<List<PublicVenueResponse>> getPublicVenues() {
+        return ResponseEntity.ok(venueService.getPublicVenues());
     }
 
-    @GetMapping("/kpis/{id}")
-    public ResponseEntity<VenueKpiResponse> getVenueKpisById(
-            @PathVariable UUID id,
+    @GetMapping("/kpis")
+    public ResponseEntity<VenueKpiResponse> getVenueKpis(
+            @RequestParam(required = false) UUID venueId,
             JwtAuthenticationToken authentication
     ) {
-        return venueService.getVenueById(id, authentication.getToken())
+        if (venueId == null) {
+            return ResponseEntity.ok(venueKpiService.getKpis(authentication.getToken()));
+        }
+
+        return venueService.getVenueById(venueId, authentication.getToken())
                 .map(venue -> ResponseEntity.ok(venueKpiService.getKpis(
-                        id,
+                        venueId,
                         authentication.getToken()
                 )))
                 .orElseGet(() -> ResponseEntity.notFound().build());

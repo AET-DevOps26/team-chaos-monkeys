@@ -2,7 +2,7 @@ package com.foundflow.founditem.messaging;
 
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.founditem.domain.FoundItem;
@@ -23,11 +23,11 @@ public class FoundItemEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publishFoundItemLogged(FoundItem foundItem) {
+    public void publishFoundItemCreated(FoundItem foundItem) {
         rabbitTemplate.convertAndSend(
                 FoundFlowEventRouting.EXCHANGE,
-                FoundFlowEventRouting.FOUND_ITEM_LOGGED,
-                toEvent(foundItem)
+                FoundFlowEventRouting.FOUND_ITEM_CREATED,
+                toCreatedEvent(foundItem)
         );
     }
 
@@ -39,16 +39,16 @@ public class FoundItemEventPublisher {
         );
     }
 
-    private FoundItemLoggedEvent toEvent(FoundItem foundItem) {
-        return new FoundItemLoggedEvent(
+    private FoundItemCreatedEvent toCreatedEvent(FoundItem foundItem) {
+        return new FoundItemCreatedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 toInstant(foundItem.getFoundAt()),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
                 toPayload(foundItem.getAttributes())
@@ -62,9 +62,9 @@ public class FoundItemEventPublisher {
                 foundItem.getId(),
                 foundItem.getVenueId(),
                 foundItem.getPhotoKey(),
-                foundItem.getDescription(),
+                foundItem.getIntakeText(),
                 toInstant(foundItem.getFoundAt()),
-                foundItem.getLocationHint(),
+                foundItem.getLocation(),
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
                 toPayload(foundItem.getAttributes())

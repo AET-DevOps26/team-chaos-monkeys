@@ -4,13 +4,14 @@
  * OpenAPI definition
  * OpenAPI spec version: v0
  */
-import type { ItemAttributesDto } from './itemAttributesDto';
 
 export interface CreateFoundItemRequest {
-  description?: string;
+  /**
+   * @minLength 0
+   * @maxLength 2000
+   */
+  intakeText?: string;
   foundAt: string;
-  locationHint?: string;
   venueId: string;
   reporterId: string;
-  attributes?: ItemAttributesDto;
 }

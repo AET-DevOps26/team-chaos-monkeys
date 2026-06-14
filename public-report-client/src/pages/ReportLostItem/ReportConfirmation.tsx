@@ -19,7 +19,7 @@ export default function ReportConfirmation() {
   const report = state?.report
 
   if (!report?.id) {
-    return <Navigate to="/report" replace />
+    return <Navigate to="/" replace />
   }
 
   return (

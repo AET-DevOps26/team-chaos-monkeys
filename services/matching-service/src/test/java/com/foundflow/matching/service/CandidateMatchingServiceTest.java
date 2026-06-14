@@ -1,6 +1,6 @@
 package com.foundflow.matching.service;
 
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
@@ -239,7 +239,7 @@ class CandidateMatchingServiceTest {
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.findCandidatesForFoundItem(new FoundItemLoggedEvent(
+        service.findCandidatesForFoundItem(new FoundItemCreatedEvent(
                 UUID.randomUUID(), Instant.now(),
                 foundItemId, venueId,
                 "found/photo.jpg", "Black backpack",
@@ -300,7 +300,7 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of());
 
-        service.findCandidatesForFoundItem(new FoundItemLoggedEvent(
+        service.findCandidatesForFoundItem(new FoundItemCreatedEvent(
                 UUID.randomUUID(), Instant.now(),
                 foundItemId, venueId,
                 "found/photo.jpg", "Bag",

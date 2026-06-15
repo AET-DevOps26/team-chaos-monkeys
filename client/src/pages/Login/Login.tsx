@@ -80,7 +80,7 @@ export default function Login() {
           <>
           <span className="text-xs text-red-500">{submitError} {submitError?.includes('Invalid email or password') && (
             <span className="text-xs text-red-500">
-              wrong password? did you mean 'password123'?
+              wrong password. did you mean 'password123'?
             </span>
           )}</span>
           

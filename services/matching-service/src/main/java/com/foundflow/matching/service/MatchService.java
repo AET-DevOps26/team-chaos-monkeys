@@ -261,7 +261,7 @@ public class MatchService {
                     verifyVenueAccess(jwt, match.getVenueId());
                     String requestedRecipient = request == null ? null : request.email();
                     String defaultRecipient = hasText(requestedRecipient)
-                            ? match.getRecipientEmail()
+                            ? null
                             : resolveLostReportContactEmail(match, jwt);
                     String recipient = resolveRecipient(requestedRecipient, defaultRecipient, true);
                     return createPublicMatchLink(match, recipient);

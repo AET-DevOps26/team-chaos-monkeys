@@ -6,6 +6,11 @@ import type { LostReportResponse } from '@/api/lost-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import { useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
+import packageIcon from '@/assets/package.svg'
+import calendarIcon from '@/assets/calendar.svg'
+import mailIcon from '@/assets/mail.svg'
+import locationIcon from '@/assets/location.svg'
+import clockIcon from '@/assets/clock.svg'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
@@ -97,20 +102,7 @@ function NoPhotoTile({ label }: { label: string }) {
       aria-label={`No photo for ${label}`}
       className="flex h-full w-full flex-col items-center justify-center gap-1 bg-border/40 text-text"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-7 w-7 opacity-40"
-        aria-hidden="true"
-      >
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-        <path d="m3.3 7 8.7 5 8.7-5M12 22V12" />
-      </svg>
+      <img src={packageIcon} alt="" aria-hidden="true" className="h-7 w-7 opacity-40" />
       <span className="text-[10px] font-medium uppercase tracking-wide opacity-60">
         No photo
       </span>
@@ -146,21 +138,7 @@ function PickupBanner({ pickup }: { pickup: PickupResponse | undefined }) {
           : 'bg-border/40 text-text'
       }`}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-4 w-4 shrink-0"
-        aria-hidden="true"
-      >
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <path d="M16 2v4M8 2v4M3 10h18" />
-        {scheduled && <path d="m9 16 2 2 4-4" />}
-      </svg>
+      <img src={calendarIcon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
       <span className="min-w-0 truncate">
         {scheduled
           ? `Pickup scheduled at ${when || 'a set time'}`
@@ -265,20 +243,7 @@ export default function MatchCard({
               <InfoRow
                 title={lostEmail}
                 icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  >
-                    <rect x="2" y="4" width="20" height="16" rx="2" />
-                    <path d="m22 7-10 6L2 7" />
-                  </svg>
+                  <img src={mailIcon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
                 }
               >
                 <a className="hover:text-accent hover:underline" href={`mailto:${lostEmail}`}>
@@ -289,20 +254,7 @@ export default function MatchCard({
             {lostLocation && (
               <InfoRow
                 icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  >
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
+                  <img src={locationIcon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
                 }
               >
                 {lostLocation}
@@ -311,20 +263,7 @@ export default function MatchCard({
             {lostWhen && (
               <InfoRow
                 icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
+                  <img src={clockIcon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
                 }
               >
                 Lost {lostWhen}

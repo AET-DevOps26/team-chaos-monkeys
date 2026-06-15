@@ -2,7 +2,6 @@ package com.foundflow.pickup.controller;
 
 import com.foundflow.pickup.dto.CreatePickupRequest;
 import com.foundflow.pickup.dto.CreatePickupScheduleRequest;
-import com.foundflow.pickup.dto.PickupEmailLogResponse;
 import com.foundflow.pickup.dto.PickupResponse;
 import com.foundflow.pickup.dto.PickupScheduleResponse;
 import com.foundflow.pickup.dto.PickupSlotResponse;
@@ -165,11 +164,4 @@ public class PickupController {
         return ResponseEntity.notFound().build();
     }
 
-    @GetMapping("/email-log")
-    public ResponseEntity<List<PickupEmailLogResponse>> getEmailLog(
-            @RequestParam(required = false) String recipient,
-            JwtAuthenticationToken authentication
-    ) {
-        return ResponseEntity.ok(pickupService.getEmailLog(recipient, authentication.getToken()));
-    }
 }

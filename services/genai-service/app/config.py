@@ -42,6 +42,10 @@ class Settings(BaseSettings):
         default="nomic-embed-text", alias="OLLAMA_EMBED_MODEL"
     )
 
+    embedding_dimensions: int = Field(
+        default=768, alias="EMBEDDING_DIMENSIONS", gt=0
+    )
+
     timeout_seconds: int = Field(default=30, alias="GENAI_TIMEOUT_SECONDS", ge=1)
 
     @model_validator(mode="after")

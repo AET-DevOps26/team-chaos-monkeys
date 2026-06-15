@@ -1,6 +1,6 @@
 package com.foundflow.matching.messaging;
 
-import com.foundflow.events.FoundItemLoggedEvent;
+import com.foundflow.events.FoundItemCreatedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
@@ -15,8 +15,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -37,6 +37,7 @@ class IntakeEventListenerTest {
                 Instant.parse("2026-05-24T12:30:00Z"),
                 "Front desk",
                 "OPEN",
+                "guest@example.com",
                 new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
         );
 
@@ -46,10 +47,10 @@ class IntakeEventListenerTest {
     }
 
     @Test
-    void onFoundItemLogged_shouldTriggerCandidateSearch() {
+    void onFoundItemCreated_shouldTriggerCandidateSearch() {
         CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
         IntakeEventListener listener = new IntakeEventListener(candidateMatchingService, new SimpleMeterRegistry());
-        FoundItemLoggedEvent event = new FoundItemLoggedEvent(
+        FoundItemCreatedEvent event = new FoundItemCreatedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
                 UUID.randomUUID(),
@@ -63,7 +64,7 @@ class IntakeEventListenerTest {
                 new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
         );
 
-        listener.onFoundItemLogged(event);
+        listener.onFoundItemCreated(event);
 
         verify(candidateMatchingService).findCandidatesForFoundItem(event);
     }
@@ -82,6 +83,7 @@ class IntakeEventListenerTest {
                 Instant.parse("2026-05-24T12:45:00Z"),
                 "Updated front desk",
                 "OPEN",
+                "guest@example.com",
                 new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
         );
 
@@ -114,7 +116,7 @@ class IntakeEventListenerTest {
     }
 
     @Test
-    void nonRetryableGenAiError_shouldBeSkippedWithoutRabbitRedelivery() {
+    void nonRetryableGenAiError_shouldBubbleToRabbitRetryPolicy() {
         CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
         IntakeEventListener listener = new IntakeEventListener(candidateMatchingService, new SimpleMeterRegistry());
         LostReportCreatedEvent event = lostReportCreatedEvent();
@@ -122,13 +124,13 @@ class IntakeEventListenerTest {
                 .when(candidateMatchingService)
                 .findCandidatesForLostReport(event);
 
-        assertDoesNotThrow(() -> listener.onLostReportCreated(event));
+        assertThrows(RestClientException.class, () -> listener.onLostReportCreated(event));
 
         verify(candidateMatchingService).findCandidatesForLostReport(event);
     }
 
     @Test
-    void retryableGenAiError_shouldBeSkippedWithoutRabbitRedelivery() {
+    void retryableGenAiError_shouldBubbleToRabbitRetryPolicy() {
         CandidateMatchingService candidateMatchingService = mock(CandidateMatchingService.class);
         IntakeEventListener listener = new IntakeEventListener(candidateMatchingService, new SimpleMeterRegistry());
         LostReportCreatedEvent event = lostReportCreatedEvent();
@@ -137,7 +139,7 @@ class IntakeEventListenerTest {
                 .when(candidateMatchingService)
                 .findCandidatesForLostReport(event);
 
-        assertDoesNotThrow(() -> listener.onLostReportCreated(event));
+        assertThrows(ResourceAccessException.class, () -> listener.onLostReportCreated(event));
 
         verify(candidateMatchingService).findCandidatesForLostReport(event);
     }
@@ -152,7 +154,7 @@ class IntakeEventListenerTest {
                 .when(candidateMatchingService)
                 .findCandidatesForLostReport(event);
 
-        listener.onLostReportCreated(event);
+        assertThrows(RestClientException.class, () -> listener.onLostReportCreated(event));
 
         assertEquals(
                 1.0,
@@ -171,6 +173,7 @@ class IntakeEventListenerTest {
                 Instant.parse("2026-05-24T12:30:00Z"),
                 "Front desk",
                 "OPEN",
+                "guest@example.com",
                 new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
         );
     }

@@ -23,6 +23,7 @@ class FakeProvider:
         name: str = "fake",
         chat_response: str | Callable[[list[Message], bool], str] = "ok",
         embed_vector: list[float] | Callable[[str], list[float]] | None = None,
+        embedding_dimensions: int = 3,
         raise_on_chat: Exception | None = None,
         raise_on_embed: Exception | None = None,
     ) -> None:
@@ -30,8 +31,9 @@ class FakeProvider:
         # routes it onto `genai_provider_requests_total{provider}`.
         self.name = name
         self._chat_response = chat_response
+        self._embedding_dimensions = embedding_dimensions
         self._embed_vector: list[float] | Callable[[str], list[float]] = (
-            embed_vector if embed_vector is not None else [0.1, 0.2, 0.3]
+            embed_vector if embed_vector is not None else [0.1] * embedding_dimensions
         )
         self._raise_on_chat = raise_on_chat
         self._raise_on_embed = raise_on_embed

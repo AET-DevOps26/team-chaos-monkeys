@@ -1,13 +1,8 @@
 import { z } from 'zod'
 
 export const foundItemIntakeSchema = z.object({
-  description: z.string().optional(),
+  intakeText: z.string().min(0).max(2000).optional(),
   foundAt: z.string().min(1, 'Required'),
-  locationHint: z.string().optional(),
-  category: z.string().optional(),
-  brand: z.string().optional(),
-  color: z.string().optional(),
-  marks: z.array(z.object({ value: z.string() })),
   photo: z.instanceof(File).nullable(),
 })
 

@@ -18,7 +18,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "match_id", nullable = false)
+    @Column(name = "match_id")
     private UUID matchId;
 
     @Column(name = "venue_id")

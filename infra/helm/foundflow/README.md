@@ -1,16 +1,18 @@
 # FoundFlow Helm chart
 
-Single umbrella chart that deploys all FoundFlow services (gateway + 6 Spring
-microservices + Python GenAI service + React client), six per-service Bitnami
-PostgreSQL releasess and an in-namespace Grafana preloaded with the
-`Services — RED` dashboard.
+Current umbrella chart for the cluster deployment. It deploys the gateway,
+seven Spring backend services (`auth`, `lost-item`, `found-item`, `matching`,
+`notification`, `operations`, `pickup`), the Python GenAI service, the React
+client, the public report client, seven per-service PostgreSQL StatefulSets,
+RabbitMQ, MinIO, and an in-namespace
+Grafana preloaded with the `Services — RED` dashboard.
 
 Deploys exclusively into the namespace `team-chaos-monkeys`.
 
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/local-k8s.md` for runtime-specific setup. One-command path:
+OrbStack. See `docs/deployment/local-kubernetes.md` for runtime-specific setup. One-command path:
 
 ```sh
 make -C infra/helm kube-quickstart \
@@ -47,10 +49,10 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 
 | Path | Purpose |
 |------|---------|
-| `Chart.yaml` | Declares 6 Bitnami `postgresql` dependencies (one per Spring service). |
+| `Chart.yaml` | Declares chart metadata; service and database resources are rendered from `values.yaml`. |
 | `values.yaml` | Defaults targeting AET (cert-manager, csi-rbd-sc, GHCR images). |
 | `values-local.yaml` | Local-cluster overrides: no TLS, `*.localtest.me`, `hostpath` storage (override to `local-path` on OrbStack), `IfNotPresent` pull policy so the shared docker daemon's images are used. |
-| `values-aet.yaml` | AET-specific pins. Not applied in CICD-59; consumed by the future CD ticket. |
+| `values-aet.yaml` | AET-specific pins consumed by `.github/workflows/aet-helm-deploy.yml`. |
 | `templates/_helpers.tpl` | Labels, image ref, env/DB wiring helpers. |
 | `templates/deployments.yaml` | Ranges `.Values.services` → one `Deployment` each. |
 | `templates/services.yaml` | Ranges `.Values.services` → one `Service` each. |
@@ -70,16 +72,35 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
   `http://auth-service:8081`, so changing a service key here will break in-cluster
   routing — keep them in sync.
 
-- **Bitnami Postgres releases use `fullnameOverride`** so their Service DNS is
-  `auth-db`, `lost-item-db`, … exactly like docker-compose. Spring services
-  consume `SPRING_DATASOURCE_URL=jdbc:postgresql://<db>:5432/<dbname>` and pull
-  the password from the Bitnami-managed Secret (key `password`).
+- **Per-service Postgres resources keep compose-compatible DNS names.** The
+  chart renders one StatefulSet, Service, PVC, and Secret per entry in
+  `.Values.databases`, so Spring services consume
+  `SPRING_DATASOURCE_URL=jdbc:postgresql://<db>:5432/<dbname>` and pull the
+  password from the matching database Secret (key `password`).
 
 - **All app secrets live in one Secret** (`foundflow-app-secrets`) keyed by
   `.Values.secrets.<name>`. Real values are passed at install time via a
   gitignored `infra/helm/foundflow/values-local.yaml.local` (auto-included
   by the `helm-install` make target when present) or `helm --set`; nothing
   secret is committed.
+
+  Recognised keys (all optional unless flagged):
+  | values key             | env var consumed by                      | purpose |
+  |------------------------|------------------------------------------|---------|
+  | `openaiApiKey`         | `OPENAI_API_KEY` (genai-service)         | OpenAI provider key when `GENAI_PROVIDER=openai`. |
+  | `devAdminEmail`        | `DEV_ADMIN_EMAIL` (auth-service)         | Bootstrap admin email seeded on first start. |
+  | `devAdminPassword`     | `DEV_ADMIN_PASSWORD` (auth-service)      | Bootstrap admin password. |
+  | `jwtRsaPrivateKey`     | `JWT_RSA_PRIVATE_KEY` (auth-service)     | Override the auto-generated JWT signing key. |
+  | `internalServiceToken` | `INTERNAL_SERVICE_TOKEN` (found-item, matching) | Shared token for matching-service calls to found-item internal endpoints. Required. |
+  | `magicLinkSecret`      | `MAGIC_LINK_SECRET` (matching, pickup, notification) | HMAC secret for public match/pickup magic-link tokens. Falls back to the dev default when empty. |
+  | `brevoSmtpUsername`    | `SPRING_MAIL_USERNAME` (notification-service) | Brevo SMTP login (the verified Foundflow Gmail). |
+  | `brevoSmtpPassword`    | `SPRING_MAIL_PASSWORD` (notification-service) | Brevo SMTP password (issued in the Brevo dashboard). |
+  | `brevoMailFromAddress` | `FOUNDFLOW_MAIL_FROM` (notification-service)  | From: header for outbound email. Falls back to `foundflow.notifications.from-address`. |
+
+  Without `brevoSmtp*` set the notification-service consumer still persists
+  every notifications row (URL in `body`), but each SMTP attempt fails
+  authentication and the message is dropped after the bounded retry —
+  visible on the `notifications_send_failures_total` Prometheus counter.
 
 - **Monitoring resources are labelled `release: <prometheusReleaseLabel>`** so
   the cluster Prometheus Operator picks them up. Default in `values.yaml` is
@@ -101,11 +122,99 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 1. Add a Dockerfile under `services/<name>/`.
 2. Add an entry under `services.<name>` in `values.yaml` (and override pieces
    in `values-local.yaml` / `values-aet.yaml` if needed). Pick a unique port.
-3. If it needs a database, declare it under `databases.<alias>`, add a Bitnami
-   dependency to `Chart.yaml`, and set `dbRef: <alias>` on the service.
+3. If it needs a database, add an entry under `.Values.databases` and set
+   `dbRef: <alias>` on the service.
 4. If it talks to another service, use the bare service name as hostname
    (e.g. `http://auth-service:8081`).
 5. `make -C infra/helm build helm-install`.
+
+## Deploy to AET via GitHub Actions
+
+The AET deployment workflow is `.github/workflows/aet-helm-deploy.yml`. It
+builds and pushes all application images to GHCR with one immutable tag, then
+runs:
+
+```sh
+helm upgrade --install foundflow ./infra/helm/foundflow \
+  -n team-chaos-monkeys \
+  -f infra/helm/foundflow/values-aet.yaml \
+  -f <generated-secret-values-file> \
+  --set-string global.imageTag=<commit-sha> \
+  --wait --atomic --timeout 15m
+```
+
+Triggers:
+
+- automatic: every push to `main`
+- manual: Actions -> `Deploy Helm chart to AET` -> `Run workflow`
+
+Required repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `AET_KUBECONFIG_B64` | Base64-encoded kubeconfig for the AET cluster. |
+| `OPENAI_API_KEY` | GenAI OpenAI provider key. |
+| `DEV_ADMIN_EMAIL` | Bootstrap admin email. |
+| `DEV_ADMIN_PASSWORD` | Bootstrap admin password. |
+| `INTERNAL_SERVICE_TOKEN` | Shared internal service token for matching/found-item calls. |
+| `MAGIC_LINK_SECRET` | HMAC secret for public match and pickup links. |
+| `BREVO_SMTP_USERNAME` | Brevo SMTP username. |
+| `BREVO_SMTP_PASSWORD` | Brevo SMTP password. |
+| `BREVO_MAIL_FROM` | Sender address for outbound mail. |
+
+Optional repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `JWT_RSA_PRIVATE_KEY` | Stable JWT signing key for auth-service. |
+| `GENAI_INTERNAL_TOKEN` | Optional token sent to genai-service by Spring callers. |
+
+To create `AET_KUBECONFIG_B64` from a working local kubeconfig:
+
+```sh
+base64 -w 0 ~/.kube/config
+```
+
+On macOS, use:
+
+```sh
+base64 < ~/.kube/config | tr -d '\n'
+```
+
+On Windows PowerShell, use:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.kube\config"))
+```
+
+## Verify an AET deployment
+
+In GitHub Actions, the workflow should show:
+
+- successful `Build + push images`
+- successful `Helm lint`
+- successful `helm upgrade --install`
+- successful public smoke checks for `/` and `/api/actuator/health`
+
+From a local machine with AET cluster access:
+
+```sh
+kubectl -n team-chaos-monkeys get pods,svc,ingress
+kubectl -n team-chaos-monkeys rollout status deployment/gateway-service
+kubectl -n team-chaos-monkeys rollout status deployment/client
+helm -n team-chaos-monkeys status foundflow
+helm -n team-chaos-monkeys history foundflow
+```
+
+From any machine with internet access:
+
+```sh
+curl -I https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
+curl -I https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/api/actuator/health
+```
+
+Expected results: the client returns `200`; the gateway health endpoint through
+the public ingress returns `401` because the gateway security chain is active.
 
 ## Ollama retrofit (deferred)
 
@@ -121,13 +230,10 @@ To add a local-model option later:
 
 No service-code changes required — the provider switch already exists.
 
-## Out of scope for CICD-59
+## Current limitations
 
-- GitHub Actions workflow that runs `helm upgrade --install` against AET on
-  merge to `main` (follow-up CICD ticket).
-- Image-publish-to-GHCR step in CI (prerequisite for the CD ticket).
-- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO
-  is cluster-internal in this PR; an ingress subpath or gateway proxy is a
+- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO is
+  cluster-internal in this chart; an ingress subpath or gateway proxy is a
   follow-up.
 
 ## Dashboard sync

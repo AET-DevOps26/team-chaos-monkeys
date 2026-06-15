@@ -14,6 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +42,8 @@ class ItemEmbeddingRepositoryIT {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
+                .placeholders(Map.of("embedding_dim", "768"))
+                .cleanDisabled(false)
                 .load();
         flyway.migrate();
 
@@ -64,6 +67,7 @@ class ItemEmbeddingRepositoryIT {
                 itemId,
                 venueId,
                 "Bag",
+                "guest@example.com",
                 randomUnitVector(),
                 "Black backpack | category: Bag"
         ));
@@ -78,11 +82,11 @@ class ItemEmbeddingRepositoryIT {
         UUID venueId = UUID.randomUUID();
 
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Bag", null,
                 randomUnitVector(), "first"
         ));
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Wallet",
+                UUID.randomUUID(), ItemType.LOST, itemId, venueId, "Wallet", "guest@example.com",
                 randomUnitVector(), "second"
         ));
 
@@ -93,6 +97,11 @@ class ItemEmbeddingRepositoryIT {
         );
         assertThat(rowCount).isEqualTo(1);
         assertThat(repository.findTextSource(ItemType.LOST, itemId)).contains("second");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT contact_email FROM item_embeddings WHERE item_type = 'LOST' AND item_id = ?",
+                String.class,
+                itemId
+        )).isEqualTo("guest@example.com");
     }
 
     @Test
@@ -108,22 +117,22 @@ class ItemEmbeddingRepositoryIT {
 
         // Found item, same venue, very close to query
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, nearFoundId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, nearFoundId, venueId, "Bag", null,
                 unitVector(0.99f, 0.14f), "near"
         ));
         // Found item, same venue, orthogonal to query
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, farFoundId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, farFoundId, venueId, "Bag", null,
                 unitVector(0.0f, 1.0f), "far"
         ));
         // Found item, DIFFERENT venue, should not appear
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.FOUND, wrongVenueFoundId, otherVenueId, "Bag",
+                UUID.randomUUID(), ItemType.FOUND, wrongVenueFoundId, otherVenueId, "Bag", null,
                 unitVector(1.0f, 0.0f), "wrong-venue"
         ));
         // LOST in same venue, should not appear when searching FOUND
         repository.upsert(new ItemEmbedding(
-                UUID.randomUUID(), ItemType.LOST, sameTypeIgnoredId, venueId, "Bag",
+                UUID.randomUUID(), ItemType.LOST, sameTypeIgnoredId, venueId, "Bag", "lost@example.com",
                 unitVector(1.0f, 0.0f), "wrong-type"
         ));
 
@@ -139,6 +148,127 @@ class ItemEmbeddingRepositoryIT {
         assertThat(results.get(0).cosineDistance()).isLessThan(results.get(1).cosineDistance());
         assertThat(results.get(0).textSource()).isEqualTo("near");
         assertThat(results.get(1).textSource()).isEqualTo("far");
+    }
+
+    @Test
+    void findTopKForSearch_bothScope_returnsAcrossItemTypesOrderedByCosineDistance() {
+        UUID venueId = UUID.randomUUID();
+        UUID foundId = UUID.randomUUID();
+        UUID lostId = UUID.randomUUID();
+
+        float[] query = unitVector(1.0f, 0.0f);
+
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, foundId, venueId, "Bag", null,
+                unitVector(0.99f, 0.14f), "found-near"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.LOST, lostId, venueId, "Bag", "lost@example.com",
+                unitVector(0.8f, 0.6f), "lost-far"
+        ));
+
+        List<ScopedSimilarItem> results = repository.findTopKForSearch(null, venueId, query, 10);
+
+        assertThat(results).extracting(ScopedSimilarItem::itemId)
+                .containsExactly(foundId, lostId);
+        assertThat(results).extracting(ScopedSimilarItem::itemType)
+                .containsExactly(ItemType.FOUND, ItemType.LOST);
+        assertThat(results.get(0).cosineDistance()).isLessThan(results.get(1).cosineDistance());
+    }
+
+    @Test
+    void findTopKForSearch_foundScope_returnsOnlyFoundItems() {
+        UUID venueId = UUID.randomUUID();
+        UUID foundId = UUID.randomUUID();
+        UUID lostId = UUID.randomUUID();
+
+        float[] query = unitVector(1.0f, 0.0f);
+
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, foundId, venueId, "Bag", null,
+                unitVector(1.0f, 0.0f), "found"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.LOST, lostId, venueId, "Bag", "lost@example.com",
+                unitVector(1.0f, 0.0f), "lost"
+        ));
+
+        List<ScopedSimilarItem> results = repository.findTopKForSearch(ItemType.FOUND, venueId, query, 10);
+
+        assertThat(results).extracting(ScopedSimilarItem::itemId).containsExactly(foundId);
+        assertThat(results).allSatisfy(r -> assertThat(r.itemType()).isEqualTo(ItemType.FOUND));
+    }
+
+    @Test
+    void findTopKForSearch_lostScope_returnsOnlyLostItems() {
+        UUID venueId = UUID.randomUUID();
+        UUID foundId = UUID.randomUUID();
+        UUID lostId = UUID.randomUUID();
+
+        float[] query = unitVector(1.0f, 0.0f);
+
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, foundId, venueId, "Bag", null,
+                unitVector(1.0f, 0.0f), "found"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.LOST, lostId, venueId, "Bag", "lost@example.com",
+                unitVector(1.0f, 0.0f), "lost"
+        ));
+
+        List<ScopedSimilarItem> results = repository.findTopKForSearch(ItemType.LOST, venueId, query, 10);
+
+        assertThat(results).extracting(ScopedSimilarItem::itemId).containsExactly(lostId);
+        assertThat(results).allSatisfy(r -> assertThat(r.itemType()).isEqualTo(ItemType.LOST));
+    }
+
+    @Test
+    void findTopKForSearch_isVenueIsolated_otherVenueRowNeverSurfaces() {
+        UUID venueId = UUID.randomUUID();
+        UUID otherVenueId = UUID.randomUUID();
+        UUID mineId = UUID.randomUUID();
+        UUID othersId = UUID.randomUUID();
+
+        float[] query = unitVector(1.0f, 0.0f);
+
+        // My venue: a decent (not perfect) match.
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, mineId, venueId, "Bag", null,
+                unitVector(0.9f, 0.43f), "mine"
+        ));
+        // Other venue: a PERFECT match (identical to the query) — must still never surface.
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, othersId, otherVenueId, "Bag", null,
+                unitVector(1.0f, 0.0f), "other-venue"
+        ));
+
+        List<ScopedSimilarItem> results = repository.findTopKForSearch(null, venueId, query, 10);
+
+        assertThat(results).extracting(ScopedSimilarItem::itemId).containsExactly(mineId);
+        assertThat(results).extracting(ScopedSimilarItem::itemId).doesNotContain(othersId);
+    }
+
+    @Test
+    void findTopKForSearch_respectsLimit() {
+        UUID venueId = UUID.randomUUID();
+        float[] query = unitVector(1.0f, 0.0f);
+
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, UUID.randomUUID(), venueId, "Bag", null,
+                unitVector(1.0f, 0.0f), "a"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, UUID.randomUUID(), venueId, "Bag", null,
+                unitVector(0.9f, 0.43f), "b"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.LOST, UUID.randomUUID(), venueId, "Bag", "lost@example.com",
+                unitVector(0.8f, 0.6f), "c"
+        ));
+
+        List<ScopedSimilarItem> results = repository.findTopKForSearch(null, venueId, query, 2);
+
+        assertThat(results).hasSize(2);
     }
 
     private static float[] randomUnitVector() {

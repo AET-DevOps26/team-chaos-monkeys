@@ -109,12 +109,15 @@ public class AuthService {
     }
 
     private String createAccessToken(User user, Instant issuedAt, Instant expiresAt) {
+        String userId = requireUserId(user);
+
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(issuerUri)
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .id(UUID.randomUUID().toString())
-                .subject(user.getEmail())
+                .subject(userId)
+                .claim("user_id", userId)
                 .claim("roles", List.of(user.getRole().name()));
 
         if (user.getVenueId() != null) {
@@ -123,6 +126,14 @@ public class AuthService {
 
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build()))
                 .getTokenValue();
+    }
+
+    private String requireUserId(User user) {
+        if (user.getId() == null) {
+            throw new IllegalStateException("Authenticated user has no id.");
+        }
+
+        return user.getId().toString();
     }
 
     private String createRefreshToken(User user, Instant now) {

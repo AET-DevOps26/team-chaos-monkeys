@@ -124,6 +124,33 @@ class AttributeExtractionServiceTest {
     }
 
     @Test
+    void mapsLocation_whenPresentInExtraction() {
+        AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
+
+        ExtractAttributesResponse response = buildResponse("backpack", null, "black");
+        response.getAttributes().setLocation("neben Buehne 2");
+        when(genaiClient.extractAttributes(any())).thenReturn(response);
+
+        Optional<ExtractionResult> result = service.extractWithLocation("Schwarzer Rucksack neben Buehne 2", null);
+
+        assertTrue(result.isPresent());
+        assertEquals("neben Buehne 2", result.get().location());
+        assertEquals("backpack", result.get().attributes().getCategory());
+    }
+
+    @Test
+    void mapsNullLocation_whenAbsentFromExtraction() {
+        AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
+
+        when(genaiClient.extractAttributes(any())).thenReturn(buildResponse("wallet", null, "brown"));
+
+        Optional<ExtractionResult> result = service.extractWithLocation("Found a brown wallet", null);
+
+        assertTrue(result.isPresent());
+        assertNull(result.get().location());
+    }
+
+    @Test
     void returnsEmpty_whenClientThrows() {
         AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
 

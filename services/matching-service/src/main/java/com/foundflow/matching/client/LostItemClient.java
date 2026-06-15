@@ -26,13 +26,18 @@ public class LostItemClient {
     }
 
     public ItemVenueReference getLostItem(UUID id, Jwt jwt) {
+        LostReportContactReference reference = getLostReportContact(id, jwt);
+        return new ItemVenueReference(reference.id(), reference.venueId());
+    }
+
+    public LostReportContactReference getLostReportContact(UUID id, Jwt jwt) {
         try {
-            ItemVenueReference reference = restClient
+            LostReportContactReference reference = restClient
                     .get()
                     .uri("/api/lost-items/{id}", id)
                     .headers(headers -> headers.setBearerAuth(jwt.getTokenValue()))
                     .retrieve()
-                    .body(ItemVenueReference.class);
+                    .body(LostReportContactReference.class);
 
             if (reference == null || reference.venueId() == null) {
                 throw new ResponseStatusException(

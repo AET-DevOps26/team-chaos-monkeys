@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -100,29 +101,22 @@ class LostReportServiceTest {
     }
 
     @Test
-    void createLostReportWithPhoto_shouldPersistGeneratedPhotoKey() {
+    void createLostReport_shouldPersistWithoutPhotoKey() {
         LostReportService service = service();
 
         UUID venueId = UUID.randomUUID();
-        MockMultipartFile photo = new MockMultipartFile(
-                "photo",
-                "bag.jpg",
-                MediaType.IMAGE_JPEG_VALUE,
-                "photo-bytes".getBytes()
-        );
         CreateLostReportRequest request = createRequest(venueId);
 
-        when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
         when(lostReportRepository.save(any(LostReport.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        LostReportResponse response = service.createLostReport(request, photo, null);
+        LostReportResponse response = service.createLostReport(request, null);
 
         ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
         verify(lostReportRepository).save(captor.capture());
 
-        assertEquals("lost-reports/2026/05/generated.jpg", captor.getValue().getPhotoKey());
-        assertEquals("lost-reports/2026/05/generated.jpg", response.photoKey());
+        assertNull(captor.getValue().getPhotoKey());
+        assertNull(response.photoKey());
     }
 
     @Test
@@ -231,6 +225,70 @@ class LostReportServiceTest {
         verify(photoStorage).delete("photo-123");
         verify(lostReportRepository).save(existingReport);
         verify(eventPublisher).publishLostReportUpdated(existingReport);
+    }
+
+    @Test
+    void updateLostReportPhoto_shouldAllowPublicInitialPhotoUploadAndExtractAttributes() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        LostReport existingReport = new LostReport(
+                null,
+                "Schwarzer Rucksack verloren",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Neben Buehne 2",
+                ReportStatus.OPEN,
+                venueId,
+                "person@example.com",
+                new ItemAttributes(null, null, null, List.of())
+        );
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, "Black", List.of());
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
+        when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extract(any(), any())).thenReturn(Optional.of(extractedAttributes));
+
+        Optional<LostReportResponse> response = service.updateLostReportPhoto(id, photo, null);
+
+        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
+        verify(lostReportRepository, times(2)).save(captor.capture());
+        assertTrue(response.isPresent());
+        assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
+        assertEquals("Bag", captor.getValue().getAttributes().getCategory());
+        verify(eventPublisher).publishLostReportUpdated(existingReport);
+        verify(photoStorage, never()).delete(any());
+    }
+
+    @Test
+    void updateLostReportPhoto_shouldRejectPublicPhotoReplacement() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        MockMultipartFile photo = new MockMultipartFile(
+                "photo",
+                "bag.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "photo-bytes".getBytes()
+        );
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport(venueId)));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.updateLostReportPhoto(id, photo, null)
+        );
+        verify(photoStorage, never()).store(any());
+        verify(lostReportRepository, never()).save(any());
     }
 
     @Test

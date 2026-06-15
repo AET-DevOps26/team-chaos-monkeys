@@ -169,3 +169,45 @@ tests:
       - eval_time: 12m
         alertname: GenAIValidationErrorSpike
         exp_alerts: []
+
+  # RabbitMqDeadLetterQueueNotEmpty: any ready DLQ message for 2m -> firing
+  - interval: 1m
+    input_series:
+      - series: 'rabbitmq_queue_messages_ready{queue="matching.lost-report-created.v1.dlq", vhost="/"}'
+        values: '1x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RabbitMqDeadLetterQueueNotEmpty
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              queue: matching.lost-report-created.v1.dlq
+              vhost: /
+            exp_annotations:
+              summary: "RabbitMQ DLQ matching.lost-report-created.v1.dlq has messages"
+              description: "Dead-letter queue matching.lost-report-created.v1.dlq has had ready messages for at least 2 minutes."
+  # NotificationSendDropsElevated: 1 drop/min for 15m → increase[15m] ≫ 3 → firing
+  - interval: 1m
+    input_series:
+      - series: 'notifications_send_failures_total{job="notification-service", event_type="match-invite-requested"}'
+        values: '0+1x16'                        # cumulative 0,1,…,16 — 15+ drops in the 15m window
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: NotificationSendDropsElevated
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              event_type: match-invite-requested
+            exp_annotations:
+              summary: "notification-service dropping match-invite-requested sends"
+              description: "More than 3 notification sends for match-invite-requested hit the recoverer (ack-and-drop after retries) in the last 15 minutes."
+
+  # NotificationSendDropsElevated: only 1 drop ever → increase[15m] ≈ 1 → no firing
+  - interval: 1m
+    input_series:
+      - series: 'notifications_send_failures_total{job="notification-service", event_type="pickup-confirmation-requested"}'
+        values: '0+1x2 2x14'                    # cumulative 0,1,2,2,…,2 — one drop, then steady
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: NotificationSendDropsElevated
+        exp_alerts: []

@@ -2,6 +2,7 @@ package com.foundflow.notification.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -28,6 +29,16 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/notifications/bluePrints",
+                                "/api/notifications/bluePrints/**"
+                        )
+                        .hasAnyRole("ADMIN", "STAFF", "OPS_MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/notifications/bluePrints")
+                        .hasAnyRole("ADMIN", "OPS_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/notifications/bluePrints/**")
+                        .hasAnyRole("ADMIN", "OPS_MANAGER")
                         .requestMatchers("/api/**")
                         .hasAnyRole("ADMIN", "STAFF", "OPS_MANAGER")
                         .anyRequest().authenticated()

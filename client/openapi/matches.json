@@ -1,0 +1,626 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://matching-service:8084",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/matches/{id}": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "getMatchById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "updateMatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/public/match-links/{token}/reject": {
+      "put": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "rejectPublicMatch",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/public/match-links/{token}/confirm": {
+      "put": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "confirmPublicMatch",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "getAllMatches",
+        "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MatchResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "createMatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/{id}/public-link": {
+      "post": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "createPublicMatchLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePublicMatchLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMatchLinkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/public/{token}": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "getPublicMatch",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/histogram": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "getMatchHistogram",
+        "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistogramResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/count": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "countMatches",
+        "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "name": "venueId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UpdateMatchRequest": {
+        "type": "object",
+        "properties": {
+          "foundItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lostReportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "REJECTED"
+            ]
+          },
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
+          }
+        },
+        "required": [
+          "attributeScore",
+          "combinedScore",
+          "foundItemId",
+          "lostReportId",
+          "semanticScore",
+          "status"
+        ]
+      },
+      "MatchResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "foundItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lostReportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "REJECTED"
+            ]
+          },
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateMatchRequest": {
+        "type": "object",
+        "properties": {
+          "foundItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lostReportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
+          }
+        },
+        "required": [
+          "attributeScore",
+          "combinedScore",
+          "foundItemId",
+          "lostReportId",
+          "semanticScore"
+        ]
+      },
+      "CreatePublicMatchLinkRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PublicMatchLinkResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "matchUrl": {
+            "type": "string"
+          },
+          "pickupUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "HistogramResponse": {
+        "type": "object",
+        "properties": {
+          "perDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perWeek": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          },
+          "perMonth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeBucketCount"
+            }
+          }
+        }
+      },
+      "TimeBucketCount": {
+        "type": "object",
+        "properties": {
+          "bucketStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CountResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

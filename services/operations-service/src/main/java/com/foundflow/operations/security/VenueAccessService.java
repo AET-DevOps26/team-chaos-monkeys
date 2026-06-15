@@ -14,6 +14,10 @@ public class VenueAccessService {
         return hasRole(jwt, "ADMIN");
     }
 
+    public boolean isOpsManager(Jwt jwt) {
+        return hasRole(jwt, "OPS_MANAGER");
+    }
+
     public UUID getVenueId(Jwt jwt) {
         String venueId = jwt.getClaimAsString("venue_id");
 

@@ -1,0 +1,182 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+
+enum Role {
+  STAFF
+  OPS_MANAGER
+  ADMIN
+}
+
+enum ReportStatus {
+  OPEN
+  MATCHED
+  CLOSED
+  COLLECTED
+}
+
+enum ItemStatus {
+  STORED
+  RESERVED
+  RETURNED
+  DISPOSED
+}
+
+enum MatchStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum ItemType {
+  LOST
+  FOUND
+}
+
+enum ScheduleRecurrenceType {
+  ONCE
+  WEEKLY
+}
+
+class Venue {
+  id: UUID
+  name: String
+  tone: String
+  defaultLanguage: String
+}
+
+class User {
+  id: UUID
+  email: String
+  role: Role
+  passwordHash: String
+  venueId: UUID
+}
+
+class RefreshToken {
+  id: UUID
+  userId: UUID
+  tokenHash: String
+  expiresAt: Instant
+  revokedAt: Instant
+  createdAt: Instant
+}
+
+class ItemAttributes {
+  category: String
+  brand: String
+  color: String
+  marks: List<String>
+}
+
+class LostReport {
+  id: UUID
+  photoKey: String
+  description: String
+  lostAt: LocalDateTime
+  location: String
+  status: ReportStatus
+  venueId: UUID
+  contactEmail: String
+  attributes: ItemAttributes
+}
+
+class FoundItem {
+  id: UUID
+  photoKey: String
+  intakeText: String
+  foundAt: LocalDateTime
+  location: String
+  status: ItemStatus
+  venueId: UUID
+  reporterId: UUID
+  attributes: ItemAttributes
+}
+
+class Match {
+  id: UUID
+  foundItemId: UUID
+  lostReportId: UUID
+  venueId: UUID
+  recipientEmail: String
+  publicLinkToken: String
+  publicLinkRecipientEmail: String
+  publicLinkIssuedAt: LocalDateTime
+  status: MatchStatus
+  attributeScore: float
+  semanticScore: float
+  combinedScore: float
+  createdAt: LocalDateTime
+  verifyVerdict: String
+  verifyConfidence: Float
+  verifyRationale: String
+  verifyModelProvider: String
+  verifyModelName: String
+  verifyCompletedAt: OffsetDateTime
+}
+
+class ItemEmbedding {
+  id: UUID
+  itemType: ItemType
+  itemId: UUID
+  venueId: UUID
+  category: String
+  contactEmail: String
+  embedding: vector
+  textSource: String
+}
+
+class Notification {
+  id: UUID
+  matchId: UUID
+  venueId: UUID
+  recipientAddress: String
+  language: String
+  subject: String
+  header: String
+  body: String
+  sentAt: LocalDateTime
+}
+
+class Pickup {
+  id: UUID
+  pickupAt: LocalDateTime
+  venueId: UUID
+  matchId: UUID
+  email: String
+}
+
+class PickupSchedule {
+  id: UUID
+  recurrenceType: ScheduleRecurrenceType
+  startDate: LocalDate
+  endDate: LocalDate
+  dayOfWeek: DayOfWeek
+  startTime: LocalTime
+  endTime: LocalTime
+  slotLengthInMinutes: int
+  venueId: UUID
+}
+
+Venue "0..1" -- "*" User : assigned by venueId
+User "1" -- "*" RefreshToken : owns
+Venue "1" -- "*" LostReport : owns
+Venue "1" -- "*" FoundItem : owns
+Venue "1" -- "*" Match : owns
+Venue "1" -- "*" Notification : owns
+Venue "1" -- "*" Pickup : owns
+Venue "1" -- "*" PickupSchedule : defines
+
+User "1" -- "*" FoundItem : reporterId
+
+LostReport "1" *-- "0..1" ItemAttributes : embedded
+FoundItem "1" *-- "0..1" ItemAttributes : embedded
+
+Match "*" -- "1" FoundItem : foundItemId
+Match "*" -- "1" LostReport : lostReportId
+Match "1" -- "0..1" Pickup : matchId
+Notification "*" -- "1" Match : matchId
+
+ItemEmbedding "*" -- "1" LostReport : itemId when LOST
+ItemEmbedding "*" -- "1" FoundItem : itemId when FOUND
+@enduml

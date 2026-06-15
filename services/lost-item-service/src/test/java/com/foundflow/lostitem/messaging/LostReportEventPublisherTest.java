@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 class LostReportEventPublisherTest {
 
     @Test
-    void publishLostReportCreated_shouldSendDomainEventWithoutContactEmail() {
+    void publishLostReportCreated_shouldSendDomainEventWithContactEmail() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         LostReportEventPublisher publisher = new LostReportEventPublisher(rabbitTemplate);
         LostReport lostReport = lostReport();
@@ -48,6 +48,7 @@ class LostReportEventPublisherTest {
         assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.lostAt());
         assertEquals("Front desk", event.location());
         assertEquals("OPEN", event.status());
+        assertEquals("guest@example.com", event.contactEmail());
         assertEquals("Bag", event.attributes().category());
         assertEquals("Nike", event.attributes().brand());
         assertEquals("Black", event.attributes().color());
@@ -55,7 +56,7 @@ class LostReportEventPublisherTest {
     }
 
     @Test
-    void publishLostReportUpdated_shouldSendDomainEventWithoutContactEmail() {
+    void publishLostReportUpdated_shouldSendDomainEventWithContactEmail() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
         LostReportEventPublisher publisher = new LostReportEventPublisher(rabbitTemplate);
         LostReport lostReport = lostReport();
@@ -78,6 +79,7 @@ class LostReportEventPublisherTest {
         assertEquals(Instant.parse("2026-05-24T11:30:00Z"), event.lostAt());
         assertEquals("Front desk", event.location());
         assertEquals("OPEN", event.status());
+        assertEquals("guest@example.com", event.contactEmail());
         assertEquals("Bag", event.attributes().category());
     }
 

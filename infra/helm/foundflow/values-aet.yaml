@@ -5,7 +5,8 @@
 # NOT applied in this PR. Wire CI to:
 #   helm upgrade --install foundflow ./infra/helm/foundflow \
 #     -n team-chaos-monkeys -f infra/helm/foundflow/values-aet.yaml \
-#     --set secrets.openaiApiKey=$OPENAI_API_KEY ...
+#     --set secrets.openaiApiKey=$OPENAI_API_KEY \
+#     --set secrets.internalServiceToken=$INTERNAL_SERVICE_TOKEN ...
 #
 # Most defaults in values.yaml already target AET. This file pins the
 # deploy-target specifics (real hostname, cert-manager issuer, AET storage

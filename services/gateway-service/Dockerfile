@@ -1,8 +1,11 @@
 FROM gradle:9-jdk21 AS build
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY . .
+COPY shared/test-architecture ./shared/test-architecture
+COPY services/gateway-service ./services/gateway-service
+
+WORKDIR /workspace/services/gateway-service
 
 RUN gradle clean bootJar --no-daemon
 
@@ -23,7 +26,7 @@ COPY --from=jre /opt/jre /opt/jre
 
 WORKDIR /app
 
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build /workspace/services/gateway-service/build/libs/*.jar app.jar
 
 EXPOSE 8080
 

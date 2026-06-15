@@ -2,8 +2,10 @@ package com.foundflow.operations.service;
 
 import com.foundflow.operations.domain.Venue;
 import com.foundflow.operations.dto.CreateVenueRequest;
+import com.foundflow.operations.dto.PublicVenueResponse;
 import com.foundflow.operations.dto.UpdateVenueRequest;
 import com.foundflow.operations.dto.VenueResponse;
+import com.foundflow.operations.messaging.VenueEventPublisher;
 import com.foundflow.operations.repository.VenueRepository;
 import com.foundflow.operations.security.VenueAccessService;
 import org.junit.jupiter.api.Test;
@@ -11,7 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,11 +31,14 @@ class VenueServiceTest {
     @Mock
     private VenueRepository venueRepository;
 
+    @Mock
+    private VenueEventPublisher venueEventPublisher;
+
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
     @Test
     void createVenue_shouldSaveAndReturnVenueForAdmin() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         CreateVenueRequest request = new CreateVenueRequest("Chaos Arena", "friendly", "de");
 
@@ -48,7 +56,7 @@ class VenueServiceTest {
 
     @Test
     void getAllVenues_shouldReturnOnlyOwnVenueForStaff() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID venueId = UUID.randomUUID();
         when(venueRepository.findById(venueId))
@@ -63,8 +71,23 @@ class VenueServiceTest {
     }
 
     @Test
+    void getPublicVenues_shouldReturnAllVenueNames() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        Venue venue = new Venue("Venue A", "formal", "de");
+
+        when(venueRepository.findAll()).thenReturn(List.of(venue));
+
+        List<PublicVenueResponse> responses = service.getPublicVenues();
+
+        assertEquals(1, responses.size());
+        assertEquals("Venue A", responses.get(0).name());
+        verify(venueRepository).findAll();
+    }
+
+    @Test
     void getVenueById_shouldReturnResponseWhenStaffAccessesOwnVenue() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         when(venueRepository.findById(id))
@@ -78,8 +101,8 @@ class VenueServiceTest {
     }
 
     @Test
-    void updateVenue_shouldUpdateExistingVenueForOwnVenue() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+    void updateVenue_shouldUpdateExistingVenueForOpsManagerOwnVenue() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         Venue existingVenue = new Venue("Old Venue", "old-tone", "de");
@@ -89,7 +112,7 @@ class VenueServiceTest {
         when(venueRepository.save(any(Venue.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Optional<VenueResponse> response = service.updateVenue(id, request, staffJwt(id));
+        Optional<VenueResponse> response = service.updateVenue(id, request, opsManagerJwt(id));
 
         assertTrue(response.isPresent());
         assertEquals("Updated Venue", response.get().name());
@@ -98,8 +121,23 @@ class VenueServiceTest {
     }
 
     @Test
+    void updateVenue_shouldRejectStaffEvenForOwnVenue() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+        UpdateVenueRequest request = new UpdateVenueRequest("Updated Venue", "professional", "en");
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> service.updateVenue(id, request, staffJwt(id))
+        );
+        verify(venueRepository, never()).findById(any());
+        verify(venueRepository, never()).save(any());
+    }
+
+    @Test
     void deleteVenue_shouldDeleteForAdmin() {
-        VenueService service = new VenueService(venueRepository, venueAccessService);
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
 
         UUID id = UUID.randomUUID();
         Venue venue = new Venue("Venue A", "formal", "de");
@@ -107,12 +145,56 @@ class VenueServiceTest {
 
         assertTrue(service.deleteVenue(id, adminJwt()));
         verify(venueRepository).delete(venue);
+        verify(venueEventPublisher).publishVenueDeleted(id);
+    }
+
+    @Test
+    void deleteVenue_shouldPublishDeletedEventAfterCommitWhenTransactionSynchronizationIsActive() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+        Venue venue = new Venue("Venue A", "formal", "de");
+        when(venueRepository.findById(id)).thenReturn(Optional.of(venue));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertTrue(service.deleteVenue(id, adminJwt()));
+            verify(venueRepository).delete(venue);
+            verifyNoInteractions(venueEventPublisher);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            verify(venueEventPublisher).publishVenueDeleted(id);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void deleteVenue_shouldRejectStaff() {
+        VenueService service = new VenueService(venueRepository, venueAccessService, venueEventPublisher);
+
+        UUID id = UUID.randomUUID();
+
+        assertThrows(AccessDeniedException.class, () -> service.deleteVenue(id, staffJwt(id)));
+        verify(venueRepository, never()).findById(any());
+        verify(venueRepository, never()).delete(any());
+        verifyNoInteractions(venueEventPublisher);
     }
 
     private Jwt staffJwt(UUID venueId) {
+        return roleJwt("STAFF", venueId);
+    }
+
+    private Jwt opsManagerJwt(UUID venueId) {
+        return roleJwt("OPS_MANAGER", venueId);
+    }
+
+    private Jwt roleJwt(String role, UUID venueId) {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .claim("roles", List.of("STAFF"))
+                .claim("roles", List.of(role))
                 .claim("venue_id", venueId.toString())
                 .build();
     }

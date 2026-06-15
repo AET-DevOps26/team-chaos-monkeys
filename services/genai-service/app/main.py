@@ -75,6 +75,22 @@ register_exception_handlers(app)
 app.add_middleware(MaxBodySizeMiddleware)
 
 
+def _instrumentator_effective_candidate_name(scope: Scope, route: object) -> str | None:
+    candidates = getattr(route, "effective_candidates", None)
+    if not callable(candidates):
+        return None
+
+    for candidate in candidates():
+        matches = getattr(candidate, "matches", None)
+        if matches is None:
+            continue
+
+        match, _ = matches(scope)
+        if match == Match.FULL:
+            return getattr(candidate, "path", None)
+    return None
+
+
 def _instrumentator_route_name(scope: Scope, routes: list[object]) -> str | None:
     for route in routes:
         child_routes = getattr(route, "routes", None)
@@ -87,9 +103,13 @@ def _instrumentator_route_name(scope: Scope, routes: list[object]) -> str | None
             continue
 
         match, child_scope = matches(scope)
-        route_path = getattr(route, "path", "")
+        route_path = getattr(route, "path", None)
 
         if match == Match.FULL:
+            route_path = route_path or _instrumentator_effective_candidate_name(
+                {**scope, **child_scope},
+                route,
+            )
             if child_routes:
                 child_name = _instrumentator_route_name(
                     {**scope, **child_scope},

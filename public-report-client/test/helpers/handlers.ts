@@ -9,4 +9,9 @@ export const createLostReportError = () =>
     HttpResponse.json({ message: 'boom' }, { status: 500 }),
   )
 
+export const updateLostReportPhotoSuccess = (report: LostReportResponse) =>
+  http.put('*/api/lost-items/:id/photo', () =>
+    HttpResponse.json<LostReportResponse>(report),
+  )
+
 export const handlers = []

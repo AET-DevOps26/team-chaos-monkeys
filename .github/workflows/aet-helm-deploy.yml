@@ -1,0 +1,269 @@
+name: Deploy Helm chart to AET
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to build, push, and deploy. Defaults to the commit SHA.
+        required: false
+        default: ""
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: aet-helm-deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE_REGISTRY: ghcr.io/aet-devops26/team-chaos-monkeys
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+  DOCKER_DEFAULT_PLATFORM: linux/amd64
+  OPENAI_API_KEY: ci-build-placeholder
+  SPRING_MAIL_USERNAME: ci-build-placeholder
+  SPRING_MAIL_PASSWORD: ci-build-placeholder
+  FOUNDFLOW_MAIL_FROM: ci-build-placeholder@example.com
+  RELEASE_NAME: foundflow
+  NAMESPACE: team-chaos-monkeys
+  AET_HOST: team-chaos-monkeys.stud.k8s.aet.cit.tum.de
+
+jobs:
+  build-and-push:
+    name: Build + push images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare env file
+        run: cp .env.example .env
+
+      - name: Build images
+        run: |
+          app_services=(
+            gateway-service
+            auth-service
+            lost-item-service
+            found-item-service
+            matching-service
+            notification-service
+            operations-service
+            pickup-service
+            genai-service
+            client
+            public-report-client
+          )
+
+          docker compose \
+            -f docker-compose.yml \
+            -f deploy/docker-compose.prod.yml \
+            build "${app_services[@]}"
+
+      - name: Push images
+        run: |
+          app_services=(
+            gateway-service
+            auth-service
+            lost-item-service
+            found-item-service
+            matching-service
+            notification-service
+            operations-service
+            pickup-service
+            genai-service
+            client
+            public-report-client
+          )
+
+          docker compose \
+            -f docker-compose.yml \
+            -f deploy/docker-compose.prod.yml \
+            push "${app_services[@]}"
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Images pushed"
+            echo
+            echo "- Registry: \`$IMAGE_REGISTRY\`"
+            echo "- Tag: \`$IMAGE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Helm upgrade on AET
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: build-and-push
+    environment:
+      name: aet
+      url: https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.6
+
+      - name: Write kubeconfig
+        env:
+          AET_KUBECONFIG_B64: ${{ secrets.AET_KUBECONFIG_B64 }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$AET_KUBECONFIG_B64" ]; then
+            echo "::error::Missing required secret AET_KUBECONFIG_B64"
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$AET_KUBECONFIG_B64" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Check cluster access
+        run: |
+          kubectl config current-context
+          kubectl get namespace "$NAMESPACE"
+
+      - name: Helm lint
+        run: helm lint ./infra/helm/foundflow -f ./infra/helm/foundflow/values-aet.yaml
+
+      - name: Write secret values file
+        env:
+          DEPLOY_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEPLOY_DEV_ADMIN_EMAIL: ${{ secrets.DEV_ADMIN_EMAIL }}
+          DEPLOY_DEV_ADMIN_PASSWORD: ${{ secrets.DEV_ADMIN_PASSWORD }}
+          DEPLOY_INTERNAL_SERVICE_TOKEN: ${{ secrets.INTERNAL_SERVICE_TOKEN }}
+          DEPLOY_MAGIC_LINK_SECRET: ${{ secrets.MAGIC_LINK_SECRET }}
+          DEPLOY_BREVO_SMTP_USERNAME: ${{ secrets.BREVO_SMTP_USERNAME }}
+          DEPLOY_BREVO_SMTP_PASSWORD: ${{ secrets.BREVO_SMTP_PASSWORD }}
+          DEPLOY_BREVO_MAIL_FROM: ${{ secrets.BREVO_MAIL_FROM }}
+          DEPLOY_JWT_RSA_PRIVATE_KEY: ${{ secrets.JWT_RSA_PRIVATE_KEY }}
+          DEPLOY_GENAI_INTERNAL_TOKEN: ${{ secrets.GENAI_INTERNAL_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          required = {
+              "DEPLOY_OPENAI_API_KEY": "secrets.openaiApiKey",
+              "DEPLOY_DEV_ADMIN_EMAIL": "secrets.devAdminEmail",
+              "DEPLOY_DEV_ADMIN_PASSWORD": "secrets.devAdminPassword",
+              "DEPLOY_INTERNAL_SERVICE_TOKEN": "secrets.internalServiceToken",
+              "DEPLOY_MAGIC_LINK_SECRET": "secrets.magicLinkSecret",
+              "DEPLOY_BREVO_SMTP_USERNAME": "secrets.brevoSmtpUsername",
+              "DEPLOY_BREVO_SMTP_PASSWORD": "secrets.brevoSmtpPassword",
+              "DEPLOY_BREVO_MAIL_FROM": "secrets.brevoMailFromAddress",
+          }
+          optional = {
+              "DEPLOY_JWT_RSA_PRIVATE_KEY": "jwtRsaPrivateKey",
+              "DEPLOY_GENAI_INTERNAL_TOKEN": "genaiInternalToken",
+          }
+          value_keys = {
+              "DEPLOY_OPENAI_API_KEY": "openaiApiKey",
+              "DEPLOY_DEV_ADMIN_EMAIL": "devAdminEmail",
+              "DEPLOY_DEV_ADMIN_PASSWORD": "devAdminPassword",
+              "DEPLOY_INTERNAL_SERVICE_TOKEN": "internalServiceToken",
+              "DEPLOY_MAGIC_LINK_SECRET": "magicLinkSecret",
+              "DEPLOY_BREVO_SMTP_USERNAME": "brevoSmtpUsername",
+              "DEPLOY_BREVO_SMTP_PASSWORD": "brevoSmtpPassword",
+              "DEPLOY_BREVO_MAIL_FROM": "brevoMailFromAddress",
+          }
+
+          missing = [label for env_name, label in required.items() if not os.environ.get(env_name)]
+          if missing:
+              print("::error::Missing required deploy secrets: " + ", ".join(missing))
+              sys.exit(1)
+
+          secrets = {
+              value_keys[env_name]: os.environ[env_name]
+              for env_name in value_keys
+              if os.environ.get(env_name)
+          }
+          for env_name, values_key in optional.items():
+              value = os.environ.get(env_name)
+              if value:
+                  secrets[values_key] = value
+
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "aet-secrets.json"
+          path.write_text(json.dumps({"secrets": secrets}, indent=2), encoding="utf-8")
+          print(f"Wrote deploy values to {path}")
+          PY
+
+      - name: Deploy chart
+        run: |
+          helm upgrade --install "$RELEASE_NAME" ./infra/helm/foundflow \
+            -n "$NAMESPACE" \
+            -f ./infra/helm/foundflow/values-aet.yaml \
+            -f "$RUNNER_TEMP/aet-secrets.json" \
+            --set-string global.imageTag="$IMAGE_TAG" \
+            --wait \
+            --atomic \
+            --timeout 15m
+
+      - name: Show rollout status
+        if: always()
+        run: |
+          kubectl -n "$NAMESPACE" get pods,svc,ingress
+          kubectl -n "$NAMESPACE" rollout status deployment/gateway-service --timeout=180s
+          kubectl -n "$NAMESPACE" rollout status deployment/client --timeout=180s
+
+      - name: Smoke test public ingress
+        run: |
+          set -euo pipefail
+
+          client_status="$(curl --retry 12 --retry-delay 5 --retry-all-errors \
+            --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://$AET_HOST/")"
+          if [ "$client_status" != "200" ]; then
+            echo "::error::Expected client HTTP 200, got $client_status"
+            exit 1
+          fi
+
+          gateway_status="$(curl --retry 12 --retry-delay 5 --retry-all-errors \
+            --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://$AET_HOST/api/actuator/health")"
+          if [ "$gateway_status" != "401" ]; then
+            echo "::error::Expected gateway health through ingress HTTP 401, got $gateway_status"
+            exit 1
+          fi
+
+      - name: Summarise
+        run: |
+          {
+            echo "### AET Helm deployment"
+            echo
+            echo "- Release: \`$RELEASE_NAME\`"
+            echo "- Namespace: \`$NAMESPACE\`"
+            echo "- Image tag: \`$IMAGE_TAG\`"
+            echo "- Client: https://$AET_HOST/"
+            echo "- Gateway ingress health: https://$AET_HOST/api/actuator/health"
+          } >> "$GITHUB_STEP_SUMMARY"

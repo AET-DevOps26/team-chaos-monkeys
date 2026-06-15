@@ -1,13 +1,11 @@
 # FoundFlow Helm chart
 
-Current umbrella chart for the cluster deployment. It deploys the gateway, six
-Spring backend services (`auth`, `lost-item`, `found-item`, `matching`,
-`notification`, `operations`), the Python GenAI service, the React client, six
-per-service PostgreSQL StatefulSets, RabbitMQ, MinIO, and an in-namespace
+Current umbrella chart for the cluster deployment. It deploys the gateway,
+seven Spring backend services (`auth`, `lost-item`, `found-item`, `matching`,
+`notification`, `operations`, `pickup`), the Python GenAI service, the React
+client, the public report client, seven per-service PostgreSQL StatefulSets,
+RabbitMQ, MinIO, and an in-namespace
 Grafana preloaded with the `Services — RED` dashboard.
-
-`pickup-service` is implemented in the repo and wired in Docker Compose, but it
-is not wired into this Helm chart yet.
 
 Deploys exclusively into the namespace `team-chaos-monkeys`.
 
@@ -54,7 +52,7 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 | `Chart.yaml` | Declares chart metadata; service and database resources are rendered from `values.yaml`. |
 | `values.yaml` | Defaults targeting AET (cert-manager, csi-rbd-sc, GHCR images). |
 | `values-local.yaml` | Local-cluster overrides: no TLS, `*.localtest.me`, `hostpath` storage (override to `local-path` on OrbStack), `IfNotPresent` pull policy so the shared docker daemon's images are used. |
-| `values-aet.yaml` | AET-specific pins. Not applied in CICD-59; consumed by the future CD ticket. |
+| `values-aet.yaml` | AET-specific pins consumed by `.github/workflows/aet-helm-deploy.yml`. |
 | `templates/_helpers.tpl` | Labels, image ref, env/DB wiring helpers. |
 | `templates/deployments.yaml` | Ranges `.Values.services` → one `Deployment` each. |
 | `templates/services.yaml` | Ranges `.Values.services` → one `Service` each. |
@@ -130,6 +128,94 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
    (e.g. `http://auth-service:8081`).
 5. `make -C infra/helm build helm-install`.
 
+## Deploy to AET via GitHub Actions
+
+The AET deployment workflow is `.github/workflows/aet-helm-deploy.yml`. It
+builds and pushes all application images to GHCR with one immutable tag, then
+runs:
+
+```sh
+helm upgrade --install foundflow ./infra/helm/foundflow \
+  -n team-chaos-monkeys \
+  -f infra/helm/foundflow/values-aet.yaml \
+  -f <generated-secret-values-file> \
+  --set-string global.imageTag=<commit-sha> \
+  --wait --atomic --timeout 15m
+```
+
+Triggers:
+
+- automatic: every push to `main`
+- manual: Actions -> `Deploy Helm chart to AET` -> `Run workflow`
+
+Required repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `AET_KUBECONFIG_B64` | Base64-encoded kubeconfig for the AET cluster. |
+| `OPENAI_API_KEY` | GenAI OpenAI provider key. |
+| `DEV_ADMIN_EMAIL` | Bootstrap admin email. |
+| `DEV_ADMIN_PASSWORD` | Bootstrap admin password. |
+| `INTERNAL_SERVICE_TOKEN` | Shared internal service token for matching/found-item calls. |
+| `MAGIC_LINK_SECRET` | HMAC secret for public match and pickup links. |
+| `BREVO_SMTP_USERNAME` | Brevo SMTP username. |
+| `BREVO_SMTP_PASSWORD` | Brevo SMTP password. |
+| `BREVO_MAIL_FROM` | Sender address for outbound mail. |
+
+Optional repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `JWT_RSA_PRIVATE_KEY` | Stable JWT signing key for auth-service. |
+| `GENAI_INTERNAL_TOKEN` | Optional token sent to genai-service by Spring callers. |
+
+To create `AET_KUBECONFIG_B64` from a working local kubeconfig:
+
+```sh
+base64 -w 0 ~/.kube/config
+```
+
+On macOS, use:
+
+```sh
+base64 < ~/.kube/config | tr -d '\n'
+```
+
+On Windows PowerShell, use:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.kube\config"))
+```
+
+## Verify an AET deployment
+
+In GitHub Actions, the workflow should show:
+
+- successful `Build + push images`
+- successful `Helm lint`
+- successful `helm upgrade --install`
+- successful public smoke checks for `/` and `/api/actuator/health`
+
+From a local machine with AET cluster access:
+
+```sh
+kubectl -n team-chaos-monkeys get pods,svc,ingress
+kubectl -n team-chaos-monkeys rollout status deployment/gateway-service
+kubectl -n team-chaos-monkeys rollout status deployment/client
+helm -n team-chaos-monkeys status foundflow
+helm -n team-chaos-monkeys history foundflow
+```
+
+From any machine with internet access:
+
+```sh
+curl -I https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
+curl -I https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/api/actuator/health
+```
+
+Expected results: the client returns `200`; the gateway health endpoint through
+the public ingress returns `401` because the gateway security chain is active.
+
 ## Ollama retrofit (deferred)
 
 This chart intentionally omits Ollama. The genai service defaults to
@@ -144,13 +230,10 @@ To add a local-model option later:
 
 No service-code changes required — the provider switch already exists.
 
-## Out of scope for CICD-59
+## Current limitations
 
-- GitHub Actions workflow that runs `helm upgrade --install` against AET on
-  merge to `main` (follow-up CICD ticket).
-- Image-publish-to-GHCR step in CI (prerequisite for the CD ticket).
-- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO
-  is cluster-internal in this PR; an ingress subpath or gateway proxy is a
+- Browser-reachable MinIO host (signed photo URLs from the browser). MinIO is
+  cluster-internal in this chart; an ingress subpath or gateway proxy is a
   follow-up.
 
 ## Dashboard sync

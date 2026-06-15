@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "FoundFlow GenAI service — attribute extraction, embeddings, notification text generation."
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
+    # prometheus-fastapi-instrumentator 7.x assumes every app route has
+    # `.path`; newer FastAPI releases add internal router entries that do not.
+    "fastapi>=0.115,<0.124",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",

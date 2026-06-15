@@ -170,6 +170,22 @@ tests:
         alertname: GenAIValidationErrorSpike
         exp_alerts: []
 
+  # RabbitMqDeadLetterQueueNotEmpty: any ready DLQ message for 2m -> firing
+  - interval: 1m
+    input_series:
+      - series: 'rabbitmq_queue_messages_ready{queue="matching.lost-report-created.v1.dlq", vhost="/"}'
+        values: '1x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RabbitMqDeadLetterQueueNotEmpty
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              queue: matching.lost-report-created.v1.dlq
+              vhost: /
+            exp_annotations:
+              summary: "RabbitMQ DLQ matching.lost-report-created.v1.dlq has messages"
+              description: "Dead-letter queue matching.lost-report-created.v1.dlq has had ready messages for at least 2 minutes."
   # NotificationSendDropsElevated: 1 drop/min for 15m → increase[15m] ≫ 3 → firing
   - interval: 1m
     input_series:

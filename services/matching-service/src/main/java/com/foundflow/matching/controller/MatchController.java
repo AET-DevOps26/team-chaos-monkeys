@@ -115,7 +115,7 @@ public class MatchController {
     @PostMapping("/{id}/public-link")
     public ResponseEntity<PublicMatchLinkResponse> createPublicMatchLink(
             @PathVariable UUID id,
-            @Valid @RequestBody CreatePublicMatchLinkRequest request,
+            @Valid @RequestBody(required = false) CreatePublicMatchLinkRequest request,
             JwtAuthenticationToken authentication
     ) {
         return matchService.createPublicMatchLink(id, request, authentication.getToken())

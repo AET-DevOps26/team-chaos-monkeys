@@ -98,7 +98,7 @@ Expected failures:
 | `/api/users` | `auth-service` | Admin/ops user management |
 | `/api/lost-items` | `lost-item-service` | Canonical lost-report API |
 | `/api/found-items` | `found-item-service` | Found-item intake and management |
-| `/api/matches` | `matching-service` | Match CRUD, public match links, match email log |
+| `/api/matches` | `matching-service` | Match CRUD and public match links |
 | `/api/pickups` | `pickup-service` | Pickup schedules, pickups, public pickup links |
 | `/api/notifications` | `notification-service` | Notification records and blueprint placeholders |
 | `/api/venues` | `operations-service` | Venues and KPIs |
@@ -118,7 +118,8 @@ service Swagger/OpenAPI docs.
   caller's venue access to that venue.
 - Public match and pickup endpoints authorize through scoped magic-link tokens
   instead of JWTs. Staff-facing match and pickup endpoints still use JWT role
-  and venue checks.
+  and venue checks. Public match-link creation can use the request email or,
+  when omitted, the stored lost-report contact email.
 - Operations KPI endpoints forward the caller's bearer token to downstream
   found/lost/matching count endpoints, so downstream service authorization still
   applies.

@@ -98,6 +98,10 @@ class Match {
   foundItemId: UUID
   lostReportId: UUID
   venueId: UUID
+  recipientEmail: String
+  publicLinkToken: String
+  publicLinkRecipientEmail: String
+  publicLinkIssuedAt: LocalDateTime
   status: MatchStatus
   attributeScore: float
   semanticScore: float
@@ -117,19 +121,9 @@ class ItemEmbedding {
   itemId: UUID
   venueId: UUID
   category: String
+  contactEmail: String
   embedding: vector
   textSource: String
-}
-
-class MatchEmailLog {
-  id: UUID
-  recipient: String
-  venueId: UUID
-  matchId: UUID
-  subject: String
-  body: String
-  magicLink: String
-  sentAt: LocalDateTime
 }
 
 class Notification {
@@ -164,16 +158,6 @@ class PickupSchedule {
   venueId: UUID
 }
 
-class PickupEmailLog {
-  id: UUID
-  recipient: String
-  venueId: UUID
-  subject: String
-  body: String
-  magicLink: String
-  sentAt: LocalDateTime
-}
-
 Venue "0..1" -- "*" User : assigned by venueId
 User "1" -- "*" RefreshToken : owns
 Venue "1" -- "*" LostReport : owns
@@ -182,8 +166,6 @@ Venue "1" -- "*" Match : owns
 Venue "1" -- "*" Notification : owns
 Venue "1" -- "*" Pickup : owns
 Venue "1" -- "*" PickupSchedule : defines
-Venue "1" -- "*" MatchEmailLog : logs
-Venue "1" -- "*" PickupEmailLog : logs
 
 User "1" -- "*" FoundItem : reporterId
 
@@ -192,7 +174,6 @@ FoundItem "1" *-- "0..1" ItemAttributes : embedded
 
 Match "*" -- "1" FoundItem : foundItemId
 Match "*" -- "1" LostReport : lostReportId
-Match "1" -- "*" MatchEmailLog : matchId
 Match "1" -- "0..1" Pickup : matchId
 Notification "*" -- "1" Match : matchId
 

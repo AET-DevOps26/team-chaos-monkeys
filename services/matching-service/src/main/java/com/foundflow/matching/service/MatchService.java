@@ -5,10 +5,11 @@ import com.foundflow.magiclink.MagicLinkService;
 import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
+import com.foundflow.matching.client.LostReportContactReference;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
-import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.CreateMatchRequest;
+import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.HistogramResponse;
 import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.PublicFoundItemResponse;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -257,24 +259,30 @@ public class MatchService {
         return matchRepository.findById(id)
                 .map(match -> {
                     verifyVenueAccess(jwt, match.getVenueId());
-                    String token = magicLinkService.createMatchViewToken(
-                            match.getId(),
-                            match.getVenueId(),
-                            request.email()
-                    );
-                    String matchUrl = publicBaseUrl + "/api/matches/public/" + token;
-                    String pickupUrl = publicBaseUrl + "/api/pickups/public/" + token;
-                    matchInviteEventPublisher.publishMatchInviteRequested(
-                            match.getId(),
-                            normalizeEmail(request.email()),
-                            match.getVenueId(),
-                            matchUrl
-                    );
-                    return new PublicMatchLinkResponse(
-                            token,
-                            matchUrl,
-                            pickupUrl
-                    );
+                    String requestedRecipient = request == null ? null : request.email();
+                    String defaultRecipient = hasText(requestedRecipient)
+                            ? null
+                            : resolveLostReportContactEmail(match, jwt);
+                    String recipient = resolveRecipient(requestedRecipient, defaultRecipient, true);
+                    return createPublicMatchLink(match, recipient);
+                });
+    }
+
+    @Transactional
+    public Optional<PublicMatchLinkResponse> createAutomaticPublicMatchLink(
+            UUID id,
+            String eventRecipientEmail
+    ) {
+        return matchRepository.findById(id)
+                .flatMap(match -> {
+                    if (match.getStatus() != MatchStatus.PENDING) {
+                        return Optional.empty();
+                    }
+                    String recipient = resolveRecipient(eventRecipientEmail, match.getRecipientEmail(), false);
+                    if (recipient == null) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(createPublicMatchLink(match, recipient));
                 });
     }
 
@@ -318,7 +326,103 @@ public class MatchService {
     }
 
     private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String resolveLostReportContactEmail(Match match, Jwt jwt) {
+        String storedRecipient = normalizeEmail(match.getRecipientEmail());
+        if (storedRecipient != null) {
+            return storedRecipient;
+        }
+
+        LostReportContactReference contact = lostItemClient.getLostReportContact(match.getLostReportId(), jwt);
+        if (!match.getVenueId().equals(contact.venueId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Lost item service returned a contact for a different venue."
+            );
+        }
+
+        String contactEmail = normalizeEmail(contact.contactEmail());
+        if (contactEmail != null) {
+            match.setRecipientEmail(contactEmail);
+            matchRepository.save(match);
+        }
+        return contactEmail;
+    }
+
+    private String resolveRecipient(String requestedEmail, String defaultEmail, boolean required) {
+        String normalizedRequested = normalizeEmail(requestedEmail);
+        if (normalizedRequested != null) {
+            return normalizedRequested;
+        }
+
+        String normalizedDefault = normalizeEmail(defaultEmail);
+        if (normalizedDefault != null) {
+            return normalizedDefault;
+        }
+
+        if (required) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "No recipient email is available for this match."
+            );
+        }
+        return null;
+    }
+
+    private PublicMatchLinkResponse createPublicMatchLink(Match match, String recipient) {
+        String normalizedRecipient = normalizeEmail(recipient);
+        if (hasReusablePublicLink(match, normalizedRecipient)) {
+            return toPublicMatchLinkResponse(match.getPublicLinkToken());
+        }
+
+        if (!Objects.equals(match.getRecipientEmail(), normalizedRecipient)) {
+            match.setRecipientEmail(normalizedRecipient);
+        }
+
+        String token = magicLinkService.createMatchViewToken(
+                match.getId(),
+                match.getVenueId(),
+                normalizedRecipient
+        );
+        String matchUrl = publicBaseUrl + "/api/matches/public/" + token;
+        match.setPublicLinkToken(token);
+        match.setPublicLinkRecipientEmail(normalizedRecipient);
+        match.setPublicLinkIssuedAt(LocalDateTime.now());
+        matchRepository.save(match);
+        matchInviteEventPublisher.publishMatchInviteRequested(
+                match.getId(),
+                normalizedRecipient,
+                match.getVenueId(),
+                matchUrl
+        );
+        return new PublicMatchLinkResponse(
+                token,
+                matchUrl,
+                pickupUrl(token)
+        );
+    }
+
+    private boolean hasReusablePublicLink(Match match, String recipient) {
+        return hasText(match.getPublicLinkToken())
+                && Objects.equals(normalizeEmail(match.getPublicLinkRecipientEmail()), recipient);
+    }
+
+    private PublicMatchLinkResponse toPublicMatchLinkResponse(String token) {
+        return new PublicMatchLinkResponse(
+                token,
+                publicBaseUrl + "/api/matches/public/" + token,
+                pickupUrl(token)
+        );
+    }
+
+    private String pickupUrl(String token) {
+        return publicBaseUrl + "/api/pickups/public/" + token;
     }
 
     private UUID validateAndResolveMatchVenue(
@@ -402,6 +506,7 @@ public class MatchService {
                 match.getFoundItemId(),
                 match.getLostReportId(),
                 match.getVenueId(),
+                match.getRecipientEmail(),
                 match.getStatus(),
                 match.getAttributeScore(),
                 match.getSemanticScore(),

@@ -13,6 +13,7 @@ public record LostReportCreatedEvent(
         Instant lostAt,
         String location,
         String status,
+        String contactEmail,
         ItemAttributesPayload attributes
 ) {
 }

@@ -24,34 +24,35 @@ The current implemented broker is the domain-event RabbitMQ exchange:
 | `lost-report.updated.v1` | `lost-item-service` | `matching.lost-report-updated.v1` |
 | `found-item.created.v1` | `found-item-service` | `matching.found-item-created.v1` |
 | `found-item.updated.v1` | `found-item-service` | `matching.found-item-updated.v1` |
-| `match-candidate.created.v1` | `matching-service` | No queue bound in the current codebase |
+| `match-candidate.created.v1` | `matching-service` | `matching.match-candidate-created.v1` |
+| `match-invite.requested.v1` | `matching-service` | `notification.match-invite-requested.v1` |
+| `pickup-confirmation.requested.v1` | `pickup-service` | `notification.pickup-confirmation-requested.v1` |
+| `password-reset.requested.v1` | `auth-service` | `notification.password-reset-requested.v1` |
+| `venue.deleted.v1` | `operations-service` | `auth.venue-deleted.v1` |
 
-Matching queues are declared durable by the consumers. When renaming a queue on
-a persistent broker, drain or delete the old durable queue after the rollout so
+Consumer queues are declared durable by the consumers. Matching queues use the
+dead-letter exchange `foundflow.dlx.v1`; failed messages route to
+`<queue>.dlq` with routing key `<queue>.dlq`. When renaming a queue on a
+persistent broker, drain or delete the old durable queue after the rollout so
 messages are not stranded under the previous name. The found-item create queue
 was renamed from `matching.found-item-logged.v1` to
 `matching.found-item-created.v1`; disposable local brokers can be recreated with
 `docker compose down -v` before bringing the stack back up.
 
-## Planned Notification Messaging
+## Notification Messaging
 
-Notifications are intended to move through RabbitMQ as a separate asynchronous
-notification channel. This is not wired in the current codebase yet; today the
-`notification-service` exposes REST endpoints and `match-candidate.created.v1`
-has no bound notification queue.
+User-facing outbound communication moves through RabbitMQ request events on the
+domain-event exchange. Producers publish after their transaction commits, so
+notification delivery is not triggered for rolled-back state changes.
 
-Planned direction:
-
-- Use RabbitMQ for all outbound notification requests, instead of coupling
-  producers directly to notification delivery.
-- Keep notification messages separate from domain events, for example through a
-  dedicated exchange such as `foundflow.notifications`.
-- Let services publish notification requests when user-facing communication is
-  needed, e.g. match candidate emails, match confirmation updates, pickup
-  management emails, and operational messages.
-- Let `notification-service` consume those requests, render/deliver messages,
-  persist delivery state in its own database, and optionally publish delivery
-  outcome events.
+- `matching-service` publishes `match-invite.requested.v1` when a public match
+  link is created manually or by the high-confidence auto-invite listener.
+- `pickup-service` publishes `pickup-confirmation.requested.v1` for pickup
+  confirmation messages.
+- `auth-service` publishes `password-reset.requested.v1` for password-reset
+  emails.
+- `notification-service` consumes those requests, renders/delivers messages,
+  and persists delivery records in its own database.
 
 The ownership rule stays the same: producer services own their domain state;
 `notification-service` owns delivery records and delivery status.
@@ -71,10 +72,12 @@ Fields:
 - `lostAt`
 - `location`
 - `status`
+- `contactEmail`
 - `attributes`
 
-The payload intentionally excludes guest contact data. Consumers that need
-private details must call the owning service through an authorized API.
+The contact email is included so matching can persist the recipient on
+candidate matches and auto-invite high-confidence matches without an extra
+synchronous lookup.
 
 ### `FoundItemCreatedEvent` and `FoundItemUpdatedEvent`
 
@@ -102,6 +105,7 @@ Fields:
 - `lostReportId`
 - `foundItemId`
 - `venueId`
+- `recipientEmail`
 - `attributeScore`
 - `semanticScore`
 - `combinedScore`
@@ -114,6 +118,7 @@ idempotent by `matchId`.
 
 - Events do not transfer data ownership.
 - Consumers store only the local projection/index data they own.
-- Private data is not broadcast through RabbitMQ.
+- Private data is broadcast only when it is required by an asynchronous
+  workflow, such as match invite delivery.
 - Event payload classes and routing constants are versioned in
   `shared/domain-events`.

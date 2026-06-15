@@ -71,16 +71,17 @@ register_exception_handlers(app)
 # `app.middleware` for the implementation.
 app.add_middleware(MaxBodySizeMiddleware)
 
-# `/metrics` exposes the default HTTP histograms/counters plus the
-# GenAI-specific metrics defined in `app.metrics`. Kept out of the
-# OpenAPI schema since it is not part of the service contract.
-Instrumentator().instrument(app).expose(
-    app, endpoint="/metrics", include_in_schema=False
-)
-
 app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
 app.include_router(verify.router)
 app.include_router(answer.router)
 app.include_router(diagnostic.router)
+
+# `/metrics` exposes the default HTTP histograms/counters plus the
+# GenAI-specific metrics defined in `app.metrics`. Kept out of the
+# OpenAPI schema since it is not part of the service contract. Register it
+# after application routers so the instrumentator sees concrete routes.
+Instrumentator().instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)

@@ -144,10 +144,42 @@ jobs:
           printf '%s' "$AET_KUBECONFIG_B64" | base64 --decode > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
+      - name: Select AET context
+        run: |
+          set -euo pipefail
+
+          # The kubeconfig may ship with current-context pointing at a local
+          # Docker context. Pick the context whose cluster server lives on the
+          # AET cluster instead of trusting current-context.
+          context="$(kubectl config view -o json \
+            | python3 -c '
+          import json, sys
+
+          config = json.load(sys.stdin)
+          clusters = {
+              c["name"]
+              for c in config.get("clusters", [])
+              if "stud.k8s.aet.cit.tum.de" in c.get("cluster", {}).get("server", "")
+          }
+          for ctx in config.get("contexts", []):
+              if ctx.get("context", {}).get("cluster") in clusters:
+                  print(ctx["name"])
+                  break
+          ')"
+
+          if [ -z "$context" ]; then
+            echo "::error::No kubeconfig context targets stud.k8s.aet.cit.tum.de"
+            exit 1
+          fi
+
+          echo "Using AET context: $context"
+          kubectl config use-context "$context"
+          echo "AET_KUBE_CONTEXT=$context" >> "$GITHUB_ENV"
+
       - name: Check cluster access
         run: |
           kubectl config current-context
-          kubectl get namespace "$NAMESPACE"
+          kubectl --context "$AET_KUBE_CONTEXT" get namespace "$NAMESPACE"
 
       - name: Helm lint
         run: helm lint ./infra/helm/foundflow -f ./infra/helm/foundflow/values-aet.yaml
@@ -221,6 +253,7 @@ jobs:
       - name: Deploy chart
         run: |
           helm upgrade --install "$RELEASE_NAME" ./infra/helm/foundflow \
+            --kube-context "$AET_KUBE_CONTEXT" \
             -n "$NAMESPACE" \
             -f ./infra/helm/foundflow/values-aet.yaml \
             -f "$RUNNER_TEMP/aet-secrets.json" \
@@ -232,9 +265,9 @@ jobs:
       - name: Show rollout status
         if: always()
         run: |
-          kubectl -n "$NAMESPACE" get pods,svc,ingress
-          kubectl -n "$NAMESPACE" rollout status deployment/gateway-service --timeout=180s
-          kubectl -n "$NAMESPACE" rollout status deployment/client --timeout=180s
+          kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" get pods,svc,ingress
+          kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/gateway-service --timeout=180s
+          kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/client --timeout=180s
 
       - name: Smoke test public ingress
         run: |

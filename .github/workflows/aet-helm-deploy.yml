@@ -31,6 +31,10 @@ env:
   RELEASE_NAME: foundflow
   NAMESPACE: team-chaos-monkeys
   AET_HOST: team-chaos-monkeys.stud.k8s.aet.cit.tum.de
+  # The AET kubeconfig (in AET_KUBECONFIG_B64) bundles several contexts and
+  # ships with current-context pointing at docker-desktop. The downstream AET
+  # cluster context is named "stud" (server rancher.ase.cit.tum.de/...).
+  AET_KUBE_CONTEXT: stud
 
 jobs:
   build-and-push:
@@ -148,33 +152,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The kubeconfig may ship with current-context pointing at a local
-          # Docker context. Pick the context whose cluster server lives on the
-          # AET cluster instead of trusting current-context.
-          context="$(kubectl config view -o json \
-            | python3 -c '
-          import json, sys
-
-          config = json.load(sys.stdin)
-          clusters = {
-              c["name"]
-              for c in config.get("clusters", [])
-              if "stud.k8s.aet.cit.tum.de" in c.get("cluster", {}).get("server", "")
-          }
-          for ctx in config.get("contexts", []):
-              if ctx.get("context", {}).get("cluster") in clusters:
-                  print(ctx["name"])
-                  break
-          ')"
-
-          if [ -z "$context" ]; then
-            echo "::error::No kubeconfig context targets stud.k8s.aet.cit.tum.de"
+          # The bundled kubeconfig ships with current-context = docker-desktop,
+          # so trusting current-context targets the runner's nonexistent local
+          # cluster. Pin the AET context explicitly.
+          if ! kubectl config get-contexts -o name | grep -qx "$AET_KUBE_CONTEXT"; then
+            echo "::error::Context '$AET_KUBE_CONTEXT' not found in kubeconfig"
+            kubectl config get-contexts -o name
             exit 1
           fi
 
-          echo "Using AET context: $context"
-          kubectl config use-context "$context"
-          echo "AET_KUBE_CONTEXT=$context" >> "$GITHUB_ENV"
+          kubectl config use-context "$AET_KUBE_CONTEXT"
 
       - name: Check cluster access
         run: |

@@ -6,6 +6,7 @@ import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller
 import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
 import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
+import searchIcon from '@/assets/search-icon.svg'
 
 type Filter = Status | 'ALL'
 
@@ -100,20 +101,12 @@ export default function Matching() {
 
         {/* Search bar */}
         <div className="relative">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text"
+          <img
+            src={searchIcon}
+            alt=""
             aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
+            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 opacity-60"
+          />
           <input
             type="search"
             value={query}

@@ -58,6 +58,7 @@ class MatchControllerTest {
                 foundItemId,
                 lostReportId,
                 venueId,
+                "guest@example.com",
                 MatchStatus.PENDING,
                 0.75f,
                 0.90f,
@@ -77,6 +78,7 @@ class MatchControllerTest {
                 .andExpect(jsonPath("$.foundItemId").value(foundItemId.toString()))
                 .andExpect(jsonPath("$.lostReportId").value(lostReportId.toString()))
                 .andExpect(jsonPath("$.venueId").value(venueId.toString()))
+                .andExpect(jsonPath("$.recipientEmail").value("guest@example.com"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.combinedScore").value(0.84));
     }
@@ -92,6 +94,7 @@ class MatchControllerTest {
                 foundItemId,
                 lostReportId,
                 venueId,
+                null,
                 MatchStatus.PENDING,
                 0.60f,
                 0.80f,
@@ -104,6 +107,7 @@ class MatchControllerTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 venueId,
+                null,
                 MatchStatus.CONFIRMED,
                 0.90f,
                 0.95f,
@@ -191,6 +195,7 @@ class MatchControllerTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 venueId,
+                null,
                 MatchStatus.PENDING,
                 0.70f,
                 0.85f,
@@ -242,6 +247,7 @@ class MatchControllerTest {
                 foundItemId,
                 lostReportId,
                 venueId,
+                null,
                 MatchStatus.CONFIRMED,
                 0.88f,
                 0.91f,

@@ -8,6 +8,7 @@ public record ItemEmbedding(
         UUID itemId,
         UUID venueId,
         String category,
+        String contactEmail,
         float[] embedding,
         String textSource
 ) {

@@ -89,4 +89,15 @@ spec:
           annotations:
             summary: "Model output failing validation on {{ "{{" }} $labels.endpoint {{ "}}" }}"
             description: "Validation failures exceed 10% of successful provider calls over the last 5 minutes."
+
+    - name: foundflow-rabbitmq
+      rules:
+        - alert: RabbitMqDeadLetterQueueNotEmpty
+          expr: rabbitmq_queue_messages_ready{queue=~".*\\.dlq",namespace="{{ .Values.namespace.name }}"} > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "RabbitMQ DLQ {{ "{{" }} $labels.queue {{ "}}" }} has messages"
+            description: "Dead-letter queue {{ "{{" }} $labels.queue {{ "}}" }} has had ready messages for at least 2 minutes."
 {{- end }}

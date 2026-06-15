@@ -6,6 +6,7 @@ import com.foundflow.matching.service.EmbeddingDimensionMismatchException;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -26,23 +27,58 @@ public class AmqpConfig {
     }
 
     @Bean
+    public TopicExchange deadLetterExchange() {
+        return new TopicExchange(FoundFlowEventRouting.DEAD_LETTER_EXCHANGE, true, false);
+    }
+
+    @Bean
     public Queue lostReportCreatedQueue() {
-        return new Queue(FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE, true);
+        return consumerQueue(FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE);
     }
 
     @Bean
     public Queue lostReportUpdatedQueue() {
-        return new Queue(FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE, true);
+        return consumerQueue(FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE);
     }
 
     @Bean
     public Queue foundItemCreatedQueue() {
-        return new Queue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE, true);
+        return consumerQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
     }
 
     @Bean
     public Queue foundItemUpdatedQueue() {
-        return new Queue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE, true);
+        return consumerQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE);
+    }
+
+    @Bean
+    public Queue matchCandidateCreatedQueue() {
+        return consumerQueue(FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
+    }
+
+    @Bean
+    public Queue lostReportCreatedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE);
+    }
+
+    @Bean
+    public Queue lostReportUpdatedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE);
+    }
+
+    @Bean
+    public Queue foundItemCreatedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
+    }
+
+    @Bean
+    public Queue foundItemUpdatedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE);
+    }
+
+    @Bean
+    public Queue matchCandidateCreatedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
     }
 
     @Bean
@@ -86,6 +122,46 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Binding matchCandidateCreatedBinding(
+            Queue matchCandidateCreatedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(matchCandidateCreatedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.MATCH_CANDIDATE_CREATED);
+    }
+
+    @Bean
+    public Binding lostReportCreatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(lostReportCreatedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE);
+    }
+
+    @Bean
+    public Binding lostReportUpdatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(lostReportUpdatedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_LOST_REPORT_UPDATES_QUEUE);
+    }
+
+    @Bean
+    public Binding foundItemCreatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(foundItemCreatedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_FOUND_ITEMS_QUEUE);
+    }
+
+    @Bean
+    public Binding foundItemUpdatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(foundItemUpdatedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_FOUND_ITEM_UPDATES_QUEUE);
+    }
+
+    @Bean
+    public Binding matchCandidateCreatedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(matchCandidateCreatedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
+    }
+
+    @Bean
     public MessageConverter jsonMessageConverter(JsonMapper jsonMapper) {
         return DomainEventMessageConverterFactory.create(jsonMapper);
     }
@@ -95,7 +171,6 @@ public class AmqpConfig {
         return new ConditionalRejectingErrorHandler(new DefaultExceptionStrategy() {
             @Override
             public boolean isFatal(Throwable t) {
-                // Walk the cause chain — Spring AMQP wraps in ListenerExecutionFailedException
                 Throwable cur = t;
                 while (cur != null) {
                     if (cur instanceof EmbeddingDimensionMismatchException) {
@@ -111,11 +186,28 @@ public class AmqpConfig {
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
             SimpleRabbitListenerContainerFactoryConfigurer configurer,
-            ConnectionFactory connectionFactory) {
+            ConnectionFactory connectionFactory
+    ) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        // Apply all Boot-managed properties (auto-startup, prefetch, retry, etc.)
         configurer.configure(factory, connectionFactory);
         factory.setErrorHandler(rabbitListenerErrorHandler());
         return factory;
+    }
+
+    private Queue consumerQueue(String queueName) {
+        return QueueBuilder.durable(queueName)
+                .deadLetterExchange(FoundFlowEventRouting.DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(FoundFlowEventRouting.deadLetterRoutingKey(queueName))
+                .build();
+    }
+
+    private Queue deadLetterQueue(String queueName) {
+        return QueueBuilder.durable(FoundFlowEventRouting.deadLetterQueue(queueName)).build();
+    }
+
+    private Binding deadLetterBinding(Queue queue, TopicExchange deadLetterExchange, String sourceQueueName) {
+        return BindingBuilder.bind(queue)
+                .to(deadLetterExchange)
+                .with(FoundFlowEventRouting.deadLetterRoutingKey(sourceQueueName));
     }
 }

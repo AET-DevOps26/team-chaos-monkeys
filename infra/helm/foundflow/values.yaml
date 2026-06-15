@@ -90,6 +90,9 @@ services:
       # never block intake; see AttributeExtractionService.
       - { name: GENAI_BASE_URL, value: "http://genai-service:8000" }
       - { name: GENAI_ENABLED,  value: "true" }
+      - { name: EMBEDDING_DIMENSIONS, value: "768" }
+      - { name: MATCHING_AUTO_INVITE_THRESHOLD, value: "0.85" }
+      - { name: MATCHING_REPUBLISH_SCORE_DELTA, value: "0.01" }
     secretEnv:
       - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }

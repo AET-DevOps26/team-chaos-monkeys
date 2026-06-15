@@ -27,6 +27,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -70,16 +71,27 @@ public class LostReportService {
         this.attributeExtractionService = attributeExtractionService;
     }
 
+    @Transactional
     public LostReportResponse createLostReport(
             CreateLostReportRequest request,
             Jwt jwt
     ) {
+        return createLostReport(request, null, jwt);
+    }
+
+    @Transactional
+    public LostReportResponse createLostReport(
+            CreateLostReportRequest request,
+            MultipartFile photo,
+            Jwt jwt
+    ) {
         UUID venueId = resolveCreateVenueId(request, jwt);
+        String photoKey = photo == null || photo.isEmpty() ? null : storePhoto(photo);
 
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
         LostReport lostReport = new LostReport(
-                null,
+                photoKey,
                 request.description(),
                 request.lostAt(),
                 request.location(),
@@ -89,7 +101,10 @@ public class LostReportService {
                 attributes
         );
 
-        LostReport savedLostReport = lostReportRepository.save(lostReport);
+        LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
+        if (photoKey != null) {
+            enrichFromPhotoIfMissingAttributes(savedLostReport, photoKey);
+        }
 
         eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
@@ -132,6 +147,7 @@ public class LostReportService {
                 .map(this::toResponse);
     }
 
+    @Transactional
     public Optional<LostReportResponse> updateLostReport(
             UUID id,
             UpdateLostReportRequest request,
@@ -163,6 +179,7 @@ public class LostReportService {
                 });
     }
 
+    @Transactional
     public Optional<LostReportResponse> updateLostReportPhoto(
             UUID id,
             MultipartFile photo,

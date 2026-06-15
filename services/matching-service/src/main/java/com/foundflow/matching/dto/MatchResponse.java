@@ -10,6 +10,7 @@ public record MatchResponse(
         UUID foundItemId,
         UUID lostReportId,
         UUID venueId,
+        String recipientEmail,
         MatchStatus status,
         float attributeScore,
         float semanticScore,

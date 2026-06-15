@@ -106,6 +106,7 @@ class ProcessIntakeAsyncSliceIT {
                 new SimpleMeterRegistry(),
                 TOP_K,
                 THRESHOLD,
+                0.01f,
                 EMBEDDING_DIM
         );
     }
@@ -122,7 +123,7 @@ class ProcessIntakeAsyncSliceIT {
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category on the candidate so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, "blue jacket found side", 0.1f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, null, "blue jacket found side", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(lostItemId, foundItemId))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -165,7 +166,7 @@ class ProcessIntakeAsyncSliceIT {
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55 threshold
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.FOUND), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, "found item text source", 0.1f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, null, "found item text source", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -193,7 +194,7 @@ class ProcessIntakeAsyncSliceIT {
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
         // Use null category so categoryGate(null, null)=1.0; combined=1.0*0.9=0.9 > 0.55 threshold
         when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(lostItemId, null, "lost report text source", 0.1f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(lostItemId, null, null, "lost report text source", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));

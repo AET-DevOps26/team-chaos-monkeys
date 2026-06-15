@@ -10,6 +10,7 @@ public record MatchCandidateCreatedEvent(
         UUID lostReportId,
         UUID foundItemId,
         UUID venueId,
+        String recipientEmail,
         float attributeScore,
         float semanticScore,
         float combinedScore

@@ -59,6 +59,16 @@ export default function Navbar() {
               Lost Items
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              to="/matches"
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : linkIdle}`
+              }
+            >
+              Matches
+            </NavLink>
+          </li>
         </ul>
 
         {user && (

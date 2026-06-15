@@ -2,6 +2,8 @@ import { http, HttpResponse } from 'msw'
 import type { TokenResponse } from '@/api/auth/model'
 import type { FoundItemResponse, PhotoUrlResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
+import type { MatchResponse } from '@/api/matches/model'
+import type { PickupResponse } from '@/api/pickups/model'
 
 export const loginSuccess = (accessToken = 'test-access-token') =>
   http.post('*/api/auth/login', () =>
@@ -49,7 +51,7 @@ export const foundItemsListError = () =>
   )
 
 export const foundItemPhotoUrl = (url = 'https://example.test/photo.jpg') =>
-  http.get('*/api/found-items/:id/photo', () =>
+  http.get('*/api/found-items/:id/photo-url', () =>
     HttpResponse.json<PhotoUrlResponse>({ url }),
   )
 
@@ -72,5 +74,36 @@ export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') 
   http.get('*/api/lost-items/:id/photo-url', () =>
     HttpResponse.json<PhotoUrlResponse>({ url }),
   )
+
+export const foundItemById = (items: FoundItemResponse[]) =>
+  http.get('*/api/found-items/:id', ({ params }) => {
+    const item = items.find((i) => i.id === params.id)
+    return item
+      ? HttpResponse.json<FoundItemResponse>(item)
+      : HttpResponse.json({ message: 'not found' }, { status: 404 })
+  })
+
+export const lostReportById = (items: LostReportResponse[]) =>
+  http.get('*/api/lost-reports/:id', ({ params }) => {
+    const item = items.find((i) => i.id === params.id)
+    return item
+      ? HttpResponse.json<LostReportResponse>(item)
+      : HttpResponse.json({ message: 'not found' }, { status: 404 })
+  })
+
+export const matchesList = (items: MatchResponse[]) =>
+  http.get('*/api/matches', ({ request }) => {
+    const status = new URL(request.url).searchParams.get('status')
+    const filtered = status ? items.filter((m) => m.status === status) : items
+    return HttpResponse.json<MatchResponse[]>(filtered)
+  })
+
+export const matchesListError = () =>
+  http.get('*/api/matches', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
+
+export const pickupsList = (items: PickupResponse[]) =>
+  http.get('*/api/pickups', () => HttpResponse.json<PickupResponse[]>(items))
 
 export const handlers = [loginSuccess(), logoutSuccess()]

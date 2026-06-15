@@ -14,6 +14,8 @@ const SPECS = [
   { prefix: 'auth', file: 'auth.json' },
   { prefix: 'lost-items', file: 'lost-items.json' },
   { prefix: 'found-items', file: 'found-items.json' },
+  { prefix: 'matches', file: 'matches.json' },
+  { prefix: 'pickups', file: 'pickups.json' },
   { prefix: 'venues', file: 'operations.json' },
   { prefix: 'matches', file: 'matching.json' },
 ]

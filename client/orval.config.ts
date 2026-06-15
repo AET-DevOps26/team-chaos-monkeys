@@ -97,6 +97,24 @@ export default defineConfig({
       mode: 'single',
     },
   },
+  matches: {
+    input: './openapi/matches.json',
+    output: {
+      target: './src/api/matches/index.ts',
+      client: 'react-query',
+      mode: 'tags-split',
+      schemas: './src/api/matches/model',
+      override: apiOverride,
+    },
+  },
+  'matches-zod': {
+    input: './openapi/matches.json',
+    output: {
+      target: './src/api/matches/zod.ts',
+      client: 'zod',
+      mode: 'single',
+    },
+  },
   matching: {
     input: './openapi/matching.json',
     output: {
@@ -111,6 +129,24 @@ export default defineConfig({
     input: './openapi/matching.json',
     output: {
       target: './src/api/matching/zod.ts',
+      client: 'zod',
+      mode: 'single',
+    },
+  },
+  pickups: {
+    input: './openapi/pickups.json',
+    output: {
+      target: './src/api/pickups/index.ts',
+      client: 'react-query',
+      mode: 'tags-split',
+      schemas: './src/api/pickups/model',
+      override: apiOverride,
+    },
+  },
+  'pickups-zod': {
+    input: './openapi/pickups.json',
+    output: {
+      target: './src/api/pickups/zod.ts',
       client: 'zod',
       mode: 'single',
     },

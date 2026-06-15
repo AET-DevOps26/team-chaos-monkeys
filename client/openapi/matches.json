@@ -6,17 +6,17 @@
   },
   "servers": [
     {
-      "url": "http://lost-item-service:8082",
+      "url": "http://matching-service:8084",
       "description": "Generated server url"
     }
   ],
   "paths": {
-    "/api/lost-items/{id}": {
+    "/api/matches/{id}": {
       "get": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "getLostReportById",
+        "operationId": "getMatchById",
         "parameters": [
           {
             "name": "id",
@@ -34,7 +34,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/LostReportResponse"
+                  "$ref": "#/components/schemas/MatchResponse"
                 }
               }
             }
@@ -43,9 +43,9 @@
       },
       "put": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "updateLostReport",
+        "operationId": "updateMatch",
         "parameters": [
           {
             "name": "id",
@@ -61,7 +61,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateLostReportRequest"
+                "$ref": "#/components/schemas/UpdateMatchRequest"
               }
             }
           },
@@ -73,7 +73,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/LostReportResponse"
+                  "$ref": "#/components/schemas/MatchResponse"
                 }
               }
             }
@@ -81,78 +81,29 @@
         }
       }
     },
-    "/api/lost-items/{id}/photo": {
-      "get": {
-        "tags": [
-          "lost-report-controller"
-        ],
-        "operationId": "getLostReportPhoto",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/matches/public/match-links/{token}/reject": {
       "put": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "updateLostReportPhoto",
+        "operationId": "rejectPublicMatch",
         "parameters": [
           {
-            "name": "id",
+            "name": "token",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "photo": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                },
-                "required": [
-                  "photo"
-                ]
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/LostReportResponse"
+                  "$ref": "#/components/schemas/MatchResponse"
                 }
               }
             }
@@ -160,13 +111,61 @@
         }
       }
     },
-    "/api/lost-items": {
+    "/api/matches/public/match-links/{token}/confirm": {
+      "put": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "confirmPublicMatch",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches": {
       "get": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "getAllLostReports",
+        "operationId": "getAllMatches",
         "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "status",
             "in": "query",
@@ -174,10 +173,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "OPEN",
-                "MATCHED",
-                "CLOSED",
-                "COLLECTED"
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
               ]
             }
           }
@@ -190,7 +188,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/LostReportResponse"
+                    "$ref": "#/components/schemas/MatchResponse"
                   }
                 }
               }
@@ -200,14 +198,14 @@
       },
       "post": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "createLostReport",
+        "operationId": "createMatch",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateLostReportRequest"
+                "$ref": "#/components/schemas/CreateMatchRequest"
               }
             }
           },
@@ -219,7 +217,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/LostReportResponse"
+                  "$ref": "#/components/schemas/MatchResponse"
                 }
               }
             }
@@ -227,12 +225,12 @@
         }
       }
     },
-    "/api/lost-items/{id}/photo-url": {
-      "get": {
+    "/api/matches/{id}/public-link": {
+      "post": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "getLostReportPhotoUrl",
+        "operationId": "createPublicMatchLink",
         "parameters": [
           {
             "name": "id",
@@ -244,13 +242,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePublicMatchLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PhotoUrlResponse"
+                  "$ref": "#/components/schemas/PublicMatchLinkResponse"
                 }
               }
             }
@@ -258,13 +266,61 @@
         }
       }
     },
-    "/api/lost-items/histogram": {
+    "/api/matches/public/{token}": {
       "get": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "getLostReportHistogram",
+        "operationId": "getPublicMatch",
         "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/matches/histogram": {
+      "get": {
+        "tags": [
+          "match-controller"
+        ],
+        "operationId": "getMatchHistogram",
+        "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "status",
             "in": "query",
@@ -272,10 +328,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "OPEN",
-                "MATCHED",
-                "CLOSED",
-                "COLLECTED"
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
               ]
             }
           },
@@ -303,13 +358,31 @@
         }
       }
     },
-    "/api/lost-items/count": {
+    "/api/matches/count": {
       "get": {
         "tags": [
-          "lost-report-controller"
+          "match-controller"
         ],
-        "operationId": "countLostReports",
+        "operationId": "countMatches",
         "parameters": [
+          {
+            "name": "foundItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lostItem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           {
             "name": "status",
             "in": "query",
@@ -317,10 +390,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "OPEN",
-                "MATCHED",
-                "CLOSED",
-                "COLLECTED"
+                "PENDING",
+                "CONFIRMED",
+                "REJECTED"
               ]
             }
           },
@@ -351,153 +423,156 @@
   },
   "components": {
     "schemas": {
-      "ItemAttributesDto": {
+      "UpdateMatchRequest": {
         "type": "object",
         "properties": {
-          "category": {
-            "type": "string"
-          },
-          "brand": {
-            "type": "string"
-          },
-          "color": {
-            "type": "string"
-          },
-          "marks": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "UpdateLostReportRequest": {
-        "type": "object",
-        "properties": {
-          "description": {
+          "foundItemId": {
             "type": "string",
-            "minLength": 1
+            "format": "uuid"
           },
-          "lostAt": {
+          "lostReportId": {
             "type": "string",
-            "format": "date-time"
-          },
-          "location": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "MATCHED",
-              "CLOSED",
-              "COLLECTED"
-            ]
+            "format": "uuid"
           },
           "venueId": {
             "type": "string",
             "format": "uuid"
           },
-          "contactEmail": {
+          "status": {
             "type": "string",
-            "format": "email",
-            "minLength": 1
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "REJECTED"
+            ]
           },
-          "attributes": {
-            "$ref": "#/components/schemas/ItemAttributesDto"
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
           }
         },
         "required": [
-          "contactEmail",
-          "description",
-          "lostAt",
+          "attributeScore",
+          "combinedScore",
+          "foundItemId",
+          "lostReportId",
+          "semanticScore",
           "status"
         ]
       },
-      "LostReportResponse": {
+      "MatchResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
-          "photoKey": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "lostAt": {
+          "foundItemId": {
             "type": "string",
-            "format": "date-time"
+            "format": "uuid"
           },
-          "location": {
-            "type": "string"
+          "lostReportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "venueId": {
+            "type": "string",
+            "format": "uuid"
           },
           "status": {
             "type": "string",
             "enum": [
-              "OPEN",
-              "MATCHED",
-              "CLOSED",
-              "COLLECTED"
+              "PENDING",
+              "CONFIRMED",
+              "REJECTED"
             ]
           },
-          "venueId": {
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "createdAt": {
             "type": "string",
-            "format": "uuid"
-          },
-          "contactEmail": {
-            "type": "string"
-          },
-          "attributes": {
-            "$ref": "#/components/schemas/ItemAttributesDto"
+            "format": "date-time"
           }
         }
       },
-      "CreateLostReportRequest": {
+      "CreateMatchRequest": {
         "type": "object",
         "properties": {
-          "description": {
+          "foundItemId": {
             "type": "string",
-            "maxLength": 2000,
-            "minLength": 0
+            "format": "uuid"
           },
-          "lostAt": {
+          "lostReportId": {
             "type": "string",
-            "format": "date-time"
-          },
-          "location": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 0
+            "format": "uuid"
           },
           "venueId": {
             "type": "string",
             "format": "uuid"
           },
-          "contactEmail": {
-            "type": "string",
-            "format": "email",
-            "maxLength": 255,
-            "minLength": 0
+          "attributeScore": {
+            "type": "number",
+            "format": "float"
           },
-          "attributes": {
-            "$ref": "#/components/schemas/ItemAttributesDto"
+          "semanticScore": {
+            "type": "number",
+            "format": "float"
+          },
+          "combinedScore": {
+            "type": "number",
+            "format": "float"
           }
         },
         "required": [
-          "contactEmail",
-          "description",
-          "lostAt"
+          "attributeScore",
+          "combinedScore",
+          "foundItemId",
+          "lostReportId",
+          "semanticScore"
         ]
       },
-      "PhotoUrlResponse": {
+      "CreatePublicMatchLinkRequest": {
         "type": "object",
         "properties": {
-          "url": {
+          "email": {
             "type": "string",
-            "format": "uri"
+            "format": "email",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PublicMatchLinkResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "matchUrl": {
+            "type": "string"
+          },
+          "pickupUrl": {
+            "type": "string"
           }
         }
       },

@@ -47,9 +47,9 @@ const MATCHES: MatchResponse[] = [
 ]
 
 const FOUND: FoundItemResponse[] = [
-  // FI1 has a photo; FI2 does not (exercises both the photo and no-photo tile).
+  // A photo is required for every found item, so both have a photoKey.
   { id: FI1, photoKey: 'found/fi1.jpg', attributes: { category: 'Found Wallet' } },
-  { id: FI2, attributes: { category: 'Found Umbrella' } },
+  { id: FI2, photoKey: 'found/fi2.jpg', attributes: { category: 'Found Umbrella' } },
 ]
 
 const LOST: LostReportResponse[] = [
@@ -111,21 +111,15 @@ describe('<Matching />', () => {
     expect(within(card).getByText('Lobby')).toBeInTheDocument()
   })
 
-  it('shows the found photo when present and a "No photo" tile when absent', async () => {
+  it('renders the found photo for each match', async () => {
     seedSuccess()
     renderWithProviders(<Matching />)
 
     const withPhoto = (await screen.findByText('Found Wallet')).closest(
       'article',
     ) as HTMLElement
-    const withoutPhoto = screen
-      .getByText('Found Umbrella')
-      .closest('article') as HTMLElement
-
-    // FI1 has a photoKey → the photo URL is requested and rendered as an <img>.
+    // The found item's photoKey → the photo URL is requested and rendered as an <img>.
     expect(await within(withPhoto).findByRole('img', { name: 'Found Wallet' })).toBeInTheDocument()
-    // FI2 has no photoKey → no fetch, a labelled "No photo" tile instead.
-    expect(within(withoutPhoto).getByText(/no photo/i)).toBeInTheDocument()
   })
 
   it('shows the combined score as a percentage', async () => {

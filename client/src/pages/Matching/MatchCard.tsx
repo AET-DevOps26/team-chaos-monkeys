@@ -6,7 +6,6 @@ import type { LostReportResponse } from '@/api/lost-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import { useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
-import packageIcon from '@/assets/package.svg'
 import calendarIcon from '@/assets/calendar.svg'
 import mailIcon from '@/assets/mail.svg'
 import locationIcon from '@/assets/location.svg'
@@ -92,21 +91,6 @@ function Chip({ children }: { children: ReactNode }) {
     <span className="inline-flex items-center gap-1 rounded bg-border/40 px-1.5 py-0.5 text-[11px] font-medium text-text-h">
       {children}
     </span>
-  )
-}
-
-function NoPhotoTile({ label }: { label: string }) {
-  return (
-    <div
-      role="img"
-      aria-label={`No photo for ${label}`}
-      className="flex h-full w-full flex-col items-center justify-center gap-1 bg-border/40 text-text"
-    >
-      <img src={packageIcon} alt="" aria-hidden="true" className="h-7 w-7 opacity-40" />
-      <span className="text-[10px] font-medium uppercase tracking-wide opacity-60">
-        No photo
-      </span>
-    </div>
   )
 }
 
@@ -202,15 +186,11 @@ export default function MatchCard({
         {/* Found item — photographed by staff, so lead with the image. */}
         <div className="flex w-32 shrink-0 flex-col gap-1 sm:w-36">
           <div className="relative aspect-square overflow-hidden rounded-md border border-border">
-            {foundItem?.photoKey ? (
-              <PhotoThumbnail
-                id={match.foundItemId}
-                alt={foundName}
-                usePhotoUrl={useGetFoundItemPhotoUrl}
-              />
-            ) : (
-              <NoPhotoTile label={foundName} />
-            )}
+            <PhotoThumbnail
+              id={match.foundItemId}
+              alt={foundName}
+              usePhotoUrl={useGetFoundItemPhotoUrl}
+            />
             <span className="absolute left-1.5 top-1.5 rounded bg-bg/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-h backdrop-blur">
               Found
             </span>

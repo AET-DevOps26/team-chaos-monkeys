@@ -14,13 +14,6 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-const dateTimeFmt = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
 function formatDate(value: string | undefined): string {
   if (!value) return ''
   const d = new Date(value)
@@ -28,19 +21,12 @@ function formatDate(value: string | undefined): string {
   return dateFmt.format(d)
 }
 
-function formatDateTime(value: string | undefined): string {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return dateTimeFmt.format(d)
-}
-
 function firstLine(text: string | undefined): string | undefined {
   return text?.split(/\r?\n/)[0]?.trim() || undefined
 }
 
 function foundLabel(item: FoundItemResponse | undefined): string {
-  return item?.attributes?.category?.trim() || firstLine(item?.description) || 'Found item'
+  return item?.attributes?.category?.trim() || firstLine(item?.intakeText) || 'Found item'
 }
 
 function lostLabel(report: LostReportResponse | undefined): string {
@@ -137,57 +123,34 @@ function NoPhotoTile({ label }: { label: string }) {
   )
 }
 
-function PickupBadge({ pickup }: { pickup: PickupResponse | undefined }) {
-  if (pickup) {
-    const when = formatDateTime(pickup.pickupAt)
-    const email = pickup.email?.trim()
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="inline-flex items-center gap-1.5 rounded bg-emerald-500/15 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-3.5 w-3.5"
-            aria-hidden="true"
-          >
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <path d="M16 2v4M8 2v4M3 10h18" />
-            <path d="m9 16 2 2 4-4" />
-          </svg>
-          {when ? `Pickup · ${when}` : 'Pickup scheduled'}
-        </span>
-        {email && (
-          <span
-            className="inline-flex min-w-0 max-w-full items-center gap-1 text-xs text-text"
-            title={email}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5 shrink-0"
-              aria-hidden="true"
-            >
-              <rect x="2" y="4" width="20" height="16" rx="2" />
-              <path d="m22 7-10 6L2 7" />
-            </svg>
-            <span className="min-w-0 truncate">{email}</span>
-          </span>
-        )}
-      </div>
-    )
-  }
+const dateTimeFullFmt = new Intl.DateTimeFormat(undefined, {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+function formatPickupWhen(value: string | undefined): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return dateTimeFullFmt.format(d)
+}
+
+// Full-width banner mirroring the mockup: a single bar that reads either
+// "Pickup scheduled at …" or "No Pickup scheduled yet".
+function PickupBanner({ pickup }: { pickup: PickupResponse | undefined }) {
+  const when = formatPickupWhen(pickup?.pickupAt)
+  const scheduled = !!pickup
   return (
-    <span className="inline-flex items-center gap-1.5 rounded bg-border/40 px-2 py-1 text-xs font-medium text-text">
+    <div
+      className={`flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium ${
+        scheduled
+          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+          : 'bg-border/40 text-text'
+      }`}
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -196,13 +159,30 @@ function PickupBadge({ pickup }: { pickup: PickupResponse | undefined }) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-3.5 w-3.5"
+        className="h-4 w-4 shrink-0"
         aria-hidden="true"
       >
         <rect x="3" y="4" width="18" height="18" rx="2" />
         <path d="M16 2v4M8 2v4M3 10h18" />
+        {scheduled && <path d="m9 16 2 2 4-4" />}
       </svg>
-      No pickup scheduled
+      <span className="min-w-0 truncate">
+        {scheduled
+          ? `Pickup scheduled at ${when || 'a set time'}`
+          : 'No Pickup scheduled yet'}
+      </span>
+    </div>
+  )
+}
+
+function InfoRow({ icon, children, title }: { icon: ReactNode; children: ReactNode; title?: string }) {
+  return (
+    <span
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs text-text"
+      title={title}
+    >
+      <span className="shrink-0 text-text">{icon}</span>
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   )
 }
@@ -210,9 +190,11 @@ function PickupBadge({ pickup }: { pickup: PickupResponse | undefined }) {
 export default function MatchCard({
   match,
   pickup,
+  query,
 }: {
   match: MatchResponse
   pickup: PickupResponse | undefined
+  query?: string
 }) {
   const { data: lostReport } = useGetLostReportById(match.lostReportId ?? '', {
     query: { enabled: !!match.lostReportId },
@@ -230,8 +212,31 @@ export default function MatchCard({
   const lostBrand = lostReport?.attributes?.brand?.trim()
   const lostMarks = (lostReport?.attributes?.marks ?? []).filter(Boolean)
   const lostLocation = lostReport?.location?.trim()
+  const lostEmail = lostReport?.contactEmail?.trim()
+  const lostWhen = formatDate(lostReport?.lostAt)
   // Avoid repeating the description verbatim when it's already the heading.
   const showDescription = lostDescription && lostDescription !== lostName
+
+  // Free-text filter. Once details have loaded, hide cards that don't match the
+  // query. We can't filter before the lazy detail fetch resolves, so unmatched
+  // cards may flash in briefly — acceptable for a client-side search.
+  const q = query?.trim().toLowerCase()
+  if (q) {
+    const haystack = [
+      foundName,
+      lostName,
+      lostDescription,
+      lostEmail,
+      lostLocation,
+      lostColor,
+      lostBrand,
+      ...lostMarks,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    if (!haystack.includes(q)) return null
+  }
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-bg p-4 shadow-[var(--shadow)]">
@@ -246,10 +251,10 @@ export default function MatchCard({
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-4">
         {/* Found item — photographed by staff, so lead with the image. */}
-        <div className="flex w-28 shrink-0 flex-col gap-1 sm:w-32">
-          <div className="relative aspect-square overflow-hidden rounded border border-border">
+        <div className="flex w-32 shrink-0 flex-col gap-1 sm:w-36">
+          <div className="relative aspect-square overflow-hidden rounded-md border border-border">
             {foundItem?.photoKey ? (
               <PhotoThumbnail
                 id={match.foundItemId}
@@ -286,29 +291,81 @@ export default function MatchCard({
               ))}
             </div>
           )}
-          {lostLocation && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-text">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-3 w-3 shrink-0"
-                aria-hidden="true"
+          <div className="mt-0.5 flex flex-col gap-1">
+            {lostEmail && (
+              <InfoRow
+                title={lostEmail}
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-10 6L2 7" />
+                  </svg>
+                }
               >
-                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              Reported: {lostLocation}
-            </span>
-          )}
+                <a className="hover:text-accent hover:underline" href={`mailto:${lostEmail}`}>
+                  {lostEmail}
+                </a>
+              </InfoRow>
+            )}
+            {lostLocation && (
+              <InfoRow
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                }
+              >
+                {lostLocation}
+              </InfoRow>
+            )}
+            {lostWhen && (
+              <InfoRow
+                icon={
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                }
+              >
+                Lost {lostWhen}
+              </InfoRow>
+            )}
+          </div>
         </div>
       </div>
 
-      <PickupBadge pickup={pickup} />
+      <PickupBanner pickup={pickup} />
     </article>
   )
 }

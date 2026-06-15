@@ -57,6 +57,7 @@ const LOST: LostReportResponse[] = [
     id: LR1,
     description: 'Black leather bifold with a brass clasp',
     location: 'Lobby',
+    contactEmail: 'reporter@example.test',
     attributes: { category: 'Lost Purse', color: 'Black', brand: 'Fossil', marks: ['Monogram AG'] },
   },
   { id: LR2, attributes: { category: 'Lost Parasol' } },
@@ -107,7 +108,7 @@ describe('<Matching />', () => {
     expect(within(card).getByText('Black')).toBeInTheDocument()
     expect(within(card).getByText('Fossil')).toBeInTheDocument()
     expect(within(card).getByText('Monogram AG')).toBeInTheDocument()
-    expect(within(card).getByText(/reported: lobby/i)).toBeInTheDocument()
+    expect(within(card).getByText('Lobby')).toBeInTheDocument()
   })
 
   it('shows the found photo when present and a "No photo" tile when absent', async () => {
@@ -147,27 +148,25 @@ describe('<Matching />', () => {
       .closest('article') as HTMLElement
 
     expect(
-      within(withPickup).getByText((t) => t.startsWith('Pickup ·')),
+      within(withPickup).getByText(/pickup scheduled at/i),
     ).toBeInTheDocument()
     expect(
-      within(withoutPickup).getByText(/no pickup scheduled/i),
+      within(withoutPickup).getByText(/no pickup scheduled yet/i),
     ).toBeInTheDocument()
     expect(container.querySelectorAll('article')).toHaveLength(2)
   })
 
-  it('shows the guest email on a scheduled pickup', async () => {
+  it('shows the lost reporter email as a mailto link on the card', async () => {
     seedSuccess()
     renderWithProviders(<Matching />)
 
-    const withPickup = (await screen.findByText('Found Wallet')).closest(
+    const card = (await screen.findByText('Lost Purse')).closest(
       'article',
     ) as HTMLElement
-    expect(
-      within(withPickup).getByText('guest@example.test'),
-    ).toBeInTheDocument()
-    expect(
-      within(withPickup).queryByRole('link', { name: /guest@example\.test/i }),
-    ).not.toBeInTheDocument()
+    const link = within(card).getByRole('link', {
+      name: 'reporter@example.test',
+    })
+    expect(link).toHaveAttribute('href', 'mailto:reporter@example.test')
   })
 
   it('orders matches newest-first regardless of API order', async () => {
@@ -181,14 +180,26 @@ describe('<Matching />', () => {
     expect(articles[1]).toHaveTextContent('Found Umbrella')
   })
 
-  it('filters by status when a tab is selected', async () => {
+  it('filters by status via the filter menu', async () => {
     seedSuccess()
     const { user } = renderWithProviders(<Matching />)
 
     await screen.findByText('Found Wallet')
-    await user.click(screen.getByRole('tab', { name: /confirmed/i }))
+    await user.click(screen.getByRole('button', { name: /filter matches/i }))
+    await user.click(screen.getByRole('menuitemradio', { name: /confirmed/i }))
 
     // Server filters to CONFIRMED (M2) only; the PENDING match drops out.
+    expect(await screen.findByText('Found Umbrella')).toBeInTheDocument()
+    expect(screen.queryByText('Found Wallet')).not.toBeInTheDocument()
+  })
+
+  it('filters cards client-side by the search query', async () => {
+    seedSuccess()
+    const { user } = renderWithProviders(<Matching />)
+
+    await screen.findByText('Found Wallet')
+    await user.type(screen.getByRole('searchbox', { name: /search matches/i }), 'umbrella')
+
     expect(await screen.findByText('Found Umbrella')).toBeInTheDocument()
     expect(screen.queryByText('Found Wallet')).not.toBeInTheDocument()
   })
@@ -197,11 +208,12 @@ describe('<Matching />', () => {
     server.use(matchesList([]), pickupsList([]))
     const { user } = renderWithProviders(<Matching />)
 
-    // Default tab is "All", so empty here means no matches at all.
+    // Default filter is "All", so empty here means no matches at all.
     expect(await screen.findByText(/no matches yet/i)).toBeInTheDocument()
 
-    // Switch to a status tab, confirm its empty copy, then recover.
-    await user.click(screen.getByRole('tab', { name: /pending/i }))
+    // Switch to a status filter, confirm its empty copy, then recover.
+    await user.click(screen.getByRole('button', { name: /filter matches/i }))
+    await user.click(screen.getByRole('menuitemradio', { name: /pending/i }))
     expect(
       await screen.findByText(/no matches with this status/i),
     ).toBeInTheDocument()

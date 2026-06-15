@@ -33,15 +33,6 @@ function lostLabel(report: LostReportResponse | undefined): string {
   return report?.attributes?.category?.trim() || firstLine(report?.description) || 'Lost report'
 }
 
-// Common colour names → swatch. Unknown values render as a plain text chip.
-const COLOR_SWATCH: Record<string, string> = {
-  black: '#111827', white: '#f9fafb', gray: '#9ca3af', grey: '#9ca3af',
-  silver: '#cbd5e1', red: '#ef4444', orange: '#f97316', yellow: '#eab308',
-  gold: '#d4af37', green: '#22c55e', teal: '#14b8a6', blue: '#3b82f6',
-  navy: '#1e3a8a', purple: '#a855f7', pink: '#ec4899', brown: '#92400e',
-  beige: '#e7d8b1', tan: '#d2b48c',
-}
-
 const statusPillCls: Record<MatchResponseStatus, string> = {
   [Status.PENDING]: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   [Status.CONFIRMED]: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
@@ -76,22 +67,6 @@ function Chip({ children }: { children: ReactNode }) {
     <span className="inline-flex items-center gap-1 rounded bg-border/40 px-1.5 py-0.5 text-[11px] font-medium text-text-h">
       {children}
     </span>
-  )
-}
-
-function ColorChip({ color }: { color: string }) {
-  const swatch = COLOR_SWATCH[color.trim().toLowerCase()]
-  return (
-    <Chip>
-      {swatch && (
-        <span
-          className="h-2.5 w-2.5 rounded-full border border-border"
-          style={{ backgroundColor: swatch }}
-          aria-hidden="true"
-        />
-      )}
-      {color}
-    </Chip>
   )
 }
 
@@ -284,7 +259,7 @@ export default function MatchCard({
           )}
           {(lostColor || lostBrand || lostMarks.length > 0) && (
             <div className="flex flex-wrap gap-1">
-              {lostColor && <ColorChip color={lostColor} />}
+              {lostColor && <Chip>{lostColor}</Chip>}
               {lostBrand && <Chip>{lostBrand}</Chip>}
               {lostMarks.map((mark) => (
                 <Chip key={mark}>{mark}</Chip>

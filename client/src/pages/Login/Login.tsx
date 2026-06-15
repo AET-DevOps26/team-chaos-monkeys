@@ -77,7 +77,14 @@ export default function Login() {
         </div>
 
         {submitError && (
-          <span className="text-xs text-red-500">{submitError}</span>
+          <>
+          <span className="text-xs text-red-500">{submitError} {submitError?.includes('Invalid email or password') && (
+            <span className="text-xs text-red-500">
+              wrong password? did you mean 'password123'?
+            </span>
+          )}</span>
+          
+          </>
         )}
 
         <button

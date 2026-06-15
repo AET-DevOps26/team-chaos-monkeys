@@ -3,9 +3,9 @@ import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
-  foundItemById,
+  foundItemsList,
   foundItemPhotoUrl,
-  lostReportById,
+  lostReportsList,
   lostReportPhotoUrl,
   matchesList,
   matchesListError,
@@ -77,8 +77,8 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
   server.use(
     matchesList(matches),
     pickupsList(pickups),
-    foundItemById(FOUND),
-    lostReportById(LOST),
+    foundItemsList(FOUND),
+    lostReportsList(LOST),
     foundItemPhotoUrl(),
     lostReportPhotoUrl(),
   )
@@ -180,13 +180,12 @@ describe('<Matching />', () => {
     expect(articles[1]).toHaveTextContent('Found Umbrella')
   })
 
-  it('filters by status via the filter menu', async () => {
+  it('filters by status via the status tabs', async () => {
     seedSuccess()
     const { user } = renderWithProviders(<Matching />)
 
     await screen.findByText('Found Wallet')
-    await user.click(screen.getByRole('button', { name: /filter matches/i }))
-    await user.click(screen.getByRole('menuitemradio', { name: /confirmed/i }))
+    await user.click(screen.getByRole('tab', { name: /confirmed/i }))
 
     // Server filters to CONFIRMED (M2) only; the PENDING match drops out.
     expect(await screen.findByText('Found Umbrella')).toBeInTheDocument()
@@ -204,16 +203,34 @@ describe('<Matching />', () => {
     expect(screen.queryByText('Found Wallet')).not.toBeInTheDocument()
   })
 
+  it('shows a no-results state for a search that matches nothing', async () => {
+    seedSuccess()
+    const { user } = renderWithProviders(<Matching />)
+
+    await screen.findByText('Found Wallet')
+    await user.type(screen.getByRole('searchbox', { name: /search matches/i }), 'zzzznope')
+
+    expect(await screen.findByText(/no matches for/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /clear search/i }))
+    expect(await screen.findByText('Found Wallet')).toBeInTheDocument()
+  })
+
   it('shows the empty state and recovers via "Show all"', async () => {
-    server.use(matchesList([]), pickupsList([]))
+    server.use(
+      matchesList([]),
+      pickupsList([]),
+      foundItemsList(FOUND),
+      lostReportsList(LOST),
+      foundItemPhotoUrl(),
+      lostReportPhotoUrl(),
+    )
     const { user } = renderWithProviders(<Matching />)
 
     // Default filter is "All", so empty here means no matches at all.
     expect(await screen.findByText(/no matches yet/i)).toBeInTheDocument()
 
     // Switch to a status filter, confirm its empty copy, then recover.
-    await user.click(screen.getByRole('button', { name: /filter matches/i }))
-    await user.click(screen.getByRole('menuitemradio', { name: /pending/i }))
+    await user.click(screen.getByRole('tab', { name: /pending/i }))
     expect(
       await screen.findByText(/no matches with this status/i),
     ).toBeInTheDocument()

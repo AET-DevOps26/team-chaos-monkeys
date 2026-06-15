@@ -4,8 +4,7 @@ import { MatchResponseStatus as Status } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
-import { useGetLostReportById } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import { useGetFoundItemById, useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -31,6 +30,27 @@ function foundLabel(item: FoundItemResponse | undefined): string {
 
 function lostLabel(report: LostReportResponse | undefined): string {
   return report?.attributes?.category?.trim() || firstLine(report?.description) || 'Lost report'
+}
+
+// Lower-cased searchable text for a match, kept here so the free-text filter in
+// Matching.tsx searches exactly the fields this card renders.
+export function matchSearchText(
+  lostReport: LostReportResponse | undefined,
+  foundItem: FoundItemResponse | undefined,
+): string {
+  return [
+    foundLabel(foundItem),
+    lostLabel(lostReport),
+    lostReport?.description,
+    lostReport?.contactEmail,
+    lostReport?.location,
+    lostReport?.attributes?.color,
+    lostReport?.attributes?.brand,
+    ...(lostReport?.attributes?.marks ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
 }
 
 const statusPillCls: Record<MatchResponseStatus, string> = {
@@ -164,20 +184,15 @@ function InfoRow({ icon, children, title }: { icon: ReactNode; children: ReactNo
 
 export default function MatchCard({
   match,
+  lostReport,
+  foundItem,
   pickup,
-  query,
 }: {
   match: MatchResponse
+  lostReport: LostReportResponse | undefined
+  foundItem: FoundItemResponse | undefined
   pickup: PickupResponse | undefined
-  query?: string
 }) {
-  const { data: lostReport } = useGetLostReportById(match.lostReportId ?? '', {
-    query: { enabled: !!match.lostReportId },
-  })
-  const { data: foundItem } = useGetFoundItemById(match.foundItemId ?? '', {
-    query: { enabled: !!match.foundItemId },
-  })
-
   const created = formatDate(match.createdAt)
   const foundName = foundLabel(foundItem)
 
@@ -191,27 +206,6 @@ export default function MatchCard({
   const lostWhen = formatDate(lostReport?.lostAt)
   // Avoid repeating the description verbatim when it's already the heading.
   const showDescription = lostDescription && lostDescription !== lostName
-
-  // Free-text filter. Once details have loaded, hide cards that don't match the
-  // query. We can't filter before the lazy detail fetch resolves, so unmatched
-  // cards may flash in briefly — acceptable for a client-side search.
-  const q = query?.trim().toLowerCase()
-  if (q) {
-    const haystack = [
-      foundName,
-      lostName,
-      lostDescription,
-      lostEmail,
-      lostLocation,
-      lostColor,
-      lostBrand,
-      ...lostMarks,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    if (!haystack.includes(q)) return null
-  }
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-bg p-4 shadow-[var(--shadow)]">

@@ -77,13 +77,17 @@ app.add_middleware(MaxBodySizeMiddleware)
 
 def _instrumentator_route_name(scope: Scope, routes: list[object]) -> str | None:
     for route in routes:
+        child_routes = getattr(route, "routes", None)
         matches = getattr(route, "matches", None)
         if matches is None:
+            if child_routes:
+                child_name = _instrumentator_route_name(scope, child_routes)
+                if child_name:
+                    return child_name
             continue
 
         match, child_scope = matches(scope)
         route_path = getattr(route, "path", "")
-        child_routes = getattr(route, "routes", None)
 
         if match == Match.FULL:
             if child_routes:

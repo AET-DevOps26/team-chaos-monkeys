@@ -7,7 +7,6 @@ import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
 import com.foundflow.genai.client.GenaiClient;
 import com.foundflow.genai.client.model.EmbedRequest;
-import com.foundflow.genai.client.model.EmbedResponse;
 import com.foundflow.matching.domain.ItemEmbedding;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.domain.Match;
@@ -162,7 +161,7 @@ public class CandidateMatchingService {
         float[] embedding = Timer.builder("matching.embedding.duration")
                 .description("Time to fetch an embedding from genai-service")
                 .register(meterRegistry)
-                .record(() -> toFloatArray(genaiClient.embed(embedRequest)));
+                .record(() -> GenaiClientSupport.toFloatArray(genaiClient.embed(embedRequest)));
 
         if (embedding.length != embeddingDim) {
             meterRegistry.counter("matching.embedding.dim_mismatch_total",
@@ -293,18 +292,6 @@ public class CandidateMatchingService {
         return Math.abs(match.getAttributeScore() - attributeScore) >= republishScoreDelta
                 || Math.abs(match.getSemanticScore() - semanticScore) >= republishScoreDelta
                 || Math.abs(match.getCombinedScore() - combinedScore) >= republishScoreDelta;
-    }
-
-    private float[] toFloatArray(EmbedResponse response) {
-        if (response == null || response.getEmbeddings() == null || response.getEmbeddings().isEmpty()) {
-            throw new IllegalStateException("GenAI /embed returned no embeddings.");
-        }
-        List<Float> first = response.getEmbeddings().get(0);
-        float[] vector = new float[first.size()];
-        for (int i = 0; i < first.size(); i++) {
-            vector[i] = first.get(i);
-        }
-        return vector;
     }
 
     static float categoryGate(String own, String candidate) {

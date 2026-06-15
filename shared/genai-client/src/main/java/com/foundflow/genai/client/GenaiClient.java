@@ -1,5 +1,7 @@
 package com.foundflow.genai.client;
 
+import com.foundflow.genai.client.model.AnswerRequest;
+import com.foundflow.genai.client.model.AnswerResponse;
 import com.foundflow.genai.client.model.DiagnosticResponse;
 import com.foundflow.genai.client.model.EmbedRequest;
 import com.foundflow.genai.client.model.EmbedResponse;
@@ -47,5 +49,13 @@ public class GenaiClient {
                 .body(request)
                 .retrieve()
                 .body(VerifyMatchResponse.class);
+    }
+
+    public AnswerResponse answer(AnswerRequest request) throws RestClientException {
+        return restClient.post()
+                .uri("/answer")
+                .body(request)
+                .retrieve()
+                .body(AnswerResponse.class);
     }
 }

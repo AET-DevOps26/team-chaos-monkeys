@@ -17,6 +17,9 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import routing as instrumentator_routing
+from starlette.routing import Match
+from starlette.types import Scope
 
 from app.api import answer, diagnostic, embed, extract, health, verify
 from app.config import Settings
@@ -71,17 +74,48 @@ register_exception_handlers(app)
 # `app.middleware` for the implementation.
 app.add_middleware(MaxBodySizeMiddleware)
 
+
+def _instrumentator_route_name(scope: Scope, routes: list[object]) -> str | None:
+    for route in routes:
+        matches = getattr(route, "matches", None)
+        if matches is None:
+            continue
+
+        match, child_scope = matches(scope)
+        route_path = getattr(route, "path", "")
+        child_routes = getattr(route, "routes", None)
+
+        if match == Match.FULL:
+            if child_routes:
+                child_name = _instrumentator_route_name(
+                    {**scope, **child_scope},
+                    child_routes,
+                )
+                if child_name:
+                    return f"{route_path}{child_name}"
+            return route_path or None
+    return None
+
+
+def _safe_instrumentator_route_name(request) -> str | None:
+    return _instrumentator_route_name(request.scope, request.app.routes)
+
+
+# prometheus-fastapi-instrumentator 8.0.0 assumes every FastAPI route object has
+# `.path`. FastAPI 0.136 adds internal `_IncludedRouter` entries that do not, so
+# route-name detection must skip/unwrap those entries before instrumentation.
+instrumentator_routing.get_route_name = _safe_instrumentator_route_name
+
+# `/metrics` exposes the default HTTP histograms/counters plus the
+# GenAI-specific metrics defined in `app.metrics`. Kept out of the
+# OpenAPI schema since it is not part of the service contract.
+Instrumentator().instrument(app).expose(
+    app, endpoint="/metrics", include_in_schema=False
+)
+
 app.include_router(health.router)
 app.include_router(extract.router)
 app.include_router(embed.router)
 app.include_router(verify.router)
 app.include_router(answer.router)
 app.include_router(diagnostic.router)
-
-# `/metrics` exposes the default HTTP histograms/counters plus the
-# GenAI-specific metrics defined in `app.metrics`. Kept out of the
-# OpenAPI schema since it is not part of the service contract. Register it
-# after application routers so the instrumentator sees concrete routes.
-Instrumentator().instrument(app).expose(
-    app, endpoint="/metrics", include_in_schema=False
-)

@@ -66,6 +66,12 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 6
           env:
+            {{- if eq (default "spring" $svc.kind) "spring" }}
+            # Keep the JVM heap inside the (tight) memory limit so the
+            # container is not OOMKilled before Spring Boot finishes booting.
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ default "-XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=50.0" $svc.javaToolOptions | quote }}
+            {{- end }}
             {{- include "foundflow.env" (dict "ctx" $ "name" $name "svc" $svc) | nindent 12 }}
           {{- with $svc.resources }}
           resources:

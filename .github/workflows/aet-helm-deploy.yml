@@ -11,6 +11,11 @@ on:
   push:
     branches:
       - main
+      # Also deploy on development so AET deploy changes can be validated on the
+      # real cluster without first promoting to main. Both branches target the
+      # same namespace/release (team-chaos-monkeys/foundflow); concurrency below
+      # serialises runs so a development and a main deploy never race.
+      - development
 
 permissions:
   contents: read

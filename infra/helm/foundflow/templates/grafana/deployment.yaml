@@ -15,6 +15,11 @@ metadata:
     app.kubernetes.io/component: grafana
 spec:
   replicas: 1
+  # Recreate, not RollingUpdate: a surge pod would briefly double this
+  # Deployment's footprint and can tip the tight AET namespace quota
+  # (4 CPU / 6Gi) into rejecting pods during a deploy. See deployments.yaml.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: grafana

@@ -26,6 +26,15 @@ metadata:
     {{- include "foundflow.svcLabels" (dict "ctx" $ "name" $name) | nindent 4 }}
 spec:
   replicas: {{ default 1 $svc.replicas }}
+  # Recreate (not the default RollingUpdate) so a deploy never runs the old and
+  # new pod of a single-replica Deployment at the same time. The AET namespace
+  # quota (4 CPU / 6Gi) fits the stack at rest with almost no headroom, and CD
+  # rewrites the image tag on every service at once — a rolling surge would
+  # double several pods simultaneously, exceed the quota, leave the surge/DB
+  # pods Pending, and deadlock `helm upgrade --wait --atomic`. Recreate trades a
+  # few seconds of per-service downtime for a rollout that stays within quota.
+  strategy:
+    type: {{ default "Recreate" $svc.strategy }}
   selector:
     matchLabels:
       {{- include "foundflow.selectorLabels" (dict "ctx" $ "name" $name) | nindent 6 }}

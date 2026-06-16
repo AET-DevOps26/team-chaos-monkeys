@@ -51,7 +51,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 500m, memory: 512Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8080" }
 
@@ -62,8 +62,8 @@ services:
     dbRef: auth-db
     replicas: 1
     resources:
-      requests: { cpu: 100m, memory: 384Mi }
-      limits:   { cpu: 500m, memory: 768Mi }
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8081" }
       - { name: SPRING_PROFILES_ACTIVE, value: "dev" }
@@ -78,6 +78,9 @@ services:
     metrics: true
     dbRef: lost-item-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8082" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -106,6 +109,9 @@ services:
     metrics: true
     dbRef: found-item-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8083" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -130,6 +136,9 @@ services:
     metrics: true
     dbRef: matching-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -149,6 +158,9 @@ services:
     metrics: true
     dbRef: notification-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8085" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -172,6 +184,9 @@ services:
     metrics: true
     dbRef: operations-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8086" }
 
@@ -181,6 +196,9 @@ services:
     metrics: true
     dbRef: pickup-db
     replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
       # Public base URL used to build pickup magic links — point at the public ingress.
@@ -197,7 +215,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 500m, memory: 768Mi }
+      limits:   { cpu: 250m, memory: 384Mi }
     env:
       - { name: GENAI_PROVIDER, value: openai }
       - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
@@ -214,8 +232,8 @@ services:
     public: true
     replicas: 1
     resources:
-      requests: { cpu: 50m,  memory: 64Mi }
-      limits:   { cpu: 200m, memory: 128Mi }
+      requests: { cpu: 25m, memory: 32Mi }
+      limits:   { cpu: 50m, memory: 64Mi }
 
   # Unauthenticated guest report SPA, routed by the ingress at /report.
   public-report-client:
@@ -229,8 +247,8 @@ services:
     public: true
     replicas: 1
     resources:
-      requests: { cpu: 50m,  memory: 64Mi }
-      limits:   { cpu: 200m, memory: 128Mi }
+      requests: { cpu: 25m, memory: 32Mi }
+      limits:   { cpu: 50m, memory: 64Mi }
 
 # One in-namespace Postgres instance per Spring service. Each gets:
 #   - StatefulSet with one replica (postgres:17, same image as docker-compose)
@@ -257,8 +275,8 @@ databases:
 postgresDefaults:
   image: postgres:17
   resources:
-    requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 500m, memory: 512Mi }
+    requests: { cpu: 50m,  memory: 96Mi }
+    limits:   { cpu: 100m, memory: 160Mi }
 
 # In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
 # Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
@@ -272,8 +290,8 @@ rabbitmq:
   username: foundflow
   password: ""
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: 500m, memory: 512Mi }
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 100m, memory: 256Mi }
   # Persistence is off by default: RabbitMQ here carries transient domain events
   # only — losing the queue contents on pod restart is acceptable. Flip to true
   # and set storageSize for broker data survivability. Durable queues already
@@ -293,8 +311,8 @@ minio:
   accessKey: foundflow
   secretKey: ""    # generated and held stable via lookup() when empty
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: 500m, memory: 1Gi }
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 100m, memory: 256Mi }
   persistence:
     storageSize: 5Gi
 
@@ -333,8 +351,8 @@ grafana:
   prometheusUrl: http://prometheus-operated.monitoring.svc.cluster.local:9090
   ingressPath: /grafana
   resources:
-    requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 300m, memory: 384Mi }
+    requests: { cpu: 50m, memory: 96Mi }
+    limits:   { cpu: 100m, memory: 192Mi }
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

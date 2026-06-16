@@ -135,7 +135,8 @@ Two layers of metrics are exposed:
 ```
 pip install -e '.[dev]'
 pytest                      # unit + contract tests (no network, no Ollama)
-GENAI_RUN_INTEGRATION=1 pytest tests/integration/test_real_provider.py   # hits real Ollama
+GENAI_RUN_INTEGRATION=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \
+    pytest tests/integration/test_real_openai_provider.py   # hits the real OpenAI API
 ```
 
 The contract test (`tests/test_provider_contract.py`) parametrizes the same assertions over both adapters using `respx`. If a future change drifts one adapter's behavior from the other (e.g. silently swallows timeouts), this test fails first.

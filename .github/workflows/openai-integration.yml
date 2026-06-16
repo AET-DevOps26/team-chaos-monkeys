@@ -1,20 +1,18 @@
 name: OpenAI integration tests
 
-# Hits the real OpenAI API rather than respx mocks. Pairs with
-# genai-integration.yml (which exercises Ollama) so a model rename,
-# SDK bump, or text-embedding-3-small deprecation surfaces here
-# instead of at Azure deploy time.
+# Hits the real OpenAI API rather than respx mocks, so a model rename,
+# SDK bump, or text-embedding-3-small deprecation surfaces here instead
+# of at Azure deploy time. OpenAI is what local Compose and deployment
+# use, so this is the live-backend nightly that matters.
 #
-# Does NOT gate PRs — runs nightly and on push to main. Staggered 30 min
-# after the Ollama nightly to keep the two runs distinct in the actions
-# UI and avoid sharing a runner's transient state.
+# Does NOT gate PRs — runs nightly and on push to main.
 
 on:
   push:
     branches:
       - main
   schedule:
-    # 05:30 UTC ~ 07:30 Munich, 30 min after the Ollama nightly (05:00).
+    # 05:30 UTC ~ 07:30 Munich.
     - cron: '30 5 * * *'
   workflow_dispatch:
 
@@ -98,9 +96,9 @@ jobs:
           OPENAI_EMBED_MODEL: text-embedding-3-small
           EMBEDDING_DIMENSIONS: '768'
           GENAI_TIMEOUT_SECONDS: '120'
-        # Target the OpenAI integration file explicitly. tests/integration/
-        # also contains the Ollama-shaped test_real_provider.py which would
-        # try to talk to a non-existent Ollama at localhost:11434.
+        # Target the OpenAI integration file explicitly so the broader
+        # tests/integration/ suite (golden/verification, gated behind their
+        # own GENAI_RUN_* switches) isn't pulled in here.
         run: pytest tests/integration/test_real_openai_provider.py -v
 
       - name: Dump genai-service logs on failure

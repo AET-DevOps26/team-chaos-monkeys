@@ -1,10 +1,9 @@
 """Gated real-LLM regression: extraction against the 22-case golden set.
 
 NOT run in normal CI. Set GENAI_RUN_GOLDEN=1 plus the provider env
-(GENAI_PROVIDER and its credentials) to run it. This mirrors the
-env-gating of test_real_provider.py (#82) but uses its own switch: the
-nightly genai-integration workflow runs a tiny Ollama model that is too
-small to extract reliably, so it must not pick this suite up.
+(GENAI_PROVIDER and its credentials) to run it. It uses its own switch
+(separate from GENAI_RUN_INTEGRATION) so a broad `pytest tests/integration/`
+run doesn't pick up this 22-call suite by accident.
 
     GENAI_RUN_GOLDEN=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \\
         pytest tests/integration/test_golden_extraction.py -s

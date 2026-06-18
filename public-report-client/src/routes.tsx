@@ -4,9 +4,10 @@ import ReportLostItem from '@/pages/ReportLostItem'
 import ReportConfirmation from '@/pages/ReportLostItem/ReportConfirmation'
 
 // Routes are relative to the router basename (/report). A report is always
-// scoped to a venue, supplied as the first path segment (e.g. /report/<venueId>,
-// typically reached via a per-venue QR link). The static `/confirmation` route
-// is ranked above the dynamic `:venueId` segment by the router.
+// scoped to a venue, supplied as the first path segment as a readable name
+// slug (e.g. /report/grand-hotel), typically reached via a per-venue QR link.
+// The static `/confirmation` route is ranked above the dynamic `:venueName`
+// segment by the router.
 export default function AppRoutes() {
   return (
     <Routes>
@@ -27,7 +28,7 @@ export default function AppRoutes() {
         }
       />
       <Route
-        path="/:venueId"
+        path="/:venueName"
         element={
           <PublicLayout>
             <ReportLostItem />

@@ -8,16 +8,21 @@ import {
   useUpdateLostReportPhoto,
 } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import type { CreateLostReportRequest } from '@/api/lost-items/model'
+import { usePublicVenues, findVenueBySlug } from '@/venues'
 
-// The venue is supplied by the route (/report/<venueId>), typically via a
-// per-venue QR link. Validate it looks like a UUID before submitting so a
-// mistyped link fails loudly here instead of at the backend.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
+// The venue is supplied by the route as a readable name slug
+// (/report/grand-hotel), typically via a per-venue QR link. We look the slug
+// up against the list of public venues to find the venue id the backend needs.
 export default function ReportLostItem() {
   const navigate = useNavigate()
-  const { venueId } = useParams<{ venueId: string }>()
-  const hasValidVenue = !!venueId && UUID_RE.test(venueId)
+  const { venueName } = useParams<{ venueName: string }>()
+
+  // Load the public venues and match the URL slug to one of them. The matched
+  // venue's id is what we submit the report against.
+  const venues = usePublicVenues()
+  const venue = findVenueBySlug(venues.data, venueName)
+  const venueId = venue?.venueId
+  const hasValidVenue = !!venueId
   const {
     register,
     handleSubmit,
@@ -97,7 +102,11 @@ export default function ReportLostItem() {
         Report a lost item
       </h1>
 
-      {!hasValidVenue && (
+      {venues.isLoading && (
+        <p className="mb-6 text-sm text-text">Loading venue…</p>
+      )}
+
+      {!venues.isLoading && !hasValidVenue && (
         <p className="mb-6 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">
           This report link is invalid. Please use the link or QR code provided at your venue.
         </p>

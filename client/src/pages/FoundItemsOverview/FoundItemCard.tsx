@@ -8,6 +8,7 @@ import {
   useGetFoundItemPhotoUrl,
 } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
+import { useToast } from '@/components/Toast/toast-context'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
@@ -52,6 +53,7 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
   const label = primaryLabel(item)
   const date = formatFoundAt(item.foundAt)
   const queryClient = useQueryClient()
+  const { show } = useToast()
   const [confirming, setConfirming] = useState(false)
   const { mutate: deleteItem, isPending: isDeleting } = useDeleteFoundItem({
     mutation: {
@@ -59,6 +61,10 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
         queryClient.invalidateQueries({
           queryKey: getGetAllFoundItemsQueryKey(),
         })
+        show('Item deleted.', { variant: 'success' })
+      },
+      onError: () => {
+        show('Failed to delete item.', { variant: 'error' })
       },
     },
   })

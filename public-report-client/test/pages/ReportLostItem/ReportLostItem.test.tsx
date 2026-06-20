@@ -16,9 +16,9 @@ const REPORT: LostReportResponse = {
   contactEmail: 'anna@example.com',
 }
 
-// A report is always scoped to a venue carried in the path (/report/<venueId>).
-const VENUE_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6'
-const venueRoute = `/${VENUE_ID}`
+// A report is scoped to a venue carried in the path as a name slug
+// (/report/grand-hotel). The default msw handler serves a "Grand Hotel" venue.
+const venueRoute = '/grand-hotel'
 
 async function fillForm(user: ReturnType<typeof renderWithProviders>['user']) {
   await user.type(
@@ -40,9 +40,11 @@ describe('<ReportLostItem />', () => {
   })
 
   it('blocks submission and warns when the venue link is invalid', async () => {
-    const { user } = renderWithProviders(<AppRoutes />, { route: '/not-a-uuid' })
+    const { user } = renderWithProviders(<AppRoutes />, { route: '/unknown-venue' })
 
-    expect(screen.getByText(/report link is invalid/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/report link is invalid/i),
+    ).toBeInTheDocument()
 
     await fillForm(user)
     expect(screen.getByRole('button', { name: /submit report/i })).toBeDisabled()

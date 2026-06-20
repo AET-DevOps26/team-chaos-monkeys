@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/auth/AuthContext'
 import { useAuth } from '@/auth/useAuth'
+import { ToastProvider } from '@/components/Toast/ToastProvider'
 
 type ProviderOptions = {
   route?: string
@@ -51,7 +52,9 @@ export function renderWithProviders(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
         <AuthProvider>
-          <SeedAuth token={authToken}>{children}</SeedAuth>
+          <ToastProvider>
+            <SeedAuth token={authToken}>{children}</SeedAuth>
+          </ToastProvider>
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>

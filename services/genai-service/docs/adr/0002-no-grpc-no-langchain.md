@@ -35,13 +35,15 @@ This ADR records that we adopt **neither**, and why. Both are reversible decisio
 **Rationale.**
 - **Abstraction-on-abstraction.** We already have one clean interface across three providers. LangChain would wrap an abstraction we already own, adding a heavy dependency for indirection we don't need.
 - **The `fake` provider is an asset.** The deterministic `fake` provider powers tests and E2E; LangChain complicates that path for no gain.
-- **We already have its other pitches.** Structured output and retries come from the OpenAI SDK + Pydantic today. LangChain's orchestration/agent features have no use case in three single-shot operations (extract, embed, verify).
+- **We already have its other pitches.** Structured output and retries come from the OpenAI SDK + Pydantic today. LangChain's orchestration/agent features have no use case in our genai operations, which are all single-shot (extract, embed, verify, and the grounded `/answer`).
+- **RAG does not change this.** Staff semantic search (epic #177) is corpus-grounded RAG, but the topology deliberately splits the pieces: retrieval is venue-scoped kNN over pgvector *in matching-service* (Java — out of LangChain's reach), and generation is genai's stateless `/answer` endpoint (#178, shipped), a pure function that mirrors `/verify-match` and takes pre-retrieved snippets. LangChain's RAG value is orchestrating retrieve → generate → chain inside one runtime; we don't do that in one runtime, and `/answer` landed without it.
 
-**Consequences.** The dependency surface stays small and the test story (especially `fake`) stays simple. If genai grows multi-step chains, tool use, or RAG, LangChain (or LangGraph) can be revisited then.
+**Consequences.** The dependency surface stays small and the test story (especially `fake`) stays simple. The trigger to revisit is not "RAG" — we have that — but **agentic, multi-step orchestration inside genai**: iterative/agentic retrieval, query rewriting with re-retrieval, or multi-turn tool use. That shape is closer to the deferred analytics-chat epic (#109, text-to-SQL); if it lands, LangChain or LangGraph can be revisited then.
 
 ## References
 
 - Issue [#232](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/232).
 - `services/genai-service/docs/adr/0001-image-attribute-extraction.md` — provider abstraction and ADR format precedent.
 - `services/matching-service/docs/adr/0001-verify-match-integration.md` — the async, best-effort verify path.
+- Epic [#177](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/177) (staff semantic search / RAG) and [#178](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/178) (the stateless `/answer` endpoint) — the RAG topology referenced above. [#109](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/109) — the deferred analytics-chat epic.
 - `api/README.md`, `api/openapi.yaml` — REST contract story.

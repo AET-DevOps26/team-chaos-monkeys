@@ -7,6 +7,7 @@ import {
   useGetFoundItemPhotoUrl,
 } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
+import { useToast } from '@/components/Toast/toast-context'
 import StatusControl from './StatusControl'
 import FoundItemDetails from './FoundItemDetails'
 import chevronIcon from '@/assets/chevron-down.svg'
@@ -38,6 +39,7 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
   const label = primaryLabel(item)
   const date = formatFoundAt(item.foundAt)
   const queryClient = useQueryClient()
+  const { show } = useToast()
   const [confirming, setConfirming] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const { mutate: deleteItem, isPending: isDeleting } = useDeleteFoundItem({
@@ -46,6 +48,10 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
         queryClient.invalidateQueries({
           queryKey: getGetAllFoundItemsQueryKey(),
         })
+        show('Item deleted.', { variant: 'success' })
+      },
+      onError: () => {
+        show('Failed to delete item.', { variant: 'error' })
       },
     },
   })

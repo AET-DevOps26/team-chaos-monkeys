@@ -5,6 +5,7 @@ import { useUpdateFoundItemPhoto } from '@/api/found-items/found-item-controller
 import type { CreateFoundItemRequest, FoundItemResponse } from '@/api/found-items/model'
 import { customInstance } from '@/api/mutator/custom-instance'
 import { useAuth } from '@/auth/useAuth'
+import { useToast } from '@/components/Toast/toast-context'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 
 // The create DTO still carries a venue UUID. For non-admin users the backend
@@ -69,11 +70,11 @@ export default function FoundItemIntake() {
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [showSuccess, setShowSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isCreatingItem, setIsCreatingItem] = useState(false)
 
   const { user } = useAuth()
+  const { show } = useToast()
   const updateFoundItemPhoto = useUpdateFoundItemPhoto()
 
   useEffect(() => {
@@ -119,10 +120,11 @@ export default function FoundItemIntake() {
         foundAt: nowForDatetimeLocal(),
         photo: null,
       })
-      setShowSuccess(true)
-      window.setTimeout(() => setShowSuccess(false), 3000)
+      show('Found item logged successfully.', { variant: 'success' })
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to log found item.')
+      show(err instanceof Error ? err.message : 'Failed to log found item.', {
+        variant: 'error',
+      })
     } finally {
       setIsCreatingItem(false)
     }
@@ -139,11 +141,6 @@ export default function FoundItemIntake() {
           <div className="flex items-center gap-3">
             {submitError && (
               <span className="text-xs text-red-500">{submitError}</span>
-            )}
-            {showSuccess && (
-              <span className="animate-[foundItemFadeIn_300ms_ease-out_both] text-xs text-accent">
-                Found item logged successfully.
-              </span>
             )}
             {hasPhoto && (
               <button

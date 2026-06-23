@@ -64,4 +64,22 @@ export default defineConfig({
       mode: 'single',
     },
   },
+  pickups: {
+    input: './openapi/pickups.json',
+    output: {
+      target: './src/api/pickups/index.ts',
+      client: 'react-query',
+      mode: 'tags-split',
+      schemas: './src/api/pickups/model',
+      override: apiOverride,
+    },
+  },
+  'pickups-zod': {
+    input: './openapi/pickups.json',
+    output: {
+      target: './src/api/pickups/zod.ts',
+      client: 'zod',
+      mode: 'single',
+    },
+  },
 })

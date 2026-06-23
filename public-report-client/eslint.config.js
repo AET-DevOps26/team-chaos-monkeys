@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src/api/lost-items']), // autogen may cause false positives
+  globalIgnores(['dist', 'src/api/lost-items', 'src/api/pickups']), // autogen may cause false positives
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

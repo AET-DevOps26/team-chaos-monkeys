@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import PublicLayout from '@/components/PublicLayout/PublicLayout'
 import ReportLostItem from '@/pages/ReportLostItem'
 import ReportConfirmation from '@/pages/ReportLostItem/ReportConfirmation'
+import SchedulePickup from '@/pages/SchedulePickup/SchedulePickup'
+import PickupConfirmation from '@/pages/SchedulePickup/PickupConfirmation'
 
 // Routes are relative to the router basename (/report). A report is always
 // scoped to a venue, supplied as the first path segment as a readable name
@@ -24,6 +26,22 @@ export default function AppRoutes() {
         element={
           <PublicLayout>
             <ReportConfirmation />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/pickup/confirmation"
+        element={
+          <PublicLayout>
+            <PickupConfirmation />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/pickup/:token"
+        element={
+          <PublicLayout>
+            <SchedulePickup />
           </PublicLayout>
         }
       />

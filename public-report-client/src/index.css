@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-day-picker/style.css";
 
 @keyframes foundItemFadeIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -81,6 +82,39 @@ h2 {
   font-family: var(--heading);
   font-weight: 500;
   color: var(--text-h);
+}
+
+/* react-day-picker — themed to the app's palette */
+.rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--accent);
+  --rdp-today-color: var(--accent);
+  --rdp-day-width: 2.5rem;
+  --rdp-day-height: 2.5rem;
+  --rdp-disabled-opacity: 0.3;
+  color: var(--text-h);
+  font-size: 0.95rem;
+}
+
+/* Selected day: solid accent fill with readable text and no extra border */
+.rdp-selected .rdp-day_button {
+  background-color: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+/* Hover affordance on selectable days */
+.rdp-day_button:hover:not([disabled]) {
+  background-color: var(--accent-bg);
+}
+
+/* Nav arrows and weekday labels pick up the app text colors */
+.rdp-chevron {
+  fill: var(--accent);
+}
+
+.rdp-weekday {
+  color: var(--text);
 }
 
 p {

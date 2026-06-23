@@ -6,10 +6,10 @@
  */
 
 export interface PublicPickupResponse {
-  id?: string;
-  pickupAt?: string;
-  venueId?: string;
+  id: string;
+  pickupAt: string;
+  venueId: string;
   matchId?: string;
-  email?: string;
-  manageUrl?: string;
+  email: string;
+  manageUrl: string;
 }

@@ -6,7 +6,7 @@
  */
 
 export interface PickupSlotResponse {
-  startsAt?: string;
-  endsAt?: string;
+  startsAt: string;
+  endsAt: string;
   available?: boolean;
 }

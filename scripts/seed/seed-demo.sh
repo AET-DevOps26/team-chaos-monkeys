@@ -52,10 +52,10 @@ urlencode() {
   jq -rn --arg value "$1" '$value | @uri'
 }
 
-timestamp_minutes_ago() {
-  minutes="$1"
+timestamp_days_ago() {
+  days="$1"
   epoch="$(date -u +%s)"
-  date -u -d "@$((epoch - (minutes * 60)))" +%Y-%m-%dT%H:%M:%S 2>/dev/null || printf '%s' "$NOW"
+  date -u -d "@$((epoch - (days * 86400)))" +%Y-%m-%dT%H:%M:%S 2>/dev/null || printf '%s' "$NOW"
 }
 
 echo "[seed] waiting for auth / found-items / lost-items ..."
@@ -141,8 +141,8 @@ upload_photo() {
 }
 
 create_found() {
-  text="$1"; photo="$2"; minutes="$3"
-  found_at="$(timestamp_minutes_ago "$minutes")"
+  text="$1"; photo="$2"; days_ago="$3"
+  found_at="$(timestamp_days_ago "$days_ago")"
   id="$(find_found_id "$text")"
 
   if [ -n "$id" ]; then
@@ -167,8 +167,8 @@ create_found() {
 }
 
 create_lost() {
-  description="$1"; location="$2"; contact="$3"; photo="$4"; minutes="$5"
-  lost_at="$(timestamp_minutes_ago "$minutes")"
+  description="$1"; location="$2"; contact="$3"; photo="$4"; days_ago="$5"
+  lost_at="$(timestamp_days_ago "$days_ago")"
   id="$(find_lost_id "$description")"
 
   if [ -n "$id" ]; then
@@ -195,9 +195,12 @@ create_lost() {
   echo "[seed] lost report $id - $description"
 }
 
-create_found "Purple leather wallet found at the lobby bar." purple-wallet.jpg 90
+# Two found items spread over the last days; the wallet matches the lost report
+# below, the puffer stays unmatched (the reviewer uploads a third — the shirt).
+create_found "Purple leather wallet found at the lobby bar." purple-wallet.jpg 1
+create_found "Purple puffer jacket left in the cloakroom." purple-puffer.jpg 5
 
-create_lost "I lost my purple leather wallet near the main entrance." "Main entrance" "guest.wallet@example.com" purple-wallet.jpg 120
+create_lost "I lost my purple leather wallet near the main entrance." "Main entrance" "guest.wallet@example.com" purple-wallet.jpg 3
 
 echo "[seed] done. Staff login: $STAFF_EMAIL / $STAFF_PASSWORD"
 echo "[seed] the intake -> matching pipeline will produce demo matches shortly."

@@ -233,7 +233,7 @@ services:
     entrypoint:
       - sh
       - -c
-      - apk add --no-cache curl jq >/dev/null && sh /seed/seed-demo.sh
+      - apk add --no-cache curl jq coreutils >/dev/null && sh /seed/seed-demo.sh
     restart: "no"
 
   ollama:

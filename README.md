@@ -48,7 +48,7 @@ comes from the GenAI service (image → attributes → embedding) and a pgvector
 nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 **4. Walk the flow live.**
-- **New Intake** → log a found item (drop a photo, add notes, submit).
+- **New Intake** → log a third found item: download [`purple-shirt.jpg`](scripts/seed/assets/purple-shirt.jpg) (a purple cotton shirt), upload it, add notes, submit. It joins the two seeded found items.
 - Open the guest report page at http://localhost:3000/report/00000000-0000-0000-0000-000000000001, describe a lost item, add an email, submit.
 - Back in **Matches**, the new candidate appears once matching runs.
 - Create a public match link, follow it as the guest to confirm/reject, then continue into pickup scheduling; **Mailpit** (http://localhost:8025) captures match, pickup, and password-reset email attempts.
@@ -98,7 +98,7 @@ are significantly faster because Docker reuses downloaded images and build
 layers. The frontend may become reachable before the backend services are ready;
 wait until the login request succeeds before evaluating the application.
 
-On first boot a demo venue, a staff account, a sample found item, and a matching guest lost report are seeded automatically with photos (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
+On first boot a demo venue, a staff account, two sample found items, and a matching guest lost report are seeded automatically with photos, dated across the last few days (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
 
 The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 

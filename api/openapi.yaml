@@ -333,11 +333,13 @@ components:
       properties:
         category:
           type: [string, 'null']
-          enum: [ELECTRONICS, CLOTHING, ACCESSORIES, BAGS, DOCUMENTS, KEYS, JEWELRY, OTHER, null]
           description: |
-            Coarse category from a fixed taxonomy (matching gates on exact
-            equality). Off-list model output is coerced to `OTHER`; `null`
-            when undeterminable.
+            Coarse category. The genai service constrains this to a fixed
+            taxonomy — `ELECTRONICS`, `CLOTHING`, `ACCESSORIES`, `BAGS`,
+            `DOCUMENTS`, `KEYS`, `JEWELRY`, `OTHER` (off-list model output is
+            coerced to `OTHER`); `null` when undeterminable. Kept as a plain
+            string here so the generated client stays a string pass-through;
+            matching gates on exact equality of these values.
         brand:
           type: [string, 'null']
         color:

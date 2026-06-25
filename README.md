@@ -25,7 +25,21 @@ with all secret keys (incl. `OPENAI_API_KEY`) — then:
 docker compose up --build
 ```
 
-**2. Log in** at http://localhost:3000 with `admin@foundflow.local` / `admin12345`.
+If the reviewer wants to verify the Helm/local-Kubernetes path instead, follow
+[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md)
+from Git Bash on Windows:
+
+```bash
+make -C infra/helm kube-quickstart ADMIN_EMAIL=admin@foundflow.local ADMIN_PASSWORD=admin12345 OPENAI_API_KEY=sk-...
+```
+
+That path serves the app at http://foundflow.localtest.me/ and Grafana at
+http://foundflow.localtest.me/grafana/.
+
+**2. Log in** at http://localhost:3000 with the seeded staff account
+`staff.demo@foundflow.local` / `test12345` and review the app from the normal
+venue staff perspective. The admin account `admin@foundflow.local` / `admin12345`
+is still available for user/admin checks.
 
 **3. See it working — GenAI in the loop.** The **Dashboard** shows non-zero KPIs. Open
 **Matches**: the seeded guest *purple wallet* report is already matched to the found
@@ -56,7 +70,7 @@ workflow, it is not a bolt-on.
 | Persistent database | per-service Postgres 17 (pgvector in matching-service) |
 | Separate Python GenAI, in a real workflow | match scores on **Matches**; docs at http://localhost:8000/docs |
 | Local Docker runtime, ≤3 commands | step 1 above |
-| Kubernetes deployment | `infra/helm/foundflow/`; live on AET at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de` (TUM network) |
+| Kubernetes deployment | [`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md), `infra/helm/foundflow/`; live on AET at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de` (TUM network) |
 | CI/CD on GitHub Actions | `ci.yml` on every PR; `aet-helm-deploy.yml` runs `helm upgrade` on merge to `main` |
 | Prometheus / Grafana observability | Grafana :3030, Prometheus :9090 |
 | Automated tests | Gradle (services), pytest (genai), Vitest (client), PowerShell E2E |
@@ -83,7 +97,7 @@ are significantly faster because Docker reuses downloaded images and build
 layers. The frontend may become reachable before the backend services are ready;
 wait until the login request succeeds before evaluating the application.
 
-On first boot a demo venue plus three sample found items and a guest lost report are seeded automatically (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
+On first boot a demo venue, a staff account, three sample found items, and three matching guest lost reports are seeded automatically with photos (through the API, so real GenAI/pgvector matches form) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
 
 The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 

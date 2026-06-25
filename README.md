@@ -15,7 +15,8 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 ## Reviewer walkthrough
 
 A short path through the system, mapped to the graded requirements. Demo data is seeded
-on first boot, so a working match is visible the moment you log in.
+on first boot, so working matches are visible once the intake and matching pipeline
+has finished.
 
 **1. Start** (first boot ~10–15 min — wait until login succeeds). Drop the shared
 `.env` into the repo root — we send you a Bitwarden link to a ready-to-use `.env`
@@ -26,8 +27,7 @@ docker compose up --build
 ```
 
 If the reviewer wants to verify the Helm/local-Kubernetes path instead, follow
-[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md)
-from Git Bash on Windows:
+[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md):
 
 ```bash
 make -C infra/helm kube-quickstart ADMIN_EMAIL=admin@foundflow.local ADMIN_PASSWORD=admin12345 OPENAI_API_KEY=sk-...
@@ -42,15 +42,16 @@ venue staff perspective. The admin account `admin@foundflow.local` / `admin12345
 is still available for user/admin checks.
 
 **3. See it working — GenAI in the loop.** The **Dashboard** shows non-zero KPIs. Open
-**Matches**: the seeded guest *purple wallet* report is already matched to the found
-wallet, with a similarity score. That score comes from the GenAI service (image →
-attributes → embedding) and a pgvector nearest-neighbour search — GenAI drives the
-workflow, it is not a bolt-on.
+**Matches**: once the seeded intake events have been processed, the guest *purple
+wallet* report is matched to the found wallet, with a similarity score. That score
+comes from the GenAI service (image → attributes → embedding) and a pgvector
+nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 **4. Walk the flow live.**
 - **New Intake** → log a found item (drop a photo, add notes, submit).
 - Open the guest report page at http://localhost:3000/report/00000000-0000-0000-0000-000000000001, describe a lost item, add an email, submit.
-- Back in **Matches**, the new candidate appears once matching runs; **Mailpit** (http://localhost:8025) captures any guest email.
+- Back in **Matches**, the new candidate appears once matching runs.
+- Create a public match link, follow it as the guest to confirm/reject, then continue into pickup scheduling; **Mailpit** (http://localhost:8025) captures match, pickup, and password-reset email attempts.
 
 **5. Observability.**
 
@@ -134,9 +135,9 @@ The first Ollama run downloads the configured models into the persistent `ollama
 The system is **event-driven with synchronous edges**:
 
 - **REST/JSON** carries user-facing commands and queries from the frontend, public magic-link flows for match confirmation and pickup scheduling, and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
-- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
+- **Domain events** (`LostReportCreated`, `FoundItemCreated`, `MatchCandidateCreated`, `MatchInviteRequested`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching and outbound notification requests (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
 
-Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules, booked pickups, and local pickup-email logs.
+Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules and booked pickups, while `notification-service` owns outbound delivery records.
 
 Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md).
 
@@ -147,7 +148,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 ```
 .
 ├── api/
-│   └── openapi.yaml            — GenAI service contract (Spring paths land via #61)
+│   └── openapi.yaml            — GenAI service contract
 ├── client/                     — React + Vite + TypeScript frontend
 ├── docs/                       — architecture/, course/, product/, deployment/, research/, diagrams/
 ├── services/
@@ -156,8 +157,8 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 │   ├── lost-item-service/      — guest lost-item reports
 │   ├── found-item-service/     — staff found-item intake
 │   ├── matching-service/       — pgvector-backed match candidates
-│   ├── pickup-service/         — pickup schedules, public pickup booking, local email logs
-│   ├── notification-service/   — guest pickup notifications
+│   ├── pickup-service/         — pickup schedules, public pickup booking
+│   ├── notification-service/   — outbound email delivery records
 │   ├── operations-service/     — venue records + KPI aggregation
 │   └── genai-service/          — Python 3.12 + FastAPI; extraction, embedding, verification
 ├── shared/
@@ -213,7 +214,7 @@ Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-c
 
 ## API contract
 
-The project runs a mixed contract model today; [#61](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/61) tracks the planned reconciliation.
+The project runs a mixed contract model today:
 
 - **GenAI service** — contract-first against `api/openapi.yaml`. `services/genai-service/app/api/schemas.py` mirrors the spec, and `services/genai-service/tests/golden/_contract.py` enforces alignment. Lint with `npx @redocly/cli lint api/openapi.yaml`; preview with `npx @redocly/cli preview-docs api/openapi.yaml` (config in `redocly.yaml`).
 - **Spring services** — code-first via springdoc. Controllers are hand-written and `/v3/api-docs` is generated from the annotations; the gateway aggregates them at `http://localhost:8080/swagger-ui.html`.
@@ -246,8 +247,12 @@ Every Spring service exposes `/actuator/prometheus` (Micrometer); `genai-service
 ## Documentation index
 
 - [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/product/application-overview.md`](docs/product/application-overview.md) — user-facing workflows and service responsibilities
 - [`docs/product/problem-statement.md`](docs/product/problem-statement.md) — domain framing
 - [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) — system design (diagrams under `docs/diagrams/`)
 - [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md) — roles, claims, endpoint permissions
+- [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md) — RabbitMQ routing and event payloads
 - [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md) — storage abstraction shared by lost/found item services
+- [`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md) — local Helm/Kubernetes runtime
+- [`infra/helm/foundflow/README.md`](infra/helm/foundflow/README.md) — Helm chart structure and AET deployment notes
 - [`docs/course/requirements.md`](docs/course/requirements.md) — course requirements & grading

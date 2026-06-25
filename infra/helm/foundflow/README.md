@@ -12,7 +12,7 @@ Deploys exclusively into the namespace `team-chaos-monkeys`.
 ## Quick start (local Kubernetes)
 
 The chart runs against the built-in Kubernetes of Docker Desktop (default) or
-OrbStack. See `docs/deployment/local-kubernetes.md` for runtime-specific setup. One-command path:
+OrbStack. See [local Kubernetes runtime](../../../docs/deployment/local-kubernetes.md) for runtime-specific setup. One-command path:
 
 ```sh
 make -C infra/helm kube-quickstart \
@@ -30,8 +30,12 @@ make -C infra/helm helm-install        # helm dep update + helm upgrade --instal
 make -C infra/helm smoke               # ingress smoke tests
 ```
 
-No image-import step is needed: the local Kubernetes shares the host's Docker
-daemon image store, and the chart sets `imagePullPolicy=IfNotPresent`.
+The local values use `foundflow/<service>:dev` images and set
+`imagePullPolicy=IfNotPresent`. Runtimes that share the host Docker image store
+can use the locally built images directly. If the cluster runtime instead tries
+to pull `docker.io/foundflow/*` and pods enter `ImagePullBackOff`, import the
+images into the cluster runtime or push them to a reachable registry and override
+`global.imageRegistry`.
 
 Then open:
 
@@ -51,7 +55,7 @@ cluster itself, disable Kubernetes in Docker Desktop settings or run
 |------|---------|
 | `Chart.yaml` | Declares chart metadata; service and database resources are rendered from `values.yaml`. |
 | `values.yaml` | Defaults targeting AET (cert-manager, csi-rbd-sc, GHCR images). |
-| `values-local.yaml` | Local-cluster overrides: no TLS, `*.localtest.me`, `hostpath` storage (override to `local-path` on OrbStack), `IfNotPresent` pull policy so the shared docker daemon's images are used. |
+| `values-local.yaml` | Local-cluster overrides: no TLS, `*.localtest.me`, `hostpath` storage (override to `local-path` on OrbStack), `IfNotPresent` pull policy for locally available images. Some runtimes still need image import or a reachable registry. |
 | `values-aet.yaml` | AET-specific pins consumed by `.github/workflows/aet-helm-deploy.yml`. |
 | `templates/_helpers.tpl` | Labels, image ref, env/DB wiring helpers. |
 | `templates/deployments.yaml` | Ranges `.Values.services` → one `Deployment` each. |
@@ -179,12 +183,6 @@ On macOS, use:
 
 ```sh
 base64 < ~/.kube/config | tr -d '\n'
-```
-
-On Windows PowerShell, use:
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.kube\config"))
 ```
 
 ## Verify an AET deployment

@@ -14,7 +14,6 @@ left to right direction
 [GenAI Service] as GenAIService
 
 queue "RabbitMQ\nfoundflow.domain-events" as Rabbit
-queue "RabbitMQ\nfoundflow.notifications\n(planned)" as NotificationRabbit
 database "Photo Storage\nMinIO / Azure Blob" as Photos
 
 Gateway --> Auth : /api/auth\n/api/users
@@ -35,7 +34,10 @@ Matching --> GenAIService : REST embed\nverify-match
 Lost --> Rabbit : lost-report.*.v1
 Found --> Rabbit : found-item.*.v1
 Rabbit --> Matching : intake events
-Matching --> Rabbit : match-candidate.created.v1
+Matching --> Rabbit : match-candidate.created.v1\nmatch-invite.requested.v1
+Pickup --> Rabbit : pickup-confirmation.requested.v1
+Auth --> Rabbit : password-reset.requested.v1
+Operations --> Rabbit : venue.deleted.v1
 
 Matching --> Lost : REST read lost report
 Matching --> Found : REST read found item
@@ -44,9 +46,8 @@ Operations --> Lost : count KPIs
 Operations --> Found : count KPIs
 Operations --> Matching : count KPIs
 
-Matching ..> NotificationRabbit : planned notification requests
-Pickup ..> NotificationRabbit : planned pickup notifications
-NotificationRabbit ..> Notification : planned delivery queue
+Rabbit --> Notification : outbound notification requests
+Rabbit --> Auth : venue cleanup events
 
 Gateway ..> Auth : validate JWT via JWKs
 Lost ..> Auth : validate JWT via JWKs

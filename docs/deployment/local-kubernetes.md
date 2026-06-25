@@ -83,6 +83,19 @@ docker pull pgvector/pgvector:pg17
 kubectl -n team-chaos-monkeys delete pod -l app.kubernetes.io/component=database
 ```
 
+If application pods fail with `ImagePullBackOff` for images such as
+`foundflow/auth-service:dev`, Kubernetes is trying to pull `docker.io/foundflow/*`
+instead of using a local image. Some local Kubernetes runtimes do not share the
+host Docker image store with the cluster runtime. In that case:
+
+- verify every chart image was built locally (`docker images "foundflow/*"`),
+  including `pickup-service` and `public-report-client`;
+- use a runtime that can see the host images, import the images into the cluster
+  runtime, or push them to a reachable registry and override
+  `global.imageRegistry`;
+- after fixing image visibility, restart the affected deployments with
+  `kubectl -n team-chaos-monkeys rollout restart deployment/<name>`.
+
 ## Internal Tools
 
 RabbitMQ and MinIO are cluster-internal. Port-forward them when needed:

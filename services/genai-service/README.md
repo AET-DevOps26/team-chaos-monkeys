@@ -1,6 +1,6 @@
 # genai-service
 
-Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See `docs/architecture/system-architecture.md` for how it fits with the Spring services and `matching-service`.
+Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See [system architecture](../../docs/architecture/system-architecture.md) for how it fits with the Spring services and `matching-service`.
 
 ## Provider configuration
 

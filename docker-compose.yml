@@ -213,9 +213,9 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  # One-shot demo seeder: waits for the API, logs in, and creates sample found items
-  # and a guest lost report so a real match is visible on first login. Idempotent and
-  # non-fatal; disable with SEED_DEMO_DATA=false.
+  # One-shot demo seeder: waits for the API, logs in, creates the demo staff user,
+  # and seeds three found/lost report pairs with photos. Idempotent and non-fatal;
+  # disable with SEED_DEMO_DATA=false.
   seed:
     image: alpine:3.20
     container_name: foundflow-seed

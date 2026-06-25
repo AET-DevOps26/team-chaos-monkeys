@@ -17,11 +17,11 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 A short path through the system, mapped to the graded requirements. Demo data is seeded
 on first boot, so a working match is visible the moment you log in.
 
-**1. Start** (≤3 commands; first boot ~10–15 min — wait until login succeeds):
+**1. Start** (first boot ~10–15 min — wait until login succeeds). Drop the shared
+`.env` into the repo root — we send you a Bitwarden link to a ready-to-use `.env`
+with all secret keys (incl. `OPENAI_API_KEY`) — then:
 
 ```bash
-cp .env.example .env                      # gitignored
-# set OPENAI_API_KEY in .env from the shared Bitwarden entry
 docker compose up --build
 ```
 

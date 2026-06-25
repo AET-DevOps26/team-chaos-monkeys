@@ -15,7 +15,7 @@ Subsystem ownership defines who is primarily responsible for design, implementat
 ## Reviewer walkthrough
 
 A short path through the system, mapped to the graded requirements. Demo data is seeded
-on first boot, so working matches are visible once the intake and matching pipeline
+on first boot, so a working match is visible once the intake and matching pipeline
 has finished.
 
 **1. Start** (first boot ~10–15 min — wait until login succeeds). Drop the shared
@@ -98,7 +98,7 @@ are significantly faster because Docker reuses downloaded images and build
 layers. The frontend may become reachable before the backend services are ready;
 wait until the login request succeeds before evaluating the application.
 
-On first boot a demo venue, a staff account, three sample found items, and three matching guest lost reports are seeded automatically with photos (through the API, so real GenAI/pgvector matches form) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
+On first boot a demo venue, a staff account, a sample found item, and a matching guest lost report are seeded automatically with photos (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
 
 The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 

@@ -196,12 +196,8 @@ create_lost() {
 }
 
 create_found "Purple leather wallet found at the lobby bar." purple-wallet.jpg 90
-create_found "Purple puffer jacket left in the cloakroom." purple-puffer.jpg 130
-create_found "Purple cotton shirt found in conference room B." purple-shirt.jpg 180
 
 create_lost "I lost my purple leather wallet near the main entrance." "Main entrance" "guest.wallet@example.com" purple-wallet.jpg 120
-create_lost "My purple puffer jacket disappeared from the cloakroom." "Cloakroom" "guest.jacket@example.com" purple-puffer.jpg 160
-create_lost "I left a purple cotton shirt in conference room B." "Conference room B" "guest.shirt@example.com" purple-shirt.jpg 210
 
 echo "[seed] done. Staff login: $STAFF_EMAIL / $STAFF_PASSWORD"
 echo "[seed] the intake -> matching pipeline will produce demo matches shortly."

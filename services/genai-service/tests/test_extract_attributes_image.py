@@ -36,7 +36,7 @@ def _b64_jpeg(size: tuple[int, int] = (200, 200)) -> str:
 
 _VALID_OUTPUT = json.dumps(
     {
-        "category": "wallet",
+        "category": "ACCESSORIES",
         "brand": None,
         "color": "brown",
         "distinguishingMarks": ["small scratch on the corner"],
@@ -82,7 +82,7 @@ def test_image_only_request_succeeds(client_with_fake, fake_provider):
     response = client_with_fake.post("/extract-attributes", json=payload)
     assert response.status_code == 200
     body = response.json()
-    assert body["attributes"]["category"] == "wallet"
+    assert body["attributes"]["category"] == "ACCESSORIES"
     # The multimodal user turn made it through to the provider as a
     # content-part list — see ADR 0001 §6.
     messages, _ = fake_provider.chat_calls[-1]

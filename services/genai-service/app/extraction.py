@@ -54,7 +54,11 @@ def item_attribute_fields() -> list[str]:
 # One guidance line per ItemAttributes field, keyed by camelCase wire alias.
 # `test_extraction.py` asserts this stays in step with the model.
 _FIELD_GUIDANCE: dict[str, str] = {
-    "category": "coarse item type, e.g. jacket, wallet, headphones",
+    "category": (
+        "the item's coarse category — choose EXACTLY one of: ELECTRONICS, "
+        "CLOTHING, ACCESSORIES, BAGS, DOCUMENTS, KEYS, JEWELRY, OTHER. "
+        "Use OTHER when none clearly fit (e.g. an umbrella or a water bottle)"
+    ),
     "brand": "manufacturer or brand name, if stated",
     "color": "primary visible colour",
     "distinguishingMarks": (
@@ -130,15 +134,15 @@ same mark is described twice."""
 _EXAMPLE = (
     "Worked example — for this description:\n"
     '"""\n'
-    "I think I left a dark blue umbrella somewhere near the main entrance.\n"
+    "I think I left a black leather wallet somewhere near the main entrance.\n"
     '"""\n'
     "the correct output is:\n"
-    '{"category":"umbrella","brand":null,"color":"dark blue",'
+    '{"category":"ACCESSORIES","brand":null,"color":"black",'
     '"distinguishingMarks":[],"approximateTime":null,'
     '"location":"near the main entrance"}\n'
-    "brand, approximateTime and distinguishingMarks are null or empty here "
-    "because the description does not mention them — never fill a field the "
-    "source does not support."
+    "category is one of the fixed values above; brand, approximateTime and "
+    "distinguishingMarks are null or empty here because the description does "
+    "not mention them — never fill a field the source does not support."
 )
 
 _FIELD_LINES = "\n".join(

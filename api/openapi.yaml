@@ -333,7 +333,11 @@ components:
       properties:
         category:
           type: [string, 'null']
-          description: Coarse category, e.g. `jacket`, `wallet`, `headphones`.
+          enum: [ELECTRONICS, CLOTHING, ACCESSORIES, BAGS, DOCUMENTS, KEYS, JEWELRY, OTHER, null]
+          description: |
+            Coarse category from a fixed taxonomy (matching gates on exact
+            equality). Off-list model output is coerced to `OTHER`; `null`
+            when undeterminable.
         brand:
           type: [string, 'null']
         color:

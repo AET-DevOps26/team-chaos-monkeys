@@ -29,7 +29,7 @@ from tests.golden import load_golden_set
 
 VALID_OUTPUT = json.dumps(
     {
-        "category": "jacket",
+        "category": "CLOTHING",
         "brand": "North Face",
         "color": "black",
         "distinguishingMarks": ["enamel pin"],
@@ -69,7 +69,7 @@ def test_happy_path_returns_attributes_and_model_info(post_extract):
     response = post_extract({"description": "black North Face puffer jacket"})
     assert response.status_code == 200
     body = response.json()
-    assert body["attributes"]["category"] == "jacket"
+    assert body["attributes"]["category"] == "CLOTHING"
     assert body["attributes"]["brand"] == "North Face"
     assert body["modelInfo"] == {"provider": "local", "model": "llama3.2:3b"}
 
@@ -84,10 +84,10 @@ def test_response_uses_camelcase_keys(post_extract):
 
 def test_missing_fields_serialised_as_null_and_empty_list(post_extract):
     response = post_extract(
-        {"description": "a phone"}, chat_response=json.dumps({"category": "phone"})
+        {"description": "a phone"}, chat_response=json.dumps({"category": "ELECTRONICS"})
     )
     attrs = response.json()["attributes"]
-    assert attrs["category"] == "phone"
+    assert attrs["category"] == "ELECTRONICS"
     assert attrs["brand"] is None
     assert attrs["distinguishingMarks"] == []
 

@@ -206,11 +206,35 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
     depends_on:
       operations-db:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  # One-shot demo seeder: waits for the API, logs in, and creates sample found items
+  # and a guest lost report so a real match is visible on first login. Idempotent and
+  # non-fatal; disable with SEED_DEMO_DATA=false.
+  seed:
+    image: alpine:3.20
+    container_name: foundflow-seed
+    depends_on:
+      - gateway-service
+    environment:
+      GATEWAY_BASE_URL: http://gateway-service:8080
+      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:?DEV_ADMIN_EMAIL is required}
+      DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?DEV_ADMIN_PASSWORD is required}
+      DEMO_VENUE_ID: "00000000-0000-0000-0000-000000000001"
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    volumes:
+      - ./scripts/seed/seed-demo.sh:/seed/seed-demo.sh:ro
+      - ./scripts/seed/assets:/seed/assets:ro
+    entrypoint:
+      - sh
+      - -c
+      - apk add --no-cache curl jq >/dev/null && sh /seed/seed-demo.sh
+    restart: "no"
 
   ollama:
     image: ollama/ollama:0.4.2

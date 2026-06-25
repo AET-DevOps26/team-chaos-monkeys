@@ -12,6 +12,61 @@ Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. Fo
 
 Subsystem ownership defines who is primarily responsible for design, implementation, and the individual oral examination at the end of the term. Cross-subsystem collaboration on integration, CI/CD, and observability is expected and tracked through pull requests.
 
+## Reviewer walkthrough
+
+A short path through the system, mapped to the graded requirements. Demo data is seeded
+on first boot, so a working match is visible the moment you log in.
+
+**1. Start** (≤3 commands; first boot ~10–15 min — wait until login succeeds):
+
+```bash
+cp .env.example .env                      # gitignored
+# set OPENAI_API_KEY in .env from the shared Bitwarden entry
+docker compose up --build
+```
+
+**2. Log in** at http://localhost:3000 with `admin@foundflow.local` / `admin12345`.
+
+**3. See it working — GenAI in the loop.** The **Dashboard** shows non-zero KPIs. Open
+**Matches**: the seeded guest *purple wallet* report is already matched to the found
+wallet, with a similarity score. That score comes from the GenAI service (image →
+attributes → embedding) and a pgvector nearest-neighbour search — GenAI drives the
+workflow, it is not a bolt-on.
+
+**4. Walk the flow live.**
+- **New Intake** → log a found item (drop a photo, add notes, submit).
+- Open the guest report page at http://localhost:3000/report/00000000-0000-0000-0000-000000000001, describe a lost item, add an email, submit.
+- Back in **Matches**, the new candidate appears once matching runs; **Mailpit** (http://localhost:8025) captures any guest email.
+
+**5. Observability.**
+
+| Surface | URL | What to look at |
+|---|---|---|
+| Grafana | http://localhost:3030 (`admin`/`admin`) | *Services — RED* + *AMQP Consumers* dashboards |
+| Prometheus | http://localhost:9090 | `/targets` (scrape health), `/alerts` (rules) |
+| Swagger UI | http://localhost:8080/swagger-ui.html | all Spring APIs, aggregated |
+| GenAI metrics | http://localhost:8000/metrics | provider latency / request counts |
+
+### Where each graded requirement is demonstrated
+
+| Requirement | Where to verify |
+|---|---|
+| Client-side app | http://localhost:3000 — login, dashboard, intake, matches |
+| ≥3 Spring microservices | 8 services behind the gateway; listed in Swagger UI |
+| Persistent database | per-service Postgres 17 (pgvector in matching-service) |
+| Separate Python GenAI, in a real workflow | match scores on **Matches**; docs at http://localhost:8000/docs |
+| Local Docker runtime, ≤3 commands | step 1 above |
+| Kubernetes deployment | `infra/helm/foundflow/`; live on AET at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de` (TUM network) |
+| CI/CD on GitHub Actions | `ci.yml` on every PR; `aet-helm-deploy.yml` runs `helm upgrade` on merge to `main` |
+| Prometheus / Grafana observability | Grafana :3030, Prometheus :9090 |
+| Automated tests | Gradle (services), pytest (genai), Vitest (client), PowerShell E2E |
+| Architecture docs + UML | [`docs/architecture/`](docs/architecture/), [`docs/diagrams/`](docs/diagrams/) (`*.puml`) |
+| OpenAPI / Swagger | http://localhost:8080/swagger-ui.html |
+| No hardcoded credentials | `.env.example` (local); K8s `ConfigMap`/`Secret` from GitHub secrets |
+| PR workflow + review | feature branches → PR into `development`; CI required |
+
+> Want to start empty instead? Set `SEED_DEMO_DATA=false` in `.env` before `docker compose up`.
+
 ## Run locally
 
 The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
@@ -27,6 +82,8 @@ On a fresh machine, expect the first image build and startup to take roughly
 are significantly faster because Docker reuses downloaded images and build
 layers. The frontend may become reachable before the backend services are ready;
 wait until the login request succeeds before evaluating the application.
+
+On first boot a demo venue plus three sample found items and a guest lost report are seeded automatically (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
 
 The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
 
@@ -157,9 +214,9 @@ If a host port clashes with something else on your machine (e.g. another project
 ## CI/CD and branching
 
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
-- **Releases:** `main` is reserved for release PRs from `development`; the automated deploy on merge is planned (see below) but not wired up yet.
+- **Releases:** `main` is the release branch; merging `development → main` triggers the AET deploy.
 - **CI** (`.github/workflows/ci.yml`): runs on every PR — Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
-- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned; Helm charts already live under `infra/helm/`, and the remaining work is wiring automated deploys.
+- **CD** (`.github/workflows/aet-helm-deploy.yml`): on every push to `main` (and via `workflow_dispatch`) it builds and pushes images to GHCR, then runs `helm upgrade --install` against the AET (Rancher RKE2) cluster — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. `.github/workflows/azure-cycle.yml` provisions an ephemeral Azure VM, deploys, and destroys it on demand (`workflow_dispatch`). Charts live under `infra/helm/foundflow/`.
 
 ## Observability
 

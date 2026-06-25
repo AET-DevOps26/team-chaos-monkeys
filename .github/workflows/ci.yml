@@ -269,6 +269,9 @@ jobs:
           # extraction wiring (issue #128) can be exercised without
           # pulling multi-GB Ollama models or a real OpenAI key.
           echo "GENAI_PROVIDER=fake" >> .env
+          # The E2E suite manages its own venues/items; keep demo seeding off
+          # so it doesn't perturb counts/listing assertions.
+          echo "SEED_DEMO_DATA=false" >> .env
 
       - name: Build and start backend stack
         run: |

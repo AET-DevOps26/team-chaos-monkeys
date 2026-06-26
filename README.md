@@ -77,6 +77,14 @@ nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 > Want to start empty instead? Set `SEED_DEMO_DATA=false` in `.env` before `docker compose up`.
 
+### Not yet wired
+
+Honest about the edges, so reviewers know where the boundaries are:
+
+- **Guest match confirm/reject UI** — the `confirm`/`reject` endpoints and the public match-link API exist on the backend, but no guest-facing page drives them yet, so matches stay at `PENDING`.
+- **Match lifecycle events** — `MatchConfirmed`, `NotificationSent`, and `CaseClosed` are described in the architecture docs but not yet implemented; outbound notifications today fire off `match-invite`, `pickup-confirmation`, and `password-reset` events only.
+- **Domain metrics** — per-service RED metrics (rate/errors/duration) are live; the domain gauges (matches/min, GenAI extraction latency, vector-search latency) land incrementally.
+
 ## Run locally
 
 The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.

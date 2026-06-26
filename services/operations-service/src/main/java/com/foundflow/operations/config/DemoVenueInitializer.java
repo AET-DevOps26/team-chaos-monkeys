@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Seeds a single demo venue with a fixed id so the local stack ships with a stable
- * {@code /report/<venueId>} link and a venue to scope demo data against. Enabled only
+ * {@code /report/<venue-name-slug>} link and a venue to scope demo data against. Enabled only
  * when {@code SEED_DEMO_DATA=true}; the insert is idempotent, so it is safe to re-run.
  */
 @Configuration

@@ -26,15 +26,10 @@ with all secret keys (incl. `OPENAI_API_KEY`) — then:
 docker compose up --build
 ```
 
-If the reviewer wants to verify the Helm/local-Kubernetes path instead, follow
-[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md):
-
-```bash
-make -C infra/helm kube-quickstart ADMIN_EMAIL=admin@foundflow.local ADMIN_PASSWORD=admin12345 OPENAI_API_KEY=sk-...
-```
-
-That path serves the app at http://foundflow.localtest.me/ and Grafana at
-http://foundflow.localtest.me/grafana/.
+Want to see it running on local Kubernetes instead? Follow
+[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md) — it walks
+through the Helm quickstart and serves the app at http://foundflow.localtest.me/ with
+Grafana at http://foundflow.localtest.me/grafana/.
 
 **2. Log in** at http://localhost:3000 with the seeded staff account
 `staff.demo@foundflow.local` / `test12345` and review the app from the normal
@@ -49,9 +44,9 @@ nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 **4. Walk the flow live.**
 - **New Intake** → log a third found item: download [`purple-shirt.jpg`](scripts/seed/assets/purple-shirt.jpg) (a purple cotton shirt), upload it, add notes, submit. It joins the two seeded found items.
-- Open the guest report page at http://localhost:3000/report/00000000-0000-0000-0000-000000000001, describe a lost item, add an email, submit.
+- Open the guest report page at http://localhost:3000/report/grand-plaza-hotel-demo (the demo venue's name, slugified — guests normally reach this via a per-venue QR link), describe a lost item, add an email, submit.
 - Back in **Matches**, the new candidate appears once matching runs.
-- Create a public match link, follow it as the guest to confirm/reject, then continue into pickup scheduling; **Mailpit** (http://localhost:8025) captures match, pickup, and password-reset email attempts.
+- The candidate shows its similarity score and a `PENDING` status, with the pickup banner reflecting scheduling state (guest confirm/reject is not wired into the UI yet). **Mailpit** (http://localhost:8025) captures the match, pickup, and password-reset emails the system sends; following a pickup magic link opens the guest scheduling page at `/report/pickup/<token>`.
 
 **5. Observability.**
 

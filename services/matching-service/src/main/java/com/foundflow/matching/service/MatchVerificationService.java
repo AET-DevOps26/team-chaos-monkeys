@@ -70,6 +70,8 @@ public class MatchVerificationService {
                 log.warn("verify-match returned null confidence for match {} (provider {}); possible contract drift",
                         matchId, resp.getModelInfo() != null ? resp.getModelInfo().getProvider() : "?");
             }
+
+            maybeAutoReject(matchId, verdict, resp.getConfidence());
         } catch (Exception e) {
             String reason = GenaiClientSupport.classify(e);
             meters.counter("matching.verify.requests_total",
@@ -83,6 +85,24 @@ public class MatchVerificationService {
             }
         } finally {
             sample.stop(meters.timer("matching.verify.duration"));
+        }
+    }
+
+    /**
+     * Enforce the verify-match backstop: a confident {@code no_match} retires the
+     * candidate from PENDING to REJECTED so it stops surfacing as a match. A
+     * low-confidence {@code no_match} or an {@code uncertain} verdict is left for
+     * a human to judge. The PENDING guard lives in the repository update.
+     */
+    private void maybeAutoReject(UUID matchId, String verdict, Float confidence) {
+        if (!props.isAutoRejectOnNoMatch() || !"no_match".equals(verdict)) {
+            return;
+        }
+        if (confidence == null || confidence < props.getAutoRejectMinConfidence()) {
+            return;
+        }
+        if (repo.autoRejectIfPending(matchId) > 0) {
+            meters.counter("matching.verify.auto_reject_total").increment();
         }
     }
 }

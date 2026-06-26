@@ -6,10 +6,25 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class GenaiVerifyProperties {
 
     private boolean enabled = true;
+
+    // When verify-match returns a confident no_match verdict, transition the
+    // candidate from PENDING to REJECTED so it stops surfacing as a match.
+    // This is the enforcement of the verify-match backstop: candidate
+    // generation is deliberately lenient (semantic score gate only), and
+    // verify is what culls the plausible-but-wrong pairs.
+    private boolean autoRejectOnNoMatch = true;
+    private double autoRejectMinConfidence = 0.7;
+
     private Executor executor = new Executor();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isAutoRejectOnNoMatch() { return autoRejectOnNoMatch; }
+    public void setAutoRejectOnNoMatch(boolean v) { this.autoRejectOnNoMatch = v; }
+
+    public double getAutoRejectMinConfidence() { return autoRejectMinConfidence; }
+    public void setAutoRejectMinConfidence(double v) { this.autoRejectMinConfidence = v; }
 
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }

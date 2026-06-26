@@ -29,6 +29,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +48,7 @@ public class CandidateMatchingService {
 
     private final int topK;
     private final float threshold;
+    private final float categoryMismatchFactor;
     private final float republishScoreDelta;
     private final int embeddingDim;
 
@@ -59,6 +61,7 @@ public class CandidateMatchingService {
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
             @Value("${foundflow.matching.threshold:0.55}") float threshold,
+            @Value("${foundflow.matching.category-mismatch-factor:0.85}") float categoryMismatchFactor,
             @Value("${foundflow.matching.republish-score-delta:0.01}") float republishScoreDelta,
             @Value("${foundflow.matching.embedding-dim}") int embeddingDim
     ) {
@@ -70,6 +73,7 @@ public class CandidateMatchingService {
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
+        this.categoryMismatchFactor = categoryMismatchFactor;
         this.republishScoreDelta = republishScoreDelta;
         this.embeddingDim = embeddingDim;
     }
@@ -195,7 +199,7 @@ public class CandidateMatchingService {
                 .register(meterRegistry);
 
         for (SimilarItemEmbedding candidate : candidates) {
-            float attributeScore = categoryGate(ownCategory, candidate.category());
+            float attributeScore = categoryGate(ownCategory, candidate.category(), categoryMismatchFactor);
             float semanticScore = 1.0f - candidate.cosineDistance();
             float combinedScore = attributeScore * semanticScore;
             scoreHistogram.record(combinedScore);
@@ -294,14 +298,23 @@ public class CandidateMatchingService {
                 || Math.abs(match.getCombinedScore() - combinedScore) >= republishScoreDelta;
     }
 
-    static float categoryGate(String own, String candidate) {
-        if (Objects.equals(own, candidate)) {
+    /**
+     * Category is a soft prior, not a veto. Exact agreement (case/whitespace
+     * insensitive, including both-unknown) gives full weight; any other case —
+     * different categories, or only one side categorised — applies a mild
+     * {@code mismatchFactor} penalty rather than zeroing the score, so a strong
+     * embedding match can still surface despite a category misclassification.
+     * The async verify-match step backstops residual false positives.
+     */
+    static float categoryGate(String own, String candidate, float mismatchFactor) {
+        if (Objects.equals(normalizeCategory(own), normalizeCategory(candidate))) {
             return 1.0f;
         }
-        if (own == null || candidate == null) {
-            return 0.5f;
-        }
-        return 0.0f;
+        return mismatchFactor;
+    }
+
+    private static String normalizeCategory(String category) {
+        return category == null ? null : category.trim().toLowerCase(Locale.ROOT);
     }
 
     static String buildEmbeddingText(String description, ItemAttributesPayload attributes) {

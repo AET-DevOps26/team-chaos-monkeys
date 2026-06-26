@@ -69,6 +69,7 @@ class CandidateMatchingServiceTest {
                 meters,
                 TOP_K,
                 THRESHOLD,
+                0.85f,
                 0.01f,
                 EMBEDDING_DIM
         );
@@ -147,7 +148,7 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryMismatch_gatesScoreToZero() {
+    void categoryMismatch_withStrongSemantic_stillMatches() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -155,9 +156,39 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
-        // Very high semantic similarity (distance 0.02) but categories differ → combined = 0.0
+        // Categories differ ("Bag" vs "Wallet") but semantic similarity is high
+        // (distance 0.1 -> 0.9). Soft gate: combined = 0.85 * 0.9 >= 0.55, so the
+        // strong embedding match is no longer vetoed by the category disagreement.
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.02f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.1f)));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
+                .thenReturn(Optional.empty());
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository).save(captor.capture());
+        Match persisted = captor.getValue();
+        assertThat(persisted.getAttributeScore()).isEqualTo(0.85f);
+        assertThat(persisted.getSemanticScore()).isEqualTo(0.9f);
+        assertThat(persisted.getCombinedScore()).isEqualTo(0.85f * 0.9f);
+        verify(eventPublisher).publishMatchCandidateCreated(persisted);
+    }
+
+    @Test
+    void categoryMismatch_withWeakSemantic_staysBelowThreshold() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
+                .thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        // Categories differ and semantic is modest (distance 0.5 -> 0.5):
+        // combined = 0.85 * 0.5 = 0.425 < 0.55 threshold -> no match.
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.5f)));
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
 
@@ -387,12 +418,18 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryGate_followsRecommendedRules() {
-        assertThat(CandidateMatchingService.categoryGate("Bag", "Bag")).isEqualTo(1.0f);
-        assertThat(CandidateMatchingService.categoryGate(null, null)).isEqualTo(1.0f);
-        assertThat(CandidateMatchingService.categoryGate("Bag", null)).isEqualTo(0.5f);
-        assertThat(CandidateMatchingService.categoryGate(null, "Bag")).isEqualTo(0.5f);
-        assertThat(CandidateMatchingService.categoryGate("Bag", "Wallet")).isEqualTo(0.0f);
+    void categoryGate_isSoftPriorNotVeto() {
+        float f = 0.85f;
+        // Exact agreement (incl. both-unknown) → full weight.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", "BAGS", f)).isEqualTo(1.0f);
+        assertThat(CandidateMatchingService.categoryGate(null, null, f)).isEqualTo(1.0f);
+        // Case/whitespace-insensitive agreement.
+        assertThat(CandidateMatchingService.categoryGate("bags", "  BAGS ", f)).isEqualTo(1.0f);
+        // Different categories → mild penalty, not a 0.0 veto.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", "ACCESSORIES", f)).isEqualTo(f);
+        // Only one side categorised → same mild penalty.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", null, f)).isEqualTo(f);
+        assertThat(CandidateMatchingService.categoryGate(null, "BAGS", f)).isEqualTo(f);
     }
 
     @Test

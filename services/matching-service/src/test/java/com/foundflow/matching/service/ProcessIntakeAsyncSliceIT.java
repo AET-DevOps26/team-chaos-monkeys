@@ -106,6 +106,7 @@ class ProcessIntakeAsyncSliceIT {
                 new SimpleMeterRegistry(),
                 TOP_K,
                 THRESHOLD,
+                0.85f,
                 0.01f,
                 EMBEDDING_DIM
         );

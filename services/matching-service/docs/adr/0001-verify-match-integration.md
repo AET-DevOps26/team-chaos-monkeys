@@ -8,11 +8,11 @@
 
 ## Context
 
-`genai-service` ships `POST /verify-match` (issue #104, PR #105) — a second-opinion LLM check that returns a verdict (`match`/`no_match`/`uncertain`), confidence, and free-text rationale for a `LostReport` ↔ `FoundItem` pair. The endpoint is unit-, golden-, and real-LLM-tested, documented in `api/openapi.yaml`, and instrumented end-to-end. Nothing in the platform calls it.
+`genai-service` ships `POST /verify-match` (issue #104, PR #105) — a second-opinion LLM check that returns a verdict (`match`/`no_match`/`uncertain`), confidence, and free-text rationale for a `LostReport` ↔ `FoundItem` pair. The endpoint is unit-, golden-, and real-LLM-tested, documented in `api/openapi.yaml`, and instrumented end-to-end. This ADR records the decision to call it from `matching-service`.
 
 Three integration options were considered. Operations-service ("call when staff confirms a candidate") is structurally blocked: operations-service has no match-confirmation endpoint and adding one is materially larger than #151. A score-band hybrid ("only verify candidates whose `combinedScore` lands in an uncertainty band") is the same code path as the simple integration plus one config knob, but picking the band requires distribution data we don't yet have. Matching-service-after-pgvector ("verify every above-threshold candidate") is the only viable surface today.
 
-The full design is captured in `docs/superpowers/specs/2026-05-30-verify-match-wiring-design.md`. This ADR locks the decisions.
+This ADR locks the decisions.
 
 ## Decisions
 
@@ -80,11 +80,10 @@ The full design is captured in `docs/superpowers/specs/2026-05-30-verify-match-w
 - Intake latency unaffected.
 - Operationally killable without a redeploy.
 - Failure modes observable from day one.
-- Until RabbitMQ lands in compose, local exercise of the path goes via `MatchController`'s manual endpoint.
+- Local exercise of the path goes through normal intake events; `MatchController` also exposes manual endpoints for targeted checks.
 
 ## References
 
-- Spec: `docs/superpowers/specs/2026-05-30-verify-match-wiring-design.md`
 - Issue #151; depends on #104 (endpoint design), #105 (endpoint PR).
 - `api/openapi.yaml` lines 133–163 — `VerifyMatchRequest` / `VerifyMatchResponse`.
 - `services/genai-service/docs/adr/0001-image-attribute-extraction.md` — ADR format precedent.

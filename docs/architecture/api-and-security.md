@@ -100,7 +100,7 @@ Expected failures:
 | `/api/found-items` | `found-item-service` | Found-item intake and management |
 | `/api/matches` | `matching-service` | Match CRUD and public match links |
 | `/api/pickups` | `pickup-service` | Pickup schedules, pickups, public pickup links |
-| `/api/notifications` | `notification-service` | Notification records and blueprint placeholders |
+| `/api/notifications` | `notification-service` | Notification records and delivery status |
 | `/api/venues` | `operations-service` | Venues and KPIs |
 
 ## Service-Specific Authorization Rules

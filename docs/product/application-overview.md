@@ -50,8 +50,8 @@ app:
 | `lost-item-service` | Public lost-report intake, lost-report CRUD, optional lost-report photos, lost-report events. |
 | `found-item-service` | Staff found-item intake, found-item CRUD, required found-item photos, found-item events. |
 | `matching-service` | Candidate matching, match status, vector index, match verification, public match links, match email log. |
-| `pickup-service` | Pickup schedules, booked pickups, public pickup magic-link flow, pickup email log. |
-| `notification-service` | Notification records and blueprint placeholder endpoints today; planned RabbitMQ consumer for outbound notification requests. |
+| `pickup-service` | Pickup schedules, booked pickups, public pickup magic-link flow, and pickup-confirmation event publishing. |
+| `notification-service` | RabbitMQ consumers for match invites, pickup confirmations, and password resets; persists notification delivery records. |
 | `operations-service` | Venues and venue KPIs, including downstream count aggregation. |
 | `genai-service` | Stateless Python/FastAPI service for attribute extraction, embeddings, and match verification. |
 

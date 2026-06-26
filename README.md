@@ -79,8 +79,6 @@ nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 ### Not yet wired
 
-Honest about the edges, so reviewers know where the boundaries are:
-
 - **Guest match confirm/reject UI** — the `confirm`/`reject` endpoints and the public match-link API exist on the backend, but no guest-facing page drives them yet, so matches stay at `PENDING`.
 - **Match lifecycle events** — `MatchConfirmed`, `NotificationSent`, and `CaseClosed` are described in the architecture docs but not yet implemented; outbound notifications today fire off `match-invite`, `pickup-confirmation`, and `password-reset` events only.
 - **Domain metrics** — per-service RED metrics (rate/errors/duration) are live; the domain gauges (matches/min, GenAI extraction latency, vector-search latency) land incrementally.

@@ -91,7 +91,7 @@ Trigger the **Build and push images** workflow from the Actions tab:
 > → Run workflow → (defaults are fine) → Run
 
 The workflow runs in-org on `ubuntu-24.04`, authenticates with `GITHUB_TOKEN`,
-builds the 9 service images, and pushes them to
+builds the 12 service images, and pushes them to
 `ghcr.io/aet-devops26/team-chaos-monkeys/*:latest`.
 
 **Why not from your laptop?** GHCR refuses `create_package` for our org from
@@ -101,7 +101,7 @@ the package back to this repo so package settings/visibility live in the right
 place. `scripts/build-and-push.sh` is kept around for local image-build
 debugging, but you can't use it to publish.
 
-**First push only:** mark the nine packages public so the VM can pull without
+**First push only:** mark the twelve packages public so the VM can pull without
 a token. GitHub → this repo → Packages → each package → Package settings →
 Change visibility → **Public**.
 

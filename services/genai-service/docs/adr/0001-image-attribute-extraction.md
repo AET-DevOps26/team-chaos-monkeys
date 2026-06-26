@@ -1,6 +1,6 @@
 # ADR 0001 — Image-based attribute extraction for `genai-service`
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-05-22
 - **Issue**: [#90](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/90)
 - **Subsystem owner**: Luca Kollmer

@@ -155,7 +155,7 @@ The embedding dimensionality is a separate `EMBEDDING_DIMENSIONS` env var (defau
 
 `.github/workflows/openai-integration.yml` — nightly (05:30 UTC) + on-push-to-main + `workflow_dispatch`, hits real OpenAI via `secrets.OPENAI_API_KEY`, non-blocking. Surfaces a model rename, SDK bump, or `text-embedding-3-small` deprecation here instead of at Azure deploy time. Boots `genai-service` standalone and asserts `/_diagnostic` reports `embed_dimensions_configured=embed_dimensions_actual=768` against the real API before running `tests/integration/test_real_openai_provider.py`. (The OpenAI provider is what local Compose and deployment use; the `local`/Ollama provider has no live-backend nightly — its adapter is covered by blocking unit tests only.)
 
-CD to Kubernetes is **not yet wired**. The Helm chart (`infra/helm/foundflow/`) is the deploy artifact; values-aet.yaml is the production override layer. Wiring a CD job to call `helm upgrade --install` on merges to `main` is an open ticket.
+CD to Kubernetes is **wired**: `.github/workflows/aet-helm-deploy.yml` builds and pushes images to GHCR and runs `helm upgrade --install` against the AET (Rancher RKE2) cluster on every push to `main` (and via `workflow_dispatch`) — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. `.github/workflows/azure-cycle.yml` provisions, deploys to, and destroys an ephemeral Azure VM on demand. The Helm chart (`infra/helm/foundflow/`) is the deploy artifact; `values-aet.yaml` is the production override layer.
 
 ## Engineering Constraints from the Course Brief
 
@@ -165,7 +165,7 @@ These are graded requirements, not preferences. Violating them costs points:
 - **No hardcoded credentials anywhere.** Local: gitignored `.env` files (`.env.example` documents required vars). Kubernetes: `ConfigMap` for non-secret config, `Secret` for credentials populated from GitHub repository secrets via CI.
 - **Every component has its own Dockerfile.** Postgres uses the official image; the compose file declares it.
 - **Mandatory PRs.** No direct commits to `main`. Each feature/bugfix lives on its own branch, CI must pass, peer review is required, branches stay short-lived (target ≤2 days).
-- **CI must build and test all services on every PR.** CD must auto-deploy to Kubernetes on merge to `main`. CI exists (ci.yml); CD is still pending.
+- **CI must build and test all services on every PR.** CD must auto-deploy to Kubernetes on merge to `main`. CI (`ci.yml`) runs on every PR; CD (`aet-helm-deploy.yml`) runs `helm upgrade` to AET on merge to `main`.
 - **Deployable to both Rancher (course infra) and Azure** via Helm. The `infra/helm/foundflow/` chart targets AET (Rancher RKE2) via `values-aet.yaml` and local Kubernetes via `values-local.yaml`.
 - **Observability must be meaningful.** Prometheus tracks request count, latency, and error rate at minimum, plus domain metrics (matches/min, GenAI extraction latency, vector search latency). Grafana dashboards committed as JSON under `infra/grafana/dashboards/` (shared by compose and Helm). Alert rules in `infra/prometheus/alerts.yml` are promtool-tested in CI; the Helm chart re-renders them as a `PrometheusRule` CR.
 - **Spring services expose `/actuator/prometheus`** via Micrometer; the Python service exposes `/metrics`.

@@ -2,10 +2,9 @@ openapi: 3.1.0
 
 # FoundFlow synchronous API contract.
 #
-# Scope of this revision: the GenAI service only (issue #48).
-# Spring service paths will be added under the same root file or split via $ref
-# when issue #61 is implemented. Treat this file as the single source of truth
-# for sync APIs — DTOs are generated from here, never hand-written.
+# Scope: the contract-first GenAI service API. Spring service APIs are generated
+# code-first via springdoc and exposed through the gateway Swagger UI.
+# GenAI DTOs are generated from here, never hand-written.
 
 info:
   title: FoundFlow API
@@ -91,7 +90,7 @@ paths:
       summary: Produce embedding vectors for one or more texts
       description: |
         Called synchronously by `matching-service` when it consumes
-        `LostReportCreated` or `FoundItemLogged` events, and when staff issue a
+        `LostReportCreated` or `FoundItemCreated` events, and when staff issue a
         semantic search query. Stateless: the matching-service persists the
         vectors in its own pgvector store along with the source record id.
 

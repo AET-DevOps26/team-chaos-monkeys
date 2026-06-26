@@ -18,6 +18,7 @@ rectangle "FoundFlow" {
   }
 
   package "Staff operations" {
+    usecase "Request password reset" as UC_ResetPassword
     usecase "Log found item" as UC_LogFound
     usecase "Review found items" as UC_ReviewFound
     usecase "Review lost reports" as UC_ReviewLost
@@ -40,6 +41,7 @@ Guest --> UC_SchedulePickup
 Guest --> UC_ManagePickup
 
 Staff --> UC_LogFound
+Staff --> UC_ResetPassword
 Staff --> UC_ReviewFound
 Staff --> UC_ReviewLost
 Staff --> UC_ReviewMatches
@@ -52,10 +54,12 @@ Ops --> UC_ReviewMatches
 Ops --> UC_PickupSchedules
 Ops --> UC_Kpis
 Ops --> UC_Users
+Ops --> UC_ResetPassword
 
 Admin --> UC_Venues
 Admin --> UC_Kpis
 Admin --> UC_Users
+Admin --> UC_ResetPassword
 
 UC_ConfirmMatch .> UC_ViewMatch : <<extend>>
 UC_SchedulePickup .> UC_ConfirmMatch : <<extend>>

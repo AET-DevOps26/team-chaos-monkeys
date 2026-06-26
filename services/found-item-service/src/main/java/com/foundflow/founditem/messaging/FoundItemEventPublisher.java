@@ -72,6 +72,7 @@ public class FoundItemEventPublisher {
 
         return new ItemAttributesPayload(
                 attributes.getCategory(),
+                attributes.getDescription(),
                 attributes.getBrand(),
                 attributes.getColor(),
                 attributes.getMarks()

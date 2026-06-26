@@ -120,6 +120,40 @@ class LostReportServiceTest {
     }
 
     @Test
+    void createLostReport_shouldExtractAttributesForTextOnlyReportWithoutPhoto() {
+        LostReportService service = service();
+
+        UUID venueId = UUID.randomUUID();
+        CreateLostReportRequest request = new CreateLostReportRequest(
+                "purple shirt",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "near the cloakroom",
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto(null, null, null, List.of())
+        );
+        ItemAttributes extracted = new ItemAttributes(
+                "CLOTHING", "purple cotton shirt", null, "purple", List.of());
+
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extract(eq("purple shirt"), isNull()))
+                .thenReturn(Optional.of(extracted));
+
+        service.createLostReport(request, null);
+
+        // Text-only report (no photo) still triggers extraction with a null photoKey.
+        verify(attributeExtractionService).extract("purple shirt", null);
+
+        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
+        verify(lostReportRepository, times(2)).save(captor.capture());
+        // The generated description is persisted so it rides the created event.
+        assertEquals("CLOTHING", captor.getValue().getAttributes().getCategory());
+        assertEquals("purple cotton shirt", captor.getValue().getAttributes().getDescription());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
+    }
+
+    @Test
     void getLostReportById_shouldReturnResponseForOwnVenue() {
         LostReportService service = service();
 

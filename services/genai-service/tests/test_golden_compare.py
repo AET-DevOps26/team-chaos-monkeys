@@ -15,6 +15,7 @@ from tests.golden._compare import ALL_FIELDS, compare_case, failed_case
 def _attrs(**overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "category": None,
+        "description": None,
         "brand": None,
         "color": None,
         "distinguishingMarks": [],
@@ -32,15 +33,16 @@ def _field(comparison, name: str):
 # --- whole-case shape ----------------------------------------------------
 
 
-def test_compare_case_covers_the_six_fields():
+def test_compare_case_covers_the_seven_fields():
     comparison = compare_case(_attrs(), _attrs())
     assert {field.field for field in comparison.fields} == set(ALL_FIELDS)
-    assert comparison.total == 6
+    assert comparison.total == 7
 
 
 def test_identical_attributes_score_full():
     attrs = _attrs(
         category="jacket",
+        description="black puffer jacket",
         brand="Sony",
         color="black",
         distinguishingMarks=["enamel pin"],
@@ -48,13 +50,13 @@ def test_identical_attributes_score_full():
         location="the bar",
     )
     comparison = compare_case(attrs, dict(attrs))
-    assert comparison.matched_count == 6
+    assert comparison.matched_count == 7
     assert comparison.score == 1.0
 
 
 def test_all_null_attributes_match():
     comparison = compare_case(_attrs(), _attrs())
-    assert comparison.matched_count == 6
+    assert comparison.matched_count == 7
 
 
 # --- scalar null agreement ----------------------------------------------
@@ -153,15 +155,15 @@ def test_mixed_case_counts_and_misses():
     expected = _attrs(category="jacket", color="red")
     actual = _attrs(category="jacket", color="blue")
     comparison = compare_case(expected, actual)
-    # category matches, color misses, the four null/empty fields match.
-    assert comparison.matched_count == 5
+    # category matches, color misses, the five null/empty fields match.
+    assert comparison.matched_count == 6
     assert [miss.field for miss in comparison.misses()] == ["color"]
 
 
 def test_failed_case_misses_every_field():
     comparison = failed_case("provider timed out")
     assert comparison.matched_count == 0
-    assert comparison.total == 6
+    assert comparison.total == 7
     assert all("timed out" in miss.detail for miss in comparison.misses())
 
 
@@ -171,4 +173,4 @@ def test_failed_case_misses_every_field():
 def test_each_golden_case_self_compares_full():
     for case in load_golden_set():
         comparison = compare_case(case["expected"], dict(case["expected"]))
-        assert comparison.matched_count == 6, case["id"]
+        assert comparison.matched_count == 7, case["id"]

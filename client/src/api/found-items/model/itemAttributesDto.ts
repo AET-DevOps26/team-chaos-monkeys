@@ -7,6 +7,7 @@
 
 export interface ItemAttributesDto {
   category?: string;
+  description?: string;
   brand?: string;
   color?: string;
   marks?: string[];

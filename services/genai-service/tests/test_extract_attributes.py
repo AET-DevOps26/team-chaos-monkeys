@@ -30,6 +30,7 @@ from tests.golden import load_golden_set
 VALID_OUTPUT = json.dumps(
     {
         "category": "CLOTHING",
+        "description": "black North Face puffer jacket",
         "brand": "North Face",
         "color": "black",
         "distinguishingMarks": ["enamel pin"],
@@ -40,6 +41,7 @@ VALID_OUTPUT = json.dumps(
 
 ATTRIBUTE_KEYS = {
     "category",
+    "description",
     "brand",
     "color",
     "distinguishingMarks",

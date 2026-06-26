@@ -36,7 +36,7 @@ from app.extraction import extract_attributes
 from app.image import prepare_image
 from app.providers import ImageContentPart, LLMProvider, build_provider
 from tests.golden import load_golden_set
-from tests.golden._compare import CaseComparison, compare_case, failed_case
+from tests.golden._compare import ALL_FIELDS, CaseComparison, compare_case, failed_case
 
 pytestmark = pytest.mark.skipif(
     os.getenv("GENAI_RUN_GOLDEN") != "1",
@@ -151,6 +151,6 @@ def _format_report(
     lines.append(f"  field accuracy:  {field_accuracy:.1%}")
     lines.append(
         f"  case pass rate:  {case_pass_rate:.1%}"
-        f"  (>= {_CASE_PASS_FIELDS}/6 fields per case)"
+        f"  (>= {_CASE_PASS_FIELDS}/{len(ALL_FIELDS)} fields per case)"
     )
     return "\n".join(lines)

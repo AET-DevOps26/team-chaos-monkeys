@@ -463,6 +463,30 @@ class CandidateMatchingServiceTest {
         assertThat(text).contains("marks: red tag, torn strap");
     }
 
+    @Test
+    void buildEmbeddingText_includesGeneratedDescriptionAsProse() {
+        // The generated description is the prose anchor for a photo-only item
+        // with no free text — it must land in the embedding text verbatim,
+        // not as a labelled "category: X" fragment.
+        String text = CandidateMatchingService.buildEmbeddingText(
+                null,
+                new ItemAttributesPayload(
+                        "CLOTHING", "purple cotton shirt", null, "purple", List.of())
+        );
+        assertThat(text).contains("purple cotton shirt");
+        assertThat(text).contains("category: CLOTHING");
+        assertThat(text).doesNotContain("description:");
+    }
+
+    @Test
+    void buildEmbeddingText_skipsBlankGeneratedDescription() {
+        String text = CandidateMatchingService.buildEmbeddingText(
+                null,
+                new ItemAttributesPayload("CLOTHING", "  ", null, "purple", List.of())
+        );
+        assertThat(text).isEqualTo("category: CLOTHING | color: purple");
+    }
+
     private LostReportCreatedEvent lostReportEvent(UUID lostReportId, UUID venueId, String category, String description) {
         return new LostReportCreatedEvent(
                 UUID.randomUUID(),

@@ -28,6 +28,8 @@ function formatFoundAt(foundAt: string | undefined): string {
 }
 
 function primaryLabel(item: FoundItemResponse): string {
+  const description = item.attributes?.description?.trim()
+  if (description) return description
   const category = item.attributes?.category?.trim()
   if (category) return category
   const firstLine = item.intakeText?.split(/\r?\n/)[0]?.trim()

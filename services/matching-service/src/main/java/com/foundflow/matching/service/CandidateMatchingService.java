@@ -317,12 +317,15 @@ public class CandidateMatchingService {
         return category == null ? null : category.trim().toLowerCase(Locale.ROOT);
     }
 
-    static String buildEmbeddingText(String description, ItemAttributesPayload attributes) {
+    static String buildEmbeddingText(String freeText, ItemAttributesPayload attributes) {
         List<String> parts = new ArrayList<>();
-        if (description != null && !description.isBlank()) {
-            parts.add(description.trim());
+        if (freeText != null && !freeText.isBlank()) {
+            parts.add(freeText.trim());
         }
         if (attributes != null) {
+            if (attributes.description() != null && !attributes.description().isBlank()) {
+                parts.add(attributes.description().trim());
+            }
             if (attributes.category() != null) {
                 parts.add("category: " + attributes.category());
             }

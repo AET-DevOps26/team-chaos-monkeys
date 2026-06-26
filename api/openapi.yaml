@@ -325,6 +325,7 @@ components:
         (populated by GenAI) and found-item-service (populated by staff input).
       required:
         - category
+        - description
         - brand
         - color
         - distinguishingMarks
@@ -340,6 +341,13 @@ components:
             coerced to `OTHER`); `null` when undeterminable. Kept as a plain
             string here so the generated client stays a string pass-through;
             matching gates on exact equality of these values.
+        description:
+          type: [string, 'null']
+          description: |
+            Concise one-line natural-language description of the item (≤12
+            words), e.g. `purple cotton short-sleeve shirt`. Generated to give
+            the matching embedding a prose anchor when staff notes are sparse;
+            `null` when undeterminable. A matching aid, not a gate.
         brand:
           type: [string, 'null']
         color:

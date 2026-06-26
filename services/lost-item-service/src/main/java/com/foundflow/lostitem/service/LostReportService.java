@@ -102,9 +102,7 @@ public class LostReportService {
         );
 
         LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
-        if (photoKey != null) {
-            enrichFromPhotoIfMissingAttributes(savedLostReport, photoKey);
-        }
+        enrichIfMissingAttributes(savedLostReport, photoKey);
 
         eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
@@ -194,7 +192,7 @@ public class LostReportService {
                     lostReport.setPhotoKey(photoKey);
 
                     LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
-                    enrichFromPhotoIfMissingAttributes(updatedReport, photoKey);
+                    enrichIfMissingAttributes(updatedReport, photoKey);
                     eventPublisher.publishLostReportUpdated(updatedReport);
                     safeDeletePhoto(previousPhotoKey, id);
 
@@ -344,7 +342,15 @@ public class LostReportService {
         }
     }
 
-    private void enrichFromPhotoIfMissingAttributes(LostReport lostReport, String photoKey) {
+    /**
+     * Best-effort GenAI enrichment when the guest supplied no structured
+     * attributes. Runs for text-only reports too: the extraction service
+     * builds a description-only request when {@code photoKey} is null, so a
+     * photo-less report like "purple shirt" still gets a category and a
+     * generated description for the matching embedding. Extraction failures
+     * are swallowed so intake never blocks.
+     */
+    private void enrichIfMissingAttributes(LostReport lostReport, String photoKey) {
         if (hasMeaningfulAttributes(lostReport.getAttributes())) {
             return;
         }
@@ -362,6 +368,7 @@ public class LostReportService {
         }
 
         return hasText(attributes.getCategory())
+                || hasText(attributes.getDescription())
                 || hasText(attributes.getBrand())
                 || hasText(attributes.getColor())
                 || (attributes.getMarks() != null && attributes.getMarks().stream().anyMatch(this::hasText));
@@ -473,6 +480,7 @@ public class LostReportService {
 
         return new ItemAttributes(
                 dto.category(),
+                dto.description(),
                 dto.brand(),
                 dto.color(),
                 dto.marks()
@@ -486,6 +494,7 @@ public class LostReportService {
 
         return new ItemAttributesDto(
                 attributes.getCategory(),
+                attributes.getDescription(),
                 attributes.getBrand(),
                 attributes.getColor(),
                 attributes.getMarks()

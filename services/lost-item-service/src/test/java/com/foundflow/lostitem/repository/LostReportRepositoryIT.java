@@ -116,7 +116,7 @@ class LostReportRepositoryIT {
                 status,
                 venueId,
                 "owner@example.com",
-                new ItemAttributes("Bag", "Nike", "Black", marks)
+                new ItemAttributes("Bag", null, "Nike", "Black", marks)
         );
     }
 }

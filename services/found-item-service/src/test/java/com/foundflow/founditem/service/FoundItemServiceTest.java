@@ -110,7 +110,7 @@ class FoundItemServiceTest {
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 UUID.randomUUID(),
                 null,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(foundItemRepository.save(any(FoundItem.class)))
@@ -195,7 +195,7 @@ class FoundItemServiceTest {
                 ItemStatus.STORED,
                 jwtVenueId,
                 reporterId,
-                new ItemAttributes(null, null, null, List.of())
+                new ItemAttributes(null, null, null, null, List.of())
         );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
@@ -204,7 +204,7 @@ class FoundItemServiceTest {
                 "photo-bytes".getBytes()
         );
 
-        ItemAttributes extractedAttrs = new ItemAttributes("Bag", null, "Black", List.of());
+        ItemAttributes extractedAttrs = new ItemAttributes("Bag", null, null, "Black", List.of());
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
@@ -243,7 +243,7 @@ class FoundItemServiceTest {
                 ItemStatus.STORED,
                 jwtVenueId,
                 reporterId,
-                new ItemAttributes(null, null, null, List.of())
+                new ItemAttributes(null, null, null, null, List.of())
         );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
@@ -253,7 +253,7 @@ class FoundItemServiceTest {
         );
 
         // Extraction succeeds but carries no location -> location stays null.
-        ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, "Brown", List.of());
+        ItemAttributes extractedAttrs = new ItemAttributes("Wallet", null, null, "Brown", List.of());
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
         when(photoStorage.store(any())).thenReturn("found-items/2026/05/generated.jpg");
@@ -343,7 +343,7 @@ class FoundItemServiceTest {
                 ItemStatus.RESERVED,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
@@ -381,7 +381,7 @@ class FoundItemServiceTest {
                 ItemStatus.STORED,
                 venueId,
                 UUID.randomUUID(),
-                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributes("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
@@ -395,7 +395,7 @@ class FoundItemServiceTest {
                 ItemStatus.RESERVED,
                 venueId,
                 UUID.randomUUID(),
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
 
         Optional<FoundItemResponse> response =
@@ -566,7 +566,7 @@ class FoundItemServiceTest {
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -583,7 +583,7 @@ class FoundItemServiceTest {
                 ItemStatus.STORED,
                 venueId,
                 UUID.randomUUID(),
-                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributes("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 

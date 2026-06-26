@@ -26,10 +26,6 @@ public class ItemAttributes {
     public ItemAttributes() {
     }
 
-    public ItemAttributes(String category, String brand, String color, List<String> marks) {
-        this(category, null, brand, color, marks);
-    }
-
     public ItemAttributes(
             String category,
             String description,

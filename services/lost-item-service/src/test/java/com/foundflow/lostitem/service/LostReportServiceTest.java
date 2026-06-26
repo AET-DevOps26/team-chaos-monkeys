@@ -130,7 +130,7 @@ class LostReportServiceTest {
                 "near the cloakroom",
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto(null, null, null, List.of())
+                new ItemAttributesDto(null, null, null, null, List.of())
         );
         ItemAttributes extracted = new ItemAttributes(
                 "CLOTHING", "purple cotton shirt", null, "purple", List.of());
@@ -275,7 +275,7 @@ class LostReportServiceTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributes(null, null, null, List.of())
+                new ItemAttributes(null, null, null, null, List.of())
         );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
@@ -283,7 +283,7 @@ class LostReportServiceTest {
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, "Black", List.of());
+        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, null, "Black", List.of());
 
         when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
         when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
@@ -419,7 +419,7 @@ class LostReportServiceTest {
                 "Neben Buehne 2",
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -431,7 +431,7 @@ class LostReportServiceTest {
                 ReportStatus.MATCHED,
                 venueId,
                 "new@example.com",
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
     }
 
@@ -448,7 +448,7 @@ class LostReportServiceTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributes("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 

@@ -212,7 +212,7 @@ class CandidateMatchingServiceTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         );
         String stored = CandidateMatchingService.buildEmbeddingText(
                 event.description(),
@@ -346,7 +346,7 @@ class CandidateMatchingServiceTest {
                 "found/photo.jpg", "Black backpack",
                 Instant.now(), "Front desk", "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         ));
 
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
@@ -409,7 +409,7 @@ class CandidateMatchingServiceTest {
                 "found/photo.jpg", "Bag",
                 Instant.now(), "Front desk", "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         ));
 
         ArgumentCaptor<EmbedRequest> captor = ArgumentCaptor.forClass(EmbedRequest.class);
@@ -439,7 +439,7 @@ class CandidateMatchingServiceTest {
 
         assertThatThrownBy(() -> service.processIntake(
                 ItemType.LOST, UUID.randomUUID(), UUID.randomUUID(),
-                "blue jacket", new ItemAttributesPayload("jacket", null, null, List.of())))
+                "blue jacket", new ItemAttributesPayload("jacket", null, null, null, List.of())))
                 .isInstanceOf(EmbeddingDimensionMismatchException.class);
 
         // Repository never called
@@ -454,7 +454,7 @@ class CandidateMatchingServiceTest {
     void buildEmbeddingText_includesAllAvailableAttributeFields() {
         String text = CandidateMatchingService.buildEmbeddingText(
                 "Black backpack",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag", "torn strap"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag", "torn strap"))
         );
         assertThat(text).contains("Black backpack");
         assertThat(text).contains("category: Bag");
@@ -499,7 +499,7 @@ class CandidateMatchingServiceTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload(category, null, null, List.of())
+                new ItemAttributesPayload(category, null, null, null, List.of())
         );
     }
 

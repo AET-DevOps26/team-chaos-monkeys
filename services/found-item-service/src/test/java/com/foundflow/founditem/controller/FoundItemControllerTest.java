@@ -56,7 +56,7 @@ class FoundItemControllerTest {
                 ItemStatus.STORED,
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(foundItemService.createFoundItem(eq(request), any(Jwt.class))).thenReturn(response);
@@ -273,7 +273,7 @@ class FoundItemControllerTest {
                 ItemStatus.STORED,
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(foundItemService.updateFoundItemPhoto(eq(id), any(), any(Jwt.class)))
@@ -311,7 +311,7 @@ class FoundItemControllerTest {
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -323,7 +323,7 @@ class FoundItemControllerTest {
                 ItemStatus.RESERVED,
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
     }
 
@@ -342,7 +342,7 @@ class FoundItemControllerTest {
                 status,
                 venueId,
                 reporterId,
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 

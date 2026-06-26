@@ -67,6 +67,7 @@ uvicorn app.main:app --reload --port 8000
 | `POST /extract-attributes` | Extract structured `ItemAttributes` from a lost-item description, photo, or both. Single-item only. At least one of `description` or `image` is required; both is supported with per-field reconciliation (see ADR 0001). |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
 | `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
+| `POST /answer` | Generate a grounded, cited answer over retrieved item snippets (staff semantic search, #178). |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /metrics` | Prometheus exposition. See [Metrics](#metrics). Excluded from the OpenAPI schema. |

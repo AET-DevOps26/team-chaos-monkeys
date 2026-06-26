@@ -18,9 +18,11 @@ A short path through the system, mapped to the graded requirements. Demo data is
 on first boot, so a working match is visible once the intake and matching pipeline
 has finished.
 
-**1. Start** (first boot ~10–15 min — wait until login succeeds). Drop the shared
-`.env` into the repo root — we send you a Bitwarden link to a ready-to-use `.env`
-with all secret keys (incl. `OPENAI_API_KEY`) — then:
+**Prerequisites.** Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of
+free RAM. Drop the shared `.env` into the repo root — we shared a Google Drive link to a
+ready-to-use `.env` with all secret keys (incl. `OPENAI_API_KEY`) in the Artemis group chat.
+
+**1. Start** (first boot ~10–15 min — wait until login succeeds):
 
 ```bash
 docker compose up --build
@@ -85,37 +87,24 @@ nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 
 ## Run locally
 
-The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
-
-```bash
-cp .env.example .env          # one-time, gitignored
-# Set OPENAI_API_KEY in .env from the shared Bitwarden entry
-docker compose up --build     # builds and starts everything
-```
-
-On a fresh machine, expect the first image build and startup to take roughly
-**10-15 minutes**, depending on CPU, memory, and network speed. Subsequent starts
-are significantly faster because Docker reuses downloaded images and build
-layers. The frontend may become reachable before the backend services are ready;
-wait until the login request succeeds before evaluating the application.
-
-On first boot a demo venue, a staff account, two sample found items, and a matching guest lost report are seeded automatically with photos, dated across the last few days (through the API, so a real GenAI/pgvector match forms) — disable with `SEED_DEMO_DATA=false`. See the [Reviewer walkthrough](#reviewer-walkthrough) for a guided tour.
-
-The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
+Starting the stack and the demo flow are covered in the [Reviewer
+walkthrough](#reviewer-walkthrough) above. This section is the reference for service
+URLs, teardown, and the GenAI provider switch. The full stack — frontend, gateway,
+seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ,
+MinIO, Prometheus, and Grafana — boots from the one `docker compose up --build`.
 
 | URL | What it is |
 |---|---|
 | http://localhost:3000 | Frontend (React) |
 | http://localhost:8080 | API gateway — single entry point for all backend calls |
 | http://localhost:8080/swagger-ui.html | Aggregated OpenAPI UI for the Spring services, proxied through the gateway |
-| http://localhost:8081/swagger-ui.html | `auth-service` OpenAPI UI (direct) |
 | http://localhost:8000/docs | `genai-service` FastAPI docs |
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
 | http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
 | http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
 | http://localhost:8025 | Mailpit — captured outbound email (local/CI SMTP sink; nothing reaches the real Brevo account) |
 
-`auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
+The gateway is the only Spring service with a host port mapping — by design it is the sole public entry point for the other Spring services (`auth`, `lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 
 To stop and clean up volumes: `docker compose down -v --remove-orphans`.
 The orphan cleanup also removes services that existed on the branch where the
@@ -123,7 +112,7 @@ stack was started but are absent after switching branches.
 
 ### Provider switch for GenAI
 
-`GENAI_PROVIDER=openai` is the default and requires `OPENAI_API_KEY` from the shared Bitwarden entry. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
+`GENAI_PROVIDER=openai` is the default and uses the `OPENAI_API_KEY` already included in the shared `.env`. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
 
 ```bash
 docker compose --profile ollama up --build

@@ -34,10 +34,8 @@ Consumer queues are declared durable by the consumers. Matching queues use the
 dead-letter exchange `foundflow.dlx.v1`; failed messages route to
 `<queue>.dlq` with routing key `<queue>.dlq`. When renaming a queue on a
 persistent broker, drain or delete the old durable queue after the rollout so
-messages are not stranded under the previous name. The found-item create queue
-was renamed from `matching.found-item-logged.v1` to
-`matching.found-item-created.v1`; disposable local brokers can be recreated with
-`docker compose down -v` before bringing the stack back up.
+messages are not stranded under the previous name. Disposable local brokers can
+be recreated with `docker compose down -v` before bringing the stack back up.
 
 ## Notification Messaging
 

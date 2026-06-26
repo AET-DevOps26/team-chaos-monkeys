@@ -1246,7 +1246,7 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
 
 # Issue #128 - GenAI attribute extraction wires through to persistence.
 # CI sets GENAI_PROVIDER=fake; the fake provider returns a canned
-# ItemAttributes JSON ({"category":"jacket",...}) so we can assert
+# ItemAttributes JSON ({"category":"CLOTHING",...}) so we can assert
 # extraction actually ran end-to-end. Under a real provider
 # (GENAI_PROVIDER=openai|local) the category value depends on the model,
 # so we relax to a presence check - the contract is "extraction ran and
@@ -1272,10 +1272,10 @@ Assert-Status $extractionLostPhotoUpload 200 "Lost-item photo upload runs GenAI 
 $extractionLostItem = Read-Json $extractionLostPhotoUpload
 
 if ($genaiProvider -eq 'fake') {
-    if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "jacket") {
-        throw "GenAI extraction did not populate canned 'jacket' on lost-item (fake provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
+    if ($null -eq $extractionLostItem.attributes -or $extractionLostItem.attributes.category -ne "CLOTHING") {
+        throw "GenAI extraction did not populate canned 'CLOTHING' on lost-item (fake provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
     }
-    Write-Host "[OK] Lost-item GenAI extraction populated category='jacket' (fake provider)"
+    Write-Host "[OK] Lost-item GenAI extraction populated category='CLOTHING' (fake provider)"
 } else {
     if ($null -eq $extractionLostItem.attributes -or [string]::IsNullOrWhiteSpace($extractionLostItem.attributes.category)) {
         throw "GenAI extraction did not populate a non-empty attributes.category on lost-item ($genaiProvider provider). Body: $($extractionLostItem | ConvertTo-Json -Depth 5)"
@@ -1304,10 +1304,10 @@ Assert-Status $extractionFoundPhotoUpload 200 "Found-item photo upload runs GenA
 $extractionFoundItem = Read-Json $extractionFoundPhotoUpload
 
 if ($genaiProvider -eq 'fake') {
-    if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "jacket") {
-        throw "GenAI extraction did not populate canned 'jacket' on found-item (fake provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
+    if ($null -eq $extractionFoundItem.attributes -or $extractionFoundItem.attributes.category -ne "CLOTHING") {
+        throw "GenAI extraction did not populate canned 'CLOTHING' on found-item (fake provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"
     }
-    Write-Host "[OK] Found-item GenAI extraction populated category='jacket' (fake provider)"
+    Write-Host "[OK] Found-item GenAI extraction populated category='CLOTHING' (fake provider)"
 } else {
     if ($null -eq $extractionFoundItem.attributes -or [string]::IsNullOrWhiteSpace($extractionFoundItem.attributes.category)) {
         throw "GenAI extraction did not populate a non-empty attributes.category on found-item ($genaiProvider provider). Body: $($extractionFoundItem | ConvertTo-Json -Depth 5)"

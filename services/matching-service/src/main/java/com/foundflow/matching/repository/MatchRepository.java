@@ -31,6 +31,22 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
         """)
     int applyVerification(@Param("matchId") UUID matchId, @Param("v") MatchVerification v);
 
+    /**
+     * Transition a candidate to REJECTED when verify-match confidently rules it
+     * out. Guarded on PENDING so it never overrides a status a guest has already
+     * set (CONFIRMED/REJECTED). Returns the number of rows updated (0 if the
+     * match had already left PENDING).
+     */
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE Match m
+           SET m.status = com.foundflow.matching.domain.MatchStatus.REJECTED
+         WHERE m.id = :matchId
+           AND m.status = com.foundflow.matching.domain.MatchStatus.PENDING
+        """)
+    int autoRejectIfPending(@Param("matchId") UUID matchId);
+
     Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
 
     @Modifying

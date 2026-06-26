@@ -1,10 +1,9 @@
 """Gated real-LLM regression: extraction against the 22-case golden set.
 
 NOT run in normal CI. Set GENAI_RUN_GOLDEN=1 plus the provider env
-(GENAI_PROVIDER and its credentials) to run it. This mirrors the
-env-gating of test_real_provider.py (#82) but uses its own switch: the
-nightly genai-integration workflow runs a tiny Ollama model that is too
-small to extract reliably, so it must not pick this suite up.
+(GENAI_PROVIDER and its credentials) to run it. It uses its own switch
+(separate from GENAI_RUN_INTEGRATION) so a broad `pytest tests/integration/`
+run doesn't pick up this 22-call suite by accident.
 
     GENAI_RUN_GOLDEN=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \\
         pytest tests/integration/test_golden_extraction.py -s
@@ -37,7 +36,7 @@ from app.extraction import extract_attributes
 from app.image import prepare_image
 from app.providers import ImageContentPart, LLMProvider, build_provider
 from tests.golden import load_golden_set
-from tests.golden._compare import CaseComparison, compare_case, failed_case
+from tests.golden._compare import ALL_FIELDS, CaseComparison, compare_case, failed_case
 
 pytestmark = pytest.mark.skipif(
     os.getenv("GENAI_RUN_GOLDEN") != "1",
@@ -152,6 +151,6 @@ def _format_report(
     lines.append(f"  field accuracy:  {field_accuracy:.1%}")
     lines.append(
         f"  case pass rate:  {case_pass_rate:.1%}"
-        f"  (>= {_CASE_PASS_FIELDS}/6 fields per case)"
+        f"  (>= {_CASE_PASS_FIELDS}/{len(ALL_FIELDS)} fields per case)"
     )
     return "\n".join(lines)

@@ -38,7 +38,7 @@ class IntakeEventListenerTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag"))
         );
 
         listener.onLostReportCreated(event);
@@ -61,7 +61,7 @@ class IntakeEventListenerTest {
                 "Front desk",
                 "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag"))
         );
 
         listener.onFoundItemCreated(event);
@@ -84,7 +84,7 @@ class IntakeEventListenerTest {
                 "Updated front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag"))
         );
 
         listener.onLostReportUpdated(event);
@@ -107,7 +107,7 @@ class IntakeEventListenerTest {
                 "Updated front desk",
                 "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag"))
         );
 
         listener.onFoundItemUpdated(event);
@@ -174,7 +174,7 @@ class IntakeEventListenerTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag"))
         );
     }
 }

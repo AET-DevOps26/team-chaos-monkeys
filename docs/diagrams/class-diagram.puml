@@ -62,6 +62,15 @@ class RefreshToken {
   createdAt: Instant
 }
 
+class PasswordResetToken {
+  id: UUID
+  userId: UUID
+  tokenHash: String
+  expiresAt: Instant
+  usedAt: Instant
+  createdAt: Instant
+}
+
 class ItemAttributes {
   category: String
   brand: String
@@ -128,7 +137,7 @@ class ItemEmbedding {
 
 class Notification {
   id: UUID
-  matchId: UUID
+  matchId: UUID?
   venueId: UUID
   recipientAddress: String
   language: String
@@ -160,6 +169,7 @@ class PickupSchedule {
 
 Venue "0..1" -- "*" User : assigned by venueId
 User "1" -- "*" RefreshToken : owns
+User "1" -- "*" PasswordResetToken : owns
 Venue "1" -- "*" LostReport : owns
 Venue "1" -- "*" FoundItem : owns
 Venue "1" -- "*" Match : owns
@@ -175,7 +185,7 @@ FoundItem "1" *-- "0..1" ItemAttributes : embedded
 Match "*" -- "1" FoundItem : foundItemId
 Match "*" -- "1" LostReport : lostReportId
 Match "1" -- "0..1" Pickup : matchId
-Notification "*" -- "1" Match : matchId
+Notification "*" -- "0..1" Match : matchId
 
 ItemEmbedding "*" -- "1" LostReport : itemId when LOST
 ItemEmbedding "*" -- "1" FoundItem : itemId when FOUND

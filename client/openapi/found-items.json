@@ -396,6 +396,9 @@
           "category": {
             "type": "string"
           },
+          "description": {
+            "type": "string"
+          },
           "brand": {
             "type": "string"
           },

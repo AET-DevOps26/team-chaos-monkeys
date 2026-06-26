@@ -39,6 +39,21 @@ describe('<FoundItemsOverview />', () => {
     expect(screen.queryByText('Umbrella')).not.toBeInTheDocument()
   })
 
+  it('prefers the AI-generated description over the raw category as the card title', async () => {
+    const item: FoundItemResponse = {
+      id: '33333333-3333-3333-3333-333333333333',
+      intakeText: '',
+      foundAt: '2026-05-22T10:00:00Z',
+      status: FoundItemResponseStatus.STORED,
+      attributes: { category: 'CLOTHING', description: 'purple cotton shirt' },
+    }
+    server.use(foundItemsList([item]), foundItemPhotoUrl())
+    renderWithProviders(<FoundItemsOverview />)
+
+    expect(await screen.findByText('purple cotton shirt')).toBeInTheDocument()
+    expect(screen.queryByText('CLOTHING')).not.toBeInTheDocument()
+  })
+
   it('switches the listing when a different status filter is selected', async () => {
     server.use(foundItemsList(ITEMS), foundItemPhotoUrl())
     const { user } = renderWithProviders(<FoundItemsOverview />)

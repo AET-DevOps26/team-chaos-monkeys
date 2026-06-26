@@ -24,6 +24,7 @@ export const updateFoundItemBody = zod.object({
   "reporterId": zod.uuid(),
   "attributes": zod.object({
   "category": zod.string().optional(),
+  "description": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()

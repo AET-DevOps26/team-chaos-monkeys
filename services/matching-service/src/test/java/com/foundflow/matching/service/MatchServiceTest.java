@@ -372,7 +372,7 @@ class MatchServiceTest {
                 LocalDateTime.of(2026, 5, 12, 14, 30),
                 "Neben Buehne 2",
                 "STORED",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("Roter Anhaenger")),
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("Roter Anhaenger")),
                 photoUrl
         );
 

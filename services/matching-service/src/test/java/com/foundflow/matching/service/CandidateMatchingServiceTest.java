@@ -69,6 +69,7 @@ class CandidateMatchingServiceTest {
                 meters,
                 TOP_K,
                 THRESHOLD,
+                0.85f,
                 0.01f,
                 EMBEDDING_DIM
         );
@@ -147,7 +148,7 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryMismatch_gatesScoreToZero() {
+    void categoryMismatch_withStrongSemantic_stillMatches() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -155,9 +156,39 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
-        // Very high semantic similarity (distance 0.02) but categories differ → combined = 0.0
+        // Categories differ ("Bag" vs "Wallet") but semantic similarity is high
+        // (distance 0.1 -> 0.9). Soft gate: combined = 0.85 * 0.9 >= 0.55, so the
+        // strong embedding match is no longer vetoed by the category disagreement.
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.02f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.1f)));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
+                .thenReturn(Optional.empty());
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
+
+        ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
+        verify(matchRepository).save(captor.capture());
+        Match persisted = captor.getValue();
+        assertThat(persisted.getAttributeScore()).isEqualTo(0.85f);
+        assertThat(persisted.getSemanticScore()).isEqualTo(0.9f);
+        assertThat(persisted.getCombinedScore()).isEqualTo(0.85f * 0.9f);
+        verify(eventPublisher).publishMatchCandidateCreated(persisted);
+    }
+
+    @Test
+    void categoryMismatch_withWeakSemantic_staysBelowThreshold() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
+                .thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        // Categories differ and semantic is modest (distance 0.5 -> 0.5):
+        // combined = 0.85 * 0.5 = 0.425 < 0.55 threshold -> no match.
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.5f)));
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
 
@@ -181,7 +212,7 @@ class CandidateMatchingServiceTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         );
         String stored = CandidateMatchingService.buildEmbeddingText(
                 event.description(),
@@ -315,7 +346,7 @@ class CandidateMatchingServiceTest {
                 "found/photo.jpg", "Black backpack",
                 Instant.now(), "Front desk", "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         ));
 
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
@@ -378,7 +409,7 @@ class CandidateMatchingServiceTest {
                 "found/photo.jpg", "Bag",
                 Instant.now(), "Front desk", "STORED",
                 UUID.randomUUID(),
-                new ItemAttributesPayload("Bag", null, null, List.of())
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
         ));
 
         ArgumentCaptor<EmbedRequest> captor = ArgumentCaptor.forClass(EmbedRequest.class);
@@ -387,12 +418,18 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryGate_followsRecommendedRules() {
-        assertThat(CandidateMatchingService.categoryGate("Bag", "Bag")).isEqualTo(1.0f);
-        assertThat(CandidateMatchingService.categoryGate(null, null)).isEqualTo(1.0f);
-        assertThat(CandidateMatchingService.categoryGate("Bag", null)).isEqualTo(0.5f);
-        assertThat(CandidateMatchingService.categoryGate(null, "Bag")).isEqualTo(0.5f);
-        assertThat(CandidateMatchingService.categoryGate("Bag", "Wallet")).isEqualTo(0.0f);
+    void categoryGate_isSoftPriorNotVeto() {
+        float f = 0.85f;
+        // Exact agreement (incl. both-unknown) → full weight.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", "BAGS", f)).isEqualTo(1.0f);
+        assertThat(CandidateMatchingService.categoryGate(null, null, f)).isEqualTo(1.0f);
+        // Case/whitespace-insensitive agreement.
+        assertThat(CandidateMatchingService.categoryGate("bags", "  BAGS ", f)).isEqualTo(1.0f);
+        // Different categories → mild penalty, not a 0.0 veto.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", "ACCESSORIES", f)).isEqualTo(f);
+        // Only one side categorised → same mild penalty.
+        assertThat(CandidateMatchingService.categoryGate("BAGS", null, f)).isEqualTo(f);
+        assertThat(CandidateMatchingService.categoryGate(null, "BAGS", f)).isEqualTo(f);
     }
 
     @Test
@@ -402,7 +439,7 @@ class CandidateMatchingServiceTest {
 
         assertThatThrownBy(() -> service.processIntake(
                 ItemType.LOST, UUID.randomUUID(), UUID.randomUUID(),
-                "blue jacket", new ItemAttributesPayload("jacket", null, null, List.of())))
+                "blue jacket", new ItemAttributesPayload("jacket", null, null, null, List.of())))
                 .isInstanceOf(EmbeddingDimensionMismatchException.class);
 
         // Repository never called
@@ -417,13 +454,37 @@ class CandidateMatchingServiceTest {
     void buildEmbeddingText_includesAllAvailableAttributeFields() {
         String text = CandidateMatchingService.buildEmbeddingText(
                 "Black backpack",
-                new ItemAttributesPayload("Bag", "Nike", "Black", List.of("red tag", "torn strap"))
+                new ItemAttributesPayload("Bag", null, "Nike", "Black", List.of("red tag", "torn strap"))
         );
         assertThat(text).contains("Black backpack");
         assertThat(text).contains("category: Bag");
         assertThat(text).contains("brand: Nike");
         assertThat(text).contains("color: Black");
         assertThat(text).contains("marks: red tag, torn strap");
+    }
+
+    @Test
+    void buildEmbeddingText_includesGeneratedDescriptionAsProse() {
+        // The generated description is the prose anchor for a photo-only item
+        // with no free text — it must land in the embedding text verbatim,
+        // not as a labelled "category: X" fragment.
+        String text = CandidateMatchingService.buildEmbeddingText(
+                null,
+                new ItemAttributesPayload(
+                        "CLOTHING", "purple cotton shirt", null, "purple", List.of())
+        );
+        assertThat(text).contains("purple cotton shirt");
+        assertThat(text).contains("category: CLOTHING");
+        assertThat(text).doesNotContain("description:");
+    }
+
+    @Test
+    void buildEmbeddingText_skipsBlankGeneratedDescription() {
+        String text = CandidateMatchingService.buildEmbeddingText(
+                null,
+                new ItemAttributesPayload("CLOTHING", "  ", null, "purple", List.of())
+        );
+        assertThat(text).isEqualTo("category: CLOTHING | color: purple");
     }
 
     private LostReportCreatedEvent lostReportEvent(UUID lostReportId, UUID venueId, String category, String description) {
@@ -438,7 +499,7 @@ class CandidateMatchingServiceTest {
                 "Front desk",
                 "OPEN",
                 "guest@example.com",
-                new ItemAttributesPayload(category, null, null, List.of())
+                new ItemAttributesPayload(category, null, null, null, List.of())
         );
     }
 

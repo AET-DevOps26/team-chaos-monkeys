@@ -25,7 +25,8 @@ from app.extraction import (
 from app.providers.fake import FakeProvider
 
 _FULL_OUTPUT = {
-    "category": "jacket",
+    "category": "CLOTHING",
+    "description": "black North Face puffer jacket",
     "brand": "North Face",
     "color": "black",
     "distinguishingMarks": ["enamel pin on the chest"],
@@ -70,7 +71,7 @@ def test_build_messages_omits_language_when_absent():
 async def test_extract_attributes_happy_path():
     llm = FakeProvider(chat_response=json.dumps(_FULL_OUTPUT))
     attrs = await extract_attributes("black North Face jacket", "en", llm)
-    assert attrs.category == "jacket"
+    assert attrs.category == "CLOTHING"
     assert attrs.brand == "North Face"
     assert attrs.distinguishing_marks == ["enamel pin on the chest"]
 
@@ -84,14 +85,32 @@ async def test_extract_attributes_calls_provider_in_json_mode():
 
 
 async def test_missing_fields_coerced_to_null_and_empty_list():
-    llm = FakeProvider(chat_response=json.dumps({"category": "phone"}))
+    llm = FakeProvider(chat_response=json.dumps({"category": "ELECTRONICS"}))
     attrs = await extract_attributes("a phone", None, llm)
-    assert attrs.category == "phone"
+    assert attrs.category == "ELECTRONICS"
     assert attrs.brand is None
     assert attrs.color is None
     assert attrs.distinguishing_marks == []
     assert attrs.approximate_time is None
     assert attrs.location is None
+
+
+async def test_category_coerced_onto_fixed_taxonomy():
+    async def category_for(raw):
+        payload = json.dumps({"category": raw})
+        attrs = await extract_attributes("x", None, FakeProvider(chat_response=payload))
+        return attrs.category
+
+    # A recognised value, in any case, maps to that member.
+    assert await category_for("ELECTRONICS") == "ELECTRONICS"
+    assert await category_for("clothing") == "CLOTHING"
+    # Off-list labels collapse to OTHER rather than failing extraction — and
+    # land on the same value, so near-synonyms no longer block a match.
+    assert await category_for("tshirt") == "OTHER"
+    assert await category_for("shirt") == "OTHER"
+    # Nullish scalars stay null.
+    assert await category_for("") is None
+    assert await category_for("none") is None
 
 
 async def test_explicit_nulls_are_preserved():

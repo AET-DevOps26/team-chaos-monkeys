@@ -39,7 +39,7 @@ async def test_fake_provider_chat_returns_valid_item_attributes_json(monkeypatch
     response = await provider.chat([{"role": "user", "content": "anything"}], json_mode=True)
 
     parsed = json.loads(response)
-    assert parsed["category"] == "jacket"
+    assert parsed["category"] == "CLOTHING"
     assert "color" in parsed
     assert isinstance(parsed["distinguishingMarks"], list)
 
@@ -72,7 +72,7 @@ async def test_fake_still_returns_extraction_json_by_default(monkeypatch):
     monkeypatch.setenv("GENAI_PROVIDER", "fake")
     provider = build_provider(Settings())
     raw = await provider.chat([{"role": "user", "content": "extract"}], json_mode=True)
-    assert json.loads(raw)["category"] == "jacket"
+    assert json.loads(raw)["category"] == "CLOTHING"
 
 
 def test_answer_system_prompt_contains_fake_dispatch_marker():

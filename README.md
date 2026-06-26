@@ -12,37 +12,99 @@ Mono-repo for the DevOps course project (CIT423001) at TUM, summer term 2026. Fo
 
 Subsystem ownership defines who is primarily responsible for design, implementation, and the individual oral examination at the end of the term. Cross-subsystem collaboration on integration, CI/CD, and observability is expected and tracked through pull requests.
 
-## Run locally
+## Reviewer walkthrough
 
-The full stack — frontend, gateway, seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ, MinIO, Prometheus, and Grafana — boots from one Compose file. You need Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of free RAM.
+A short path through the system, mapped to the graded requirements. Demo data is seeded
+on first boot, so a working match is visible once the intake and matching pipeline
+has finished.
+
+**Prerequisites.** Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of
+free RAM. Drop the shared `.env` into the repo root — we shared a Google Drive link to a
+ready-to-use `.env` with all secret keys (incl. `OPENAI_API_KEY`) in the Artemis group chat.
+
+**1. Start** (first boot ~10–15 min — wait until login succeeds):
 
 ```bash
-cp .env.example .env          # one-time, gitignored
-# Set OPENAI_API_KEY in .env from the shared Bitwarden entry
-docker compose up --build     # builds and starts everything
+docker compose up --build
 ```
 
-On a fresh machine, expect the first image build and startup to take roughly
-**10-15 minutes**, depending on CPU, memory, and network speed. Subsequent starts
-are significantly faster because Docker reuses downloaded images and build
-layers. The frontend may become reachable before the backend services are ready;
-wait until the login request succeeds before evaluating the application.
+Want to see it running on local Kubernetes instead? Follow
+[`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md) — it walks
+through the Helm quickstart and serves the app at http://foundflow.localtest.me/ with
+Grafana at http://foundflow.localtest.me/grafana/.
 
-The default GenAI provider is OpenAI, so startup requires `OPENAI_API_KEY` but does not download Ollama or local models. Once `docker compose ps` shows the services running:
+**2. Log in** at http://localhost:3000 with the seeded staff account
+`staff.demo@foundflow.local` / `test12345` and review the app from the normal
+venue staff perspective. The admin account `admin@foundflow.local` / `admin12345`
+is still available for user/admin checks.
+
+**3. See it working — GenAI in the loop.** The **Dashboard** shows non-zero KPIs. Open
+**Matches**: once the seeded intake events have been processed, the guest *purple
+wallet* report is matched to the found wallet, with a similarity score. That score
+comes from the GenAI service (image → attributes → embedding) and a pgvector
+nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
+
+**4. Walk the flow live.**
+- **New Intake** → log a third found item: download [`purple-shirt.jpg`](scripts/seed/assets/purple-shirt.jpg) (a purple cotton shirt), upload it, add notes, submit. It joins the two seeded found items.
+- Open the guest report page at http://localhost:3000/report/grand-plaza-hotel-demo (the demo venue's name, slugified — guests normally reach this via a per-venue QR link), describe a lost item, add an email, submit.
+- Back in **Matches**, the new candidate appears once matching runs.
+- The candidate shows its similarity score and a `PENDING` status, with the pickup banner reflecting scheduling state (guest confirm/reject is not wired into the UI yet). **Mailpit** (http://localhost:8025) captures the match, pickup, and password-reset emails the system sends; following a pickup magic link opens the guest scheduling page at `/report/pickup/<token>`.
+
+**5. Observability.**
+
+| Surface | URL | What to look at |
+|---|---|---|
+| Grafana | http://localhost:3030 (`admin`/`admin`) | *Services — RED* + *AMQP Consumers* dashboards |
+| Prometheus | http://localhost:9090 | `/targets` (scrape health), `/alerts` (rules) |
+| Swagger UI | http://localhost:8080/swagger-ui.html | all Spring APIs, aggregated |
+| GenAI metrics | http://localhost:8000/metrics | provider latency / request counts |
+
+### Where each graded requirement is demonstrated
+
+| Requirement | Where to verify |
+|---|---|
+| Client-side app | http://localhost:3000 — login, dashboard, intake, matches |
+| ≥3 Spring microservices | 8 services behind the gateway; listed in Swagger UI |
+| Persistent database | per-service Postgres 17 (pgvector in matching-service) |
+| Separate Python GenAI, in a real workflow | match scores on **Matches**; docs at http://localhost:8000/docs |
+| Local Docker runtime, ≤3 commands | step 1 above |
+| Kubernetes deployment | [`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md), `infra/helm/foundflow/`; live on AET at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de` (TUM network) |
+| CI/CD on GitHub Actions | `ci.yml` on every PR; `aet-helm-deploy.yml` runs `helm upgrade` on merge to `main` |
+| Prometheus / Grafana observability | Grafana :3030, Prometheus :9090 |
+| Automated tests | Gradle (services), pytest (genai), Vitest (client), PowerShell E2E |
+| Architecture docs + UML | [`docs/architecture/`](docs/architecture/), [`docs/diagrams/`](docs/diagrams/) (`*.puml`) |
+| OpenAPI / Swagger | http://localhost:8080/swagger-ui.html |
+| No hardcoded credentials | `.env.example` (local); K8s `ConfigMap`/`Secret` from GitHub secrets |
+| PR workflow + review | feature branches → PR into `development`; CI required |
+
+> Want to start empty instead? Set `SEED_DEMO_DATA=false` in `.env` before `docker compose up`.
+
+### Not yet wired
+
+- **Guest match confirm/reject UI** — the `confirm`/`reject` endpoints and the public match-link API exist on the backend, but no guest-facing page drives them yet, so matches stay at `PENDING`.
+- **Match lifecycle events** — `MatchConfirmed`, `NotificationSent`, and `CaseClosed` are described in the architecture docs but not yet implemented; outbound notifications today fire off `match-invite`, `pickup-confirmation`, and `password-reset` events only.
+- **Domain metrics** — per-service RED metrics (rate/errors/duration) are live; the domain gauges (matches/min, GenAI extraction latency, vector-search latency) land incrementally.
+
+## Run locally
+
+Starting the stack and the demo flow are covered in the [Reviewer
+walkthrough](#reviewer-walkthrough) above. This section is the reference for service
+URLs, teardown, and the GenAI provider switch. The full stack — frontend, gateway,
+seven Spring services, GenAI service, seven isolated Postgres databases, RabbitMQ,
+MinIO, Prometheus, and Grafana — boots from the one `docker compose up --build`.
 
 | URL | What it is |
 |---|---|
 | http://localhost:3000 | Frontend (React) |
 | http://localhost:8080 | API gateway — single entry point for all backend calls |
 | http://localhost:8080/swagger-ui.html | Aggregated OpenAPI UI for the Spring services, proxied through the gateway |
-| http://localhost:8081/swagger-ui.html | `auth-service` OpenAPI UI (direct) |
 | http://localhost:8000/docs | `genai-service` FastAPI docs |
 | http://localhost:8000/metrics | `genai-service` Prometheus scrape endpoint |
 | http://localhost:9090 | Prometheus — scrape targets and alert rules (see [Observability](#observability)) |
 | http://localhost:3030 | Grafana — Services — RED dashboard, default credentials `admin`/`admin` |
 | http://localhost:8025 | Mailpit — captured outbound email (local/CI SMTP sink; nothing reaches the real Brevo account) |
 
-`auth-service` is the only Spring service besides the gateway with a host port mapping — by design, the gateway is the sole public entry point for the other Spring services (`lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
+The gateway is the only Spring service with a host port mapping — by design it is the sole public entry point for the other Spring services (`auth`, `lost-item`, `found-item`, `matching`, `pickup`, `notification`, `operations`), so their ports stay inside the Compose network.
 
 To stop and clean up volumes: `docker compose down -v --remove-orphans`.
 The orphan cleanup also removes services that existed on the branch where the
@@ -50,7 +112,7 @@ stack was started but are absent after switching branches.
 
 ### Provider switch for GenAI
 
-`GENAI_PROVIDER=openai` is the default and requires `OPENAI_API_KEY` from the shared Bitwarden entry. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
+`GENAI_PROVIDER=openai` is the default and uses the `OPENAI_API_KEY` already included in the shared `.env`. To run without an API key, set `GENAI_PROVIDER=local` and start the optional Ollama profile:
 
 ```bash
 docker compose --profile ollama up --build
@@ -63,9 +125,9 @@ The first Ollama run downloads the configured models into the persistent `ollama
 The system is **event-driven with synchronous edges**:
 
 - **REST/JSON** carries user-facing commands and queries from the frontend, public magic-link flows for match confirmation and pickup scheduling, and synchronous calls to `genai-service` (attribute extraction, embedding, match verification).
-- **Domain events** (`LostReportCreated`, `FoundItemLogged`, `MatchCandidateCreated`, `MatchConfirmed`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
+- **Domain events** (`LostReportCreated`, `FoundItemCreated`, `MatchCandidateCreated`, `MatchInviteRequested`, …) carry async intake → matching → notification workflows. The bus is RabbitMQ — live in compose and wired for intake → matching and outbound notification requests (see [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md)).
 
-Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules, booked pickups, and local pickup-email logs.
+Each Spring service owns its own Postgres database; services never read each other's tables. Cross-service detail reads go through REST behind the gateway. Migrations are per-service Flyway. The `matching-service` database adds `pgvector` and stores embeddings produced by `genai-service`; the `pickup-service` database owns pickup schedules and booked pickups, while `notification-service` owns outbound delivery records.
 
 Authentication is OAuth2 (authorization-code + PKCE) with JWT bearer tokens. `auth-service` issues tokens carrying `roles` and `venue_id` claims; downstream services enforce tenancy by venue. Role and endpoint matrix: [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md).
 
@@ -76,7 +138,7 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 ```
 .
 ├── api/
-│   └── openapi.yaml            — GenAI service contract (Spring paths land via #61)
+│   └── openapi.yaml            — GenAI service contract
 ├── client/                     — React + Vite + TypeScript frontend
 ├── docs/                       — architecture/, course/, product/, deployment/, research/, diagrams/
 ├── services/
@@ -85,8 +147,8 @@ Photo storage uses a shared abstraction so the same code targets MinIO locally a
 │   ├── lost-item-service/      — guest lost-item reports
 │   ├── found-item-service/     — staff found-item intake
 │   ├── matching-service/       — pgvector-backed match candidates
-│   ├── pickup-service/         — pickup schedules, public pickup booking, local email logs
-│   ├── notification-service/   — guest pickup notifications
+│   ├── pickup-service/         — pickup schedules, public pickup booking
+│   ├── notification-service/   — outbound email delivery records
 │   ├── operations-service/     — venue records + KPI aggregation
 │   └── genai-service/          — Python 3.12 + FastAPI; extraction, embedding, verification
 ├── shared/
@@ -142,7 +204,7 @@ Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-c
 
 ## API contract
 
-The project runs a mixed contract model today; [#61](https://github.com/AET-DevOps26/team-chaos-monkeys/issues/61) tracks the planned reconciliation.
+The project runs a mixed contract model today:
 
 - **GenAI service** — contract-first against `api/openapi.yaml`. `services/genai-service/app/api/schemas.py` mirrors the spec, and `services/genai-service/tests/golden/_contract.py` enforces alignment. Lint with `npx @redocly/cli lint api/openapi.yaml`; preview with `npx @redocly/cli preview-docs api/openapi.yaml` (config in `redocly.yaml`).
 - **Spring services** — code-first via springdoc. Controllers are hand-written and `/v3/api-docs` is generated from the annotations; the gateway aggregates them at `http://localhost:8080/swagger-ui.html`.
@@ -157,9 +219,9 @@ If a host port clashes with something else on your machine (e.g. another project
 ## CI/CD and branching
 
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
-- **Releases:** `main` is reserved for release PRs from `development`; the automated deploy on merge is planned (see below) but not wired up yet.
+- **Releases:** `main` is the release branch; merging `development → main` triggers the AET deploy.
 - **CI** (`.github/workflows/ci.yml`): runs on every PR — Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
-- **Continuous deployment** to Rancher (course infrastructure) and Azure is planned; Helm charts already live under `infra/helm/`, and the remaining work is wiring automated deploys.
+- **CD** (`.github/workflows/aet-helm-deploy.yml`): on every push to `main` (and via `workflow_dispatch`) it builds and pushes images to GHCR, then runs `helm upgrade --install` against the AET (Rancher RKE2) cluster — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. `.github/workflows/azure-cycle.yml` provisions an ephemeral Azure VM, deploys, and destroys it on demand (`workflow_dispatch`). Charts live under `infra/helm/foundflow/`.
 
 ## Observability
 
@@ -175,8 +237,12 @@ Every Spring service exposes `/actuator/prometheus` (Micrometer); `genai-service
 ## Documentation index
 
 - [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/product/application-overview.md`](docs/product/application-overview.md) — user-facing workflows and service responsibilities
 - [`docs/product/problem-statement.md`](docs/product/problem-statement.md) — domain framing
 - [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) — system design (diagrams under `docs/diagrams/`)
 - [`docs/architecture/api-and-security.md`](docs/architecture/api-and-security.md) — roles, claims, endpoint permissions
+- [`docs/architecture/messaging-and-events.md`](docs/architecture/messaging-and-events.md) — RabbitMQ routing and event payloads
 - [`docs/architecture/photo-storage.md`](docs/architecture/photo-storage.md) — storage abstraction shared by lost/found item services
+- [`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md) — local Helm/Kubernetes runtime
+- [`infra/helm/foundflow/README.md`](infra/helm/foundflow/README.md) — Helm chart structure and AET deployment notes
 - [`docs/course/requirements.md`](docs/course/requirements.md) — course requirements & grading

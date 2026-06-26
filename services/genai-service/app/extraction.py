@@ -54,7 +54,16 @@ def item_attribute_fields() -> list[str]:
 # One guidance line per ItemAttributes field, keyed by camelCase wire alias.
 # `test_extraction.py` asserts this stays in step with the model.
 _FIELD_GUIDANCE: dict[str, str] = {
-    "category": "coarse item type, e.g. jacket, wallet, headphones",
+    "category": (
+        "the item's coarse category — choose EXACTLY one of: ELECTRONICS, "
+        "CLOTHING, ACCESSORIES, BAGS, DOCUMENTS, KEYS, JEWELRY, OTHER. "
+        "Use OTHER when none clearly fit (e.g. an umbrella or a water bottle)"
+    ),
+    "description": (
+        "a concise one-line description of the item, at most 12 words, "
+        "naming the item type and its most salient visible features, "
+        'e.g. "purple cotton short-sleeve shirt" or "black leather bifold wallet"'
+    ),
     "brand": "manufacturer or brand name, if stated",
     "color": "primary visible colour",
     "distinguishingMarks": (
@@ -130,15 +139,17 @@ same mark is described twice."""
 _EXAMPLE = (
     "Worked example — for this description:\n"
     '"""\n'
-    "I think I left a dark blue umbrella somewhere near the main entrance.\n"
+    "I think I left a black leather wallet somewhere near the main entrance.\n"
     '"""\n'
     "the correct output is:\n"
-    '{"category":"umbrella","brand":null,"color":"dark blue",'
+    '{"category":"ACCESSORIES","description":"black leather wallet",'
+    '"brand":null,"color":"black",'
     '"distinguishingMarks":[],"approximateTime":null,'
     '"location":"near the main entrance"}\n'
-    "brand, approximateTime and distinguishingMarks are null or empty here "
-    "because the description does not mention them — never fill a field the "
-    "source does not support."
+    "category is one of the fixed values above; description is a short noun "
+    "phrase naming the item; brand, approximateTime and distinguishingMarks "
+    "are null or empty here because the description does not mention them — "
+    "never fill a field the source does not support."
 )
 
 _FIELD_LINES = "\n".join(
@@ -152,7 +163,7 @@ _FIELD_LINES = "\n".join(
 SYSTEM_PROMPT_TEXT = (
     "You extract structured attributes from a hotel or event-venue guest's "
     "description of a single lost item.\n\n"
-    "Return ONLY a JSON object with exactly these six keys:\n"
+    "Return ONLY a JSON object with exactly these seven keys:\n"
     f"{_FIELD_LINES}\n\n"
     f"{_RULES_COMMON}\n"
     f"{_RULES_TEXT_ONLY}\n\n"
@@ -162,7 +173,7 @@ SYSTEM_PROMPT_TEXT = (
 SYSTEM_PROMPT_IMAGE = (
     "You extract structured attributes from a photo of a single lost item "
     "at a hotel or event venue.\n\n"
-    "Return ONLY a JSON object with exactly these six keys:\n"
+    "Return ONLY a JSON object with exactly these seven keys:\n"
     f"{_FIELD_LINES}\n\n"
     f"{_RULES_COMMON}\n"
     f"{_RULES_IMAGE_ONLY}"
@@ -171,7 +182,7 @@ SYSTEM_PROMPT_IMAGE = (
 SYSTEM_PROMPT_BOTH = (
     "You extract structured attributes for a single lost item at a hotel "
     "or event venue, given BOTH a guest description and a photo.\n\n"
-    "Return ONLY a JSON object with exactly these six keys:\n"
+    "Return ONLY a JSON object with exactly these seven keys:\n"
     f"{_FIELD_LINES}\n\n"
     f"{_RULES_COMMON}\n"
     f"{_RULES_BOTH}"

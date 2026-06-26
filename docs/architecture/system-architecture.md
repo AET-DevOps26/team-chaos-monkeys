@@ -31,12 +31,12 @@ RabbitMQ events.
 | Service | Owns | Communicates with |
 | --- | --- | --- |
 | `gateway-service` | External route table and Swagger aggregation | Routes to all API services |
-| `auth-service` | `users`, `refresh_tokens`, JWT signing keys/config | Frontend, gateway, resource services through JWKs |
+| `auth-service` | `users`, `refresh_tokens`, `password_reset_tokens`, JWT signing keys/config | Frontend, gateway, resource services through JWKs; publishes password-reset events and consumes venue-deletion cleanup events |
 | `lost-item-service` | `lost_reports`, lost-report mark collections, lost photo keys | Publishes RabbitMQ intake events; calls GenAI synchronously over REST for extraction; uses MinIO/Azure photo storage |
 | `found-item-service` | `found_items`, found-item mark collections, found photo keys | Publishes RabbitMQ intake events; calls GenAI synchronously over REST for extraction; uses MinIO/Azure photo storage |
-| `matching-service` | `matches`, `item_embeddings`, `match_email_logs` | Consumes RabbitMQ intake events and publishes match-candidate events; calls GenAI synchronously over REST for embeddings/verification; calls lost/found services over REST for referenced item reads |
-| `pickup-service` | `pickups`, `pickup_schedules`, `pickup_email_logs` | Public/staff REST APIs, shared magic-link library |
-| `notification-service` | `notifications` | REST API today; planned RabbitMQ consumer for outbound notification requests |
+| `matching-service` | `matches`, `item_embeddings` | Consumes RabbitMQ intake events and publishes match-candidate and match-invite events; calls GenAI synchronously over REST for embeddings/verification; calls lost/found services over REST for referenced item reads |
+| `pickup-service` | `pickups`, `pickup_schedules` | Public/staff REST APIs, shared magic-link library; publishes pickup-confirmation events |
+| `notification-service` | `notifications` | Consumes outbound notification request events; renders/delivers email and persists delivery records |
 | `operations-service` | `venues` | Calls found/lost/matching count endpoints for KPIs |
 | `genai-service` | No persistent domain data | OpenAI or Ollama provider APIs |
 
@@ -84,16 +84,13 @@ RabbitMQ carries domain events from intake services to matching:
 
 - `lost-report.created.v1`
 - `lost-report.updated.v1`
-- `found-item.logged.v1`
+- `found-item.created.v1`
 - `found-item.updated.v1`
 - `match-candidate.created.v1`
 
-Notification messaging is planned as a separate RabbitMQ channel for outbound
-notification requests. See [messaging-and-events.md](messaging-and-events.md)
-for the planned notification exchange and ownership rules.
-
-See [messaging-and-events.md](messaging-and-events.md) for payload ownership
-and routing.
+Notification, account-recovery, venue-cleanup, and pickup-related workflow events use the same
+domain-event exchange. See [messaging-and-events.md](messaging-and-events.md)
+for payload ownership and routing.
 
 ## Shared Modules
 
@@ -132,7 +129,7 @@ and routing.
 1. Staff submits `/api/found-items` with a required photo.
 2. Found service stores the photo and extracts attributes best-effort.
 3. Found service persists `FoundItem`.
-4. Found service publishes `found-item.logged.v1`.
+4. Found service publishes `found-item.created.v1`.
 5. Matching consumes the event, creates embeddings, and searches lost reports.
 
 ### Match Confirmation and Pickup
@@ -150,7 +147,7 @@ Open the PlantUML source files to view or render the diagrams:
 - [Component diagram](../diagrams/component-diagram.puml) shows the top-level
   runtime building blocks.
 - [Service communication diagram](../diagrams/service-communication-diagram.puml)
-  shows the detailed REST, RabbitMQ, GenAI, photo-storage, and planned
-  notification flows.
+  shows the detailed REST, RabbitMQ, GenAI, photo-storage, and notification
+  flows.
 - [Use case diagram](../diagrams/use-case-diagram.puml)
 - [Class diagram](../diagrams/class-diagram.puml)

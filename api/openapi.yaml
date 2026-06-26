@@ -2,10 +2,9 @@ openapi: 3.1.0
 
 # FoundFlow synchronous API contract.
 #
-# Scope of this revision: the GenAI service only (issue #48).
-# Spring service paths will be added under the same root file or split via $ref
-# when issue #61 is implemented. Treat this file as the single source of truth
-# for sync APIs — DTOs are generated from here, never hand-written.
+# Scope: the contract-first GenAI service API. Spring service APIs are generated
+# code-first via springdoc and exposed through the gateway Swagger UI.
+# GenAI DTOs are generated from here, never hand-written.
 
 info:
   title: FoundFlow API
@@ -91,7 +90,7 @@ paths:
       summary: Produce embedding vectors for one or more texts
       description: |
         Called synchronously by `matching-service` when it consumes
-        `LostReportCreated` or `FoundItemLogged` events, and when staff issue a
+        `LostReportCreated` or `FoundItemCreated` events, and when staff issue a
         semantic search query. Stateless: the matching-service persists the
         vectors in its own pgvector store along with the source record id.
 
@@ -325,6 +324,7 @@ components:
         (populated by GenAI) and found-item-service (populated by staff input).
       required:
         - category
+        - description
         - brand
         - color
         - distinguishingMarks
@@ -333,7 +333,20 @@ components:
       properties:
         category:
           type: [string, 'null']
-          description: Coarse category, e.g. `jacket`, `wallet`, `headphones`.
+          description: |
+            Coarse category. The genai service constrains this to a fixed
+            taxonomy — `ELECTRONICS`, `CLOTHING`, `ACCESSORIES`, `BAGS`,
+            `DOCUMENTS`, `KEYS`, `JEWELRY`, `OTHER` (off-list model output is
+            coerced to `OTHER`); `null` when undeterminable. Kept as a plain
+            string here so the generated client stays a string pass-through;
+            matching gates on exact equality of these values.
+        description:
+          type: [string, 'null']
+          description: |
+            Concise one-line natural-language description of the item (≤12
+            words), e.g. `purple cotton short-sleeve shirt`. Generated to give
+            the matching embedding a prose anchor when staff notes are sparse;
+            `null` when undeterminable. A matching aid, not a gate.
         brand:
           type: [string, 'null']
         color:

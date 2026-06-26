@@ -91,7 +91,7 @@ Trigger the **Build and push images** workflow from the Actions tab:
 > → Run workflow → (defaults are fine) → Run
 
 The workflow runs in-org on `ubuntu-24.04`, authenticates with `GITHUB_TOKEN`,
-builds the 9 service images, and pushes them to
+builds the 12 service images, and pushes them to
 `ghcr.io/aet-devops26/team-chaos-monkeys/*:latest`.
 
 **Why not from your laptop?** GHCR refuses `create_package` for our org from
@@ -101,7 +101,7 @@ the package back to this repo so package settings/visibility live in the right
 place. `scripts/build-and-push.sh` is kept around for local image-build
 debugging, but you can't use it to publish.
 
-**First push only:** mark the nine packages public so the VM can pull without
+**First push only:** mark the twelve packages public so the VM can pull without
 a token. GitHub → this repo → Packages → each package → Package settings →
 Change visibility → **Public**.
 
@@ -185,12 +185,10 @@ ssh tum-azure 'cd ~/foundflow && sudo docker compose \
 
 The matching consumers declare durable queues. If a deploy changes a durable
 queue name or queue arguments on a broker with persistent storage, the old queue
-remains until it is drained or deleted explicitly. For this branch, the
-found-item matching queue was renamed from `matching.found-item-logged.v1` to
-`matching.found-item-created.v1`, and the matching consumer queues gained DLX
-arguments. RabbitMQ rejects redeclaring an existing durable queue with different
-arguments, so drain/delete the old queues on persistent brokers after the
-rollout. For disposable local stacks, recreate the broker volume with
+remains until it is drained or deleted explicitly. RabbitMQ rejects redeclaring
+an existing durable queue with different arguments, so drain/delete old queues
+on persistent brokers after the rollout. For disposable local stacks, recreate
+the broker volume with
 `docker compose down -v` before starting the stack again.
 
 ## Deploy via CI

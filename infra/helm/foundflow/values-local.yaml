@@ -15,8 +15,9 @@
 #   - *.localtest.me host so DNS resolves to 127.0.0.1
 #   - storageClass hostpath (Docker Desktop default; OrbStack users override
 #     with --set global.storageClassName=local-path)
-#   - imagePullPolicy IfNotPresent so kubelet uses local images from the
-#     shared Docker daemon — no registry push or `image import` step needed
+#   - imagePullPolicy IfNotPresent so runtimes with access to local images do
+#     not pull them again; other runtimes still need image import or a reachable
+#     registry override
 
 global:
   imageRegistry: foundflow

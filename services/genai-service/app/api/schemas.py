@@ -48,6 +48,26 @@ class CamelModel(BaseModel):
     )
 
 
+class Category(StrEnum):
+    """Controlled vocabulary for an item's coarse category.
+
+    matching-service gates candidate pairs on exact category equality, so a
+    fixed taxonomy — rather than free text — keeps near-synonyms ("shirt" vs
+    "tshirt") from zeroing out an otherwise-strong semantic match. Free-text
+    model output is coerced onto this set (see `_coerce_category`); anything
+    off-list becomes `OTHER` so a stray label never fails extraction.
+    """
+
+    ELECTRONICS = "ELECTRONICS"
+    CLOTHING = "CLOTHING"
+    ACCESSORIES = "ACCESSORIES"
+    BAGS = "BAGS"
+    DOCUMENTS = "DOCUMENTS"
+    KEYS = "KEYS"
+    JEWELRY = "JEWELRY"
+    OTHER = "OTHER"
+
+
 class ItemAttributes(CamelModel):
     """Structured attributes of a lost item — the `ItemAttributes` schema.
 
@@ -57,7 +77,8 @@ class ItemAttributes(CamelModel):
     only malformed JSON or wrong-typed values fail validation (-> 422).
     """
 
-    category: str | None = None
+    category: Category | None = None
+    description: str | None = None
     brand: str | None = None
     color: str | None = None
     distinguishing_marks: list[str] = Field(default_factory=list)
@@ -76,7 +97,7 @@ class ItemAttributes(CamelModel):
         return [] if value is None else value
 
     @field_validator(
-        "category", "brand", "color", "approximate_time", "location", mode="before"
+        "description", "brand", "color", "approximate_time", "location", mode="before"
     )
     @classmethod
     def _nullish_string_to_null(cls, value: object) -> object:
@@ -89,6 +110,26 @@ class ItemAttributes(CamelModel):
         if isinstance(value, str) and value.strip().casefold() in {"", "null", "none"}:
             return None
         return value
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _coerce_category(cls, value: object) -> object:
+        """Map free-text model output onto the fixed `Category` taxonomy.
+
+        Blank / "null" / "none" → None; a recognised value (any case) → that
+        member; any other non-empty string → `OTHER`, so an off-list label is
+        absorbed rather than failing extraction. Non-strings fall through to
+        normal validation (a list/number still 422s).
+        """
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if text.casefold() in {"", "null", "none"}:
+            return None
+        try:
+            return Category(text.upper())
+        except ValueError:
+            return Category.OTHER
 
 
 class ModelInfo(CamelModel):

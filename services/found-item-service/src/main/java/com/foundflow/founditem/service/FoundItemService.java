@@ -352,6 +352,7 @@ public class FoundItemService {
         }
 
         return hasText(attributes.getCategory())
+                || hasText(attributes.getDescription())
                 || hasText(attributes.getBrand())
                 || hasText(attributes.getColor())
                 || (attributes.getMarks() != null && attributes.getMarks().stream().anyMatch(this::hasText));
@@ -463,6 +464,7 @@ public class FoundItemService {
 
         return new ItemAttributes(
                 dto.category(),
+                dto.description(),
                 dto.brand(),
                 dto.color(),
                 dto.marks()
@@ -476,6 +478,7 @@ public class FoundItemService {
 
         return new ItemAttributesDto(
                 attributes.getCategory(),
+                attributes.getDescription(),
                 attributes.getBrand(),
                 attributes.getColor(),
                 attributes.getMarks()

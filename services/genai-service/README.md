@@ -1,6 +1,6 @@
 # genai-service
 
-Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See `docs/architecture/system-architecture.md` for how it fits with the Spring services and `matching-service`.
+Stateless Python 3.12 + FastAPI service that powers attribute extraction, embeddings, and match verification for FoundFlow. See [system architecture](../../docs/architecture/system-architecture.md) for how it fits with the Spring services and `matching-service`.
 
 ## Provider configuration
 
@@ -67,6 +67,7 @@ uvicorn app.main:app --reload --port 8000
 | `POST /extract-attributes` | Extract structured `ItemAttributes` from a lost-item description, photo, or both. Single-item only. At least one of `description` or `image` is required; both is supported with per-field reconciliation (see ADR 0001). |
 | `POST /embed` | Embed 1-32 texts into vectors for the matching-service. Stateless — vectors are returned, never stored. |
 | `POST /verify-match` | Verify and explain whether a lost report and a candidate found item are the same item. |
+| `POST /answer` | Generate a grounded, cited answer over retrieved item snippets (staff semantic search, #178). |
 | `GET /health` | Liveness probe |
 | `GET /_diagnostic` | Exercises chat + embed against the configured provider — useful for verifying credentials and connectivity. **Not** part of the public OpenAPI contract; excluded from generated SDKs. |
 | `GET /metrics` | Prometheus exposition. See [Metrics](#metrics). Excluded from the OpenAPI schema. |
@@ -135,7 +136,8 @@ Two layers of metrics are exposed:
 ```
 pip install -e '.[dev]'
 pytest                      # unit + contract tests (no network, no Ollama)
-GENAI_RUN_INTEGRATION=1 pytest tests/integration/test_real_provider.py   # hits real Ollama
+GENAI_RUN_INTEGRATION=1 GENAI_PROVIDER=openai OPENAI_API_KEY=sk-... \
+    pytest tests/integration/test_real_openai_provider.py   # hits the real OpenAI API
 ```
 
 The contract test (`tests/test_provider_contract.py`) parametrizes the same assertions over both adapters using `respx`. If a future change drifts one adapter's behavior from the other (e.g. silently swallows timeouts), this test fails first.

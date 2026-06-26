@@ -35,7 +35,7 @@ ALLOWED_TRAITS = {
     "prompt_injection",
     "image_pii",
 }
-NULLABLE_FIELDS = ("brand", "color", "approximateTime", "location")
+NULLABLE_FIELDS = ("description", "brand", "color", "approximateTime", "location")
 
 IMAGES_DIR = Path(__file__).parent / "golden" / "images"
 # Sentinel base64 — structural-only; the runner reads real bytes from imagePath.

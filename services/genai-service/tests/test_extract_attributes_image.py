@@ -37,6 +37,7 @@ def _b64_jpeg(size: tuple[int, int] = (200, 200)) -> str:
 _VALID_OUTPUT = json.dumps(
     {
         "category": "ACCESSORIES",
+        "description": "brown leather wallet",
         "brand": None,
         "color": "brown",
         "distinguishingMarks": ["small scratch on the corner"],

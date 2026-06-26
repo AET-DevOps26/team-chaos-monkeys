@@ -133,7 +133,7 @@ class FoundItemRepositoryIT {
                 status,
                 venueId,
                 reporterId,
-                new ItemAttributes("Bag", "Nike", "Black", marks)
+                new ItemAttributes("Bag", null, "Nike", "Black", marks)
         );
     }
 }

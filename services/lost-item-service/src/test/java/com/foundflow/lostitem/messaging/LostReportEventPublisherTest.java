@@ -92,7 +92,7 @@ class LostReportEventPublisherTest {
                 ReportStatus.OPEN,
                 UUID.randomUUID(),
                 "guest@example.com",
-                new ItemAttributes("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributes("Bag", null, "Nike", "Black", List.of("red tag"))
         );
     }
 }

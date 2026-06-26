@@ -108,8 +108,9 @@ def build_provider(settings: Settings) -> LLMProvider:
         # system prompt so /answer and /verify-match get schema-valid JSON
         # instead of the default extraction blob.
         _EXTRACTION_JSON = (
-            '{"category":"CLOTHING","brand":null,"color":"black",'
-            '"distinguishingMarks":[],"approximateTime":null,"location":null}'
+            '{"category":"CLOTHING","description":"black shirt","brand":null,'
+            '"color":"black","distinguishingMarks":[],"approximateTime":null,'
+            '"location":null}'
         )
         _ANSWER_JSON = (
             '{"answer":"Top candidate is the first listed item [1].",'

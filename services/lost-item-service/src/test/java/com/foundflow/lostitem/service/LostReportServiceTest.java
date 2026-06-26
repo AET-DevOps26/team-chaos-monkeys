@@ -120,6 +120,40 @@ class LostReportServiceTest {
     }
 
     @Test
+    void createLostReport_shouldExtractAttributesForTextOnlyReportWithoutPhoto() {
+        LostReportService service = service();
+
+        UUID venueId = UUID.randomUUID();
+        CreateLostReportRequest request = new CreateLostReportRequest(
+                "purple shirt",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                "near the cloakroom",
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto(null, null, null, null, List.of())
+        );
+        ItemAttributes extracted = new ItemAttributes(
+                "CLOTHING", "purple cotton shirt", null, "purple", List.of());
+
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extract(eq("purple shirt"), isNull()))
+                .thenReturn(Optional.of(extracted));
+
+        service.createLostReport(request, null);
+
+        // Text-only report (no photo) still triggers extraction with a null photoKey.
+        verify(attributeExtractionService).extract("purple shirt", null);
+
+        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
+        verify(lostReportRepository, times(2)).save(captor.capture());
+        // The generated description is persisted so it rides the created event.
+        assertEquals("CLOTHING", captor.getValue().getAttributes().getCategory());
+        assertEquals("purple cotton shirt", captor.getValue().getAttributes().getDescription());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
+    }
+
+    @Test
     void getLostReportById_shouldReturnResponseForOwnVenue() {
         LostReportService service = service();
 
@@ -241,7 +275,7 @@ class LostReportServiceTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributes(null, null, null, List.of())
+                new ItemAttributes(null, null, null, null, List.of())
         );
         MockMultipartFile photo = new MockMultipartFile(
                 "photo",
@@ -249,7 +283,7 @@ class LostReportServiceTest {
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, "Black", List.of());
+        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, null, "Black", List.of());
 
         when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
         when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
@@ -385,7 +419,7 @@ class LostReportServiceTest {
                 "Neben Buehne 2",
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -397,7 +431,7 @@ class LostReportServiceTest {
                 ReportStatus.MATCHED,
                 venueId,
                 "new@example.com",
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
     }
 
@@ -414,7 +448,7 @@ class LostReportServiceTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributes("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributes("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 

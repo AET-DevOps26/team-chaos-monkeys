@@ -26,6 +26,7 @@ from app.providers.fake import FakeProvider
 
 _FULL_OUTPUT = {
     "category": "CLOTHING",
+    "description": "black North Face puffer jacket",
     "brand": "North Face",
     "color": "black",
     "distinguishingMarks": ["enamel pin on the chest"],

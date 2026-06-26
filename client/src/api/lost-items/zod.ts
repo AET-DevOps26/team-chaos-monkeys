@@ -28,6 +28,7 @@ export const updateLostReportBody = zod.object({
   "contactEmail": zod.email().min(1),
   "attributes": zod.object({
   "category": zod.string().optional(),
+  "description": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()
@@ -73,6 +74,7 @@ export const createLostReportBody = zod.object({
   "contactEmail": zod.email().min(createLostReportBodyContactEmailMin).max(createLostReportBodyContactEmailMax),
   "attributes": zod.object({
   "category": zod.string().optional(),
+  "description": zod.string().optional(),
   "brand": zod.string().optional(),
   "color": zod.string().optional(),
   "marks": zod.array(zod.string()).optional()

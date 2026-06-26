@@ -50,6 +50,7 @@ class FoundItemEventPublisherTest {
         assertEquals("Front desk", event.location());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
+        assertEquals("black Nike backpack", event.attributes().description());
         assertEquals("Nike", event.attributes().brand());
         assertEquals("Black", event.attributes().color());
         assertEquals(List.of("red tag"), event.attributes().marks());
@@ -92,7 +93,7 @@ class FoundItemEventPublisherTest {
                 ItemStatus.STORED,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                new ItemAttributes("Bag", "Nike", "Black", List.of("red tag"))
+                new ItemAttributes("Bag", "black Nike backpack", "Nike", "Black", List.of("red tag"))
         );
     }
 }

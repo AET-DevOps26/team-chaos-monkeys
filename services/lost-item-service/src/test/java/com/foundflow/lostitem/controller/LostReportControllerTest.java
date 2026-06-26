@@ -214,7 +214,7 @@ class LostReportControllerTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(lostReportService.updateLostReportPhoto(eq(id), any(), any(Jwt.class)))
@@ -250,7 +250,7 @@ class LostReportControllerTest {
                 ReportStatus.OPEN,
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
 
         when(lostReportService.updateLostReportPhoto(eq(id), any(), isNull()))
@@ -288,7 +288,7 @@ class LostReportControllerTest {
                 "Neben Buehne 2",
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 
@@ -300,7 +300,7 @@ class LostReportControllerTest {
                 ReportStatus.MATCHED,
                 venueId,
                 "new@example.com",
-                new ItemAttributesDto("Bag", "Adidas", "Blue", List.of("Neues Merkmal"))
+                new ItemAttributesDto("Bag", null, "Adidas", "Blue", List.of("Neues Merkmal"))
         );
     }
 
@@ -314,7 +314,7 @@ class LostReportControllerTest {
                 status,
                 venueId,
                 "person@example.com",
-                new ItemAttributesDto("Bag", "Nike", "Black", List.of("Roter Anhaenger"))
+                new ItemAttributesDto("Bag", null, "Nike", "Black", List.of("Roter Anhaenger"))
         );
     }
 

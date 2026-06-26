@@ -12,6 +12,10 @@ import jakarta.persistence.Column;
 public class ItemAttributes {
 
     private String category;
+
+    @Column(name = "generated_description", columnDefinition = "TEXT")
+    private String description;
+
     private String brand;
     private String color;
 
@@ -22,8 +26,15 @@ public class ItemAttributes {
     public ItemAttributes() {
     }
 
-    public ItemAttributes(String category, String brand, String color, List<String> marks) {
+    public ItemAttributes(
+            String category,
+            String description,
+            String brand,
+            String color,
+            List<String> marks
+    ) {
         this.category = category;
+        this.description = description;
         this.brand = brand;
         this.color = color;
         this.marks = marks;
@@ -31,6 +42,10 @@ public class ItemAttributes {
 
     public String getCategory() {
         return category;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public String getBrand() {
@@ -47,6 +62,10 @@ public class ItemAttributes {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public void setBrand(String brand) {

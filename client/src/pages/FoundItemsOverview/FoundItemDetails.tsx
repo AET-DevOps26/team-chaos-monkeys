@@ -13,8 +13,9 @@ function DetailRow({ label, value }: { label: string; value: string | undefined 
 
 /**
  * The expandable panel under a found-item card. It shows the free-text intake
- * note plus the attributes the GenAI service extracted (category, brand, colour,
- * distinguishing marks). Marks are rendered as little chips.
+ * note plus the attributes the GenAI service extracted (a one-line description,
+ * category, brand, colour, distinguishing marks). Marks are rendered as little
+ * chips.
  */
 export default function FoundItemDetails({ item }: { item: FoundItemResponse }) {
   const attrs = item.attributes
@@ -23,6 +24,7 @@ export default function FoundItemDetails({ item }: { item: FoundItemResponse }) 
   const hasAnything =
     item.intakeText?.trim() ||
     item.location?.trim() ||
+    attrs?.description?.trim() ||
     attrs?.category?.trim() ||
     attrs?.brand?.trim() ||
     attrs?.color?.trim() ||
@@ -35,6 +37,7 @@ export default function FoundItemDetails({ item }: { item: FoundItemResponse }) 
       )}
 
       <div className="flex flex-col gap-1">
+        <DetailRow label="Description" value={attrs?.description} />
         <DetailRow label="Location" value={item.location} />
         <DetailRow label="Category" value={attrs?.category} />
         <DetailRow label="Brand" value={attrs?.brand} />

@@ -78,6 +78,7 @@ class ItemAttributes(CamelModel):
     """
 
     category: Category | None = None
+    description: str | None = None
     brand: str | None = None
     color: str | None = None
     distinguishing_marks: list[str] = Field(default_factory=list)
@@ -96,7 +97,7 @@ class ItemAttributes(CamelModel):
         return [] if value is None else value
 
     @field_validator(
-        "brand", "color", "approximate_time", "location", mode="before"
+        "description", "brand", "color", "approximate_time", "location", mode="before"
     )
     @classmethod
     def _nullish_string_to_null(cls, value: object) -> object:

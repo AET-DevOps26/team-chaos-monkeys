@@ -155,6 +155,7 @@ public class AttributeExtractionService {
                 : new ArrayList<>(attrs.getDistinguishingMarks());
         return new ItemAttributes(
                 attrs.getCategory(),
+                attrs.getDescription(),
                 attrs.getBrand(),
                 attrs.getColor(),
                 marks

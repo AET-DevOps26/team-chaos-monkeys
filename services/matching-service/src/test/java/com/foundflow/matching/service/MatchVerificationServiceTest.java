@@ -71,6 +71,60 @@ class MatchVerificationServiceTest {
     }
 
     @Test
+    void noMatchVerdict_autoRejectsPendingMatch() {
+        when(client.verifyMatch(any())).thenReturn(okResponse("no_match"));
+        when(repo.autoRejectIfPending(matchId)).thenReturn(1);
+
+        svc.verifyAsync(matchId, "purple tshirt", "purple puffer jacket");
+
+        verify(repo).applyVerification(eq(matchId), any());
+        verify(repo).autoRejectIfPending(matchId);
+        assertThat(meters.counter("matching.verify.auto_reject_total").count()).isEqualTo(1.0);
+    }
+
+    @Test
+    void matchVerdict_doesNotAutoReject() {
+        when(client.verifyMatch(any())).thenReturn(okResponse("match"));
+
+        svc.verifyAsync(matchId, "l", "f");
+
+        verify(repo).applyVerification(eq(matchId), any());
+        verify(repo, never()).autoRejectIfPending(any());
+    }
+
+    @Test
+    void uncertainVerdict_doesNotAutoReject() {
+        when(client.verifyMatch(any())).thenReturn(okResponse("uncertain"));
+
+        svc.verifyAsync(matchId, "l", "f");
+
+        verify(repo, never()).autoRejectIfPending(any());
+    }
+
+    @Test
+    void lowConfidenceNoMatch_doesNotAutoReject() {
+        VerifyMatchResponse r = okResponse("no_match");
+        r.setConfidence(0.5f); // below the auto-reject confidence floor
+        when(client.verifyMatch(any())).thenReturn(r);
+
+        svc.verifyAsync(matchId, "l", "f");
+
+        verify(repo).applyVerification(eq(matchId), any());
+        verify(repo, never()).autoRejectIfPending(any());
+    }
+
+    @Test
+    void autoRejectDisabled_keepsNoMatchPending() {
+        props.setAutoRejectOnNoMatch(false);
+        when(client.verifyMatch(any())).thenReturn(okResponse("no_match"));
+
+        svc.verifyAsync(matchId, "l", "f");
+
+        verify(repo).applyVerification(eq(matchId), any());
+        verify(repo, never()).autoRejectIfPending(any());
+    }
+
+    @Test
     void disabledFlag_shortCircuitsWithoutCallingClient() {
         props.setEnabled(false);
 

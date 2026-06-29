@@ -7,6 +7,7 @@ import { customInstance } from '@/api/mutator/custom-instance'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/components/Toast/toast-context'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
+import uploadIcon from '@/assets/upload.svg'
 
 // The create DTO still carries a venue UUID. For non-admin users the backend
 // applies the JWT venue, but this keeps the request shape valid while auth
@@ -29,21 +30,20 @@ const labelCls = 'text-xs font-medium text-text-h'
 function UploadPrompt() {
   return (
     <div className="flex flex-col items-center gap-2 text-text-h">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-10 w-10 opacity-70"
+      <span
         aria-hidden="true"
-      >
-        <path d="M12 16V4" />
-        <path d="M7 9l5-5 5 5" />
-        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </svg>
+        className="h-10 w-10 bg-current opacity-70"
+        style={{
+          maskImage: `url("${uploadIcon}")`,
+          WebkitMaskImage: `url("${uploadIcon}")`,
+          maskSize: 'contain',
+          WebkitMaskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          WebkitMaskRepeat: 'no-repeat',
+          maskPosition: 'center',
+          WebkitMaskPosition: 'center',
+        }}
+      />
       <span className="text-sm">Click to upload an image</span>
     </div>
   )

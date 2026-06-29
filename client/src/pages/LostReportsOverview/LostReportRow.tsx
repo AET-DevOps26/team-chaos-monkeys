@@ -45,6 +45,7 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
             id={report.id}
             alt={label}
             usePhotoUrl={useGetLostReportPhotoUrl}
+            category={report.attributes?.category}
           />
         </div>
       </td>

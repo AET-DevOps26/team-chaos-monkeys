@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
 import { GetAllFoundItemsStatus } from '@/api/found-items/model'
 import type { GetAllFoundItemsStatus as Status } from '@/api/found-items/model'
+import { filterPillClass } from '@/components/filterPill'
 import FoundItemCard, { FoundItemCardSkeleton } from './FoundItemCard'
 
 type Filter = Status | 'ALL'
@@ -13,11 +14,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: GetAllFoundItemsStatus.DISPOSED, label: 'Disposed' },
   { value: 'ALL', label: 'All' },
 ]
-
-const pillBase =
-  'rounded-full px-3 py-1 text-xs font-medium transition-colors border'
-const pillActive = 'border-accent bg-accent-bg text-accent'
-const pillIdle = 'border-border text-text-h hover:border-accent'
 
 const gridCls =
   'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
@@ -42,7 +38,7 @@ export default function FoundItemsOverview() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setFilter(f.value)}
-                className={`${pillBase} ${active ? pillActive : pillIdle}`}
+                className={filterPillClass(active)}
               >
                 {f.label}
               </button>

@@ -8,19 +8,17 @@ import {
 import { useGetFoundItemHistogram } from '@/api/found-items/found-item-controller/found-item-controller'
 import { useGetLostReportHistogram } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { useGetMatchHistogram } from '@/api/matching/match-controller/match-controller'
+import { filterPillClass } from '@/components/filterPill'
 import StatCard from './StatCard'
 import TrendChart, { type Granularity } from './TrendChart'
 import VenuePicker from './VenuePicker'
+import ItemSearchPanel from './ItemSearchPanel'
 
 const GRANULARITIES: { label: string; value: Granularity }[] = [
   { label: 'Daily', value: 'perDay' },
   { label: 'Weekly', value: 'perWeek' },
   { label: 'Monthly', value: 'perMonth' },
 ]
-
-const btnBase = 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors'
-const btnActive = 'bg-accent-bg text-accent'
-const btnIdle = 'text-text hover:bg-border/40 hover:text-text-h'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -126,9 +124,7 @@ export default function Dashboard() {
                 key={value}
                 onClick={() => setGranularity(value)}
                 aria-pressed={granularity === value}
-                className={`${btnBase} ${
-                  granularity === value ? btnActive : btnIdle
-                }`}
+                className={filterPillClass(granularity === value)}
               >
                 {label}
               </button>
@@ -141,6 +137,8 @@ export default function Dashboard() {
           isLoading={chartLoading}
         />
       </section>
+
+      <ItemSearchPanel />
     </main>
   )
 }

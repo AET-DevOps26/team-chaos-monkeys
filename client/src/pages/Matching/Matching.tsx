@@ -5,6 +5,7 @@ import type { GetAllMatchesStatus as Status } from '@/api/matches/model'
 import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller'
 import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
+import { filterPillClass } from '@/components/filterPill'
 import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
 import searchIcon from '@/assets/search-icon.svg'
 
@@ -20,11 +21,6 @@ const FILTERS: { value: Filter; label: string }[] = [
 // The matches list endpoint has no pagination or server-side ordering, so we
 // sort newest-first and show a bounded recent window client-side.
 const RECENT_LIMIT = 50
-
-const pillBase =
-  'rounded-full px-3 py-1 text-xs font-medium transition-colors border'
-const pillActive = 'border-accent bg-accent-bg text-accent'
-const pillIdle = 'border-border text-text-h hover:border-accent'
 
 const gridCls = 'grid grid-cols-1 gap-5 lg:grid-cols-2'
 
@@ -91,7 +87,7 @@ export default function Matching() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setFilter(f.value)}
-                className={`${pillBase} ${active ? pillActive : pillIdle}`}
+                className={filterPillClass(active)}
               >
                 {f.label}
               </button>

@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import type { TokenResponse } from '@/api/auth/model'
 import type { FoundItemResponse, PhotoUrlResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
-import type { MatchResponse } from '@/api/matches/model'
+import type { ItemSearchResponse, MatchResponse } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 
 export const loginSuccess = (accessToken = 'test-access-token') =>
@@ -105,5 +105,15 @@ export const matchesListError = () =>
 
 export const pickupsList = (items: PickupResponse[]) =>
   http.get('*/api/pickups', () => HttpResponse.json<PickupResponse[]>(items))
+
+export const itemSearchSuccess = (response: ItemSearchResponse) =>
+  http.post('*/api/matches/search', () =>
+    HttpResponse.json<ItemSearchResponse>(response),
+  )
+
+export const itemSearchError = () =>
+  http.post('*/api/matches/search', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
 
 export const handlers = [loginSuccess(), logoutSuccess()]

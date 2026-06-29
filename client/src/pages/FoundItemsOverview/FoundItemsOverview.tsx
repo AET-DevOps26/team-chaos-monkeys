@@ -30,8 +30,7 @@ export default function FoundItemsOverview() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-medium text-text-h">Found items</h1>
+      <header className="flex flex-wrap items-center justify-end gap-3">
         <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-2">
           {FILTERS.map((f) => {
             const active = filter === f.value

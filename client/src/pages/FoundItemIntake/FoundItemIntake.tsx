@@ -136,24 +136,6 @@ export default function FoundItemIntake() {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-2xl flex-col p-4">
       <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col gap-3" noValidate>
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-medium text-text-h">Log a found item</h1>
-          <div className="flex items-center gap-3">
-            {submitError && (
-              <span className="text-xs text-red-500">{submitError}</span>
-            )}
-            {hasPhoto && (
-              <button
-                type="submit"
-                disabled={!isValid || isSubmitting}
-                className="rounded bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSubmitting ? 'Logging…' : 'Log found item'}
-              </button>
-            )}
-          </div>
-        </div>
-
         <input
           id="photo"
           type="file"
@@ -212,6 +194,19 @@ export default function FoundItemIntake() {
               {errors.foundAt && (
                 <span className="text-xs text-red-500">{errors.foundAt.message}</span>
               )}
+            </div>
+
+            <div className="flex flex-col gap-1" style={{ animationDelay: '450ms' }}>
+              {submitError && (
+                <span className="text-xs text-red-500">{submitError}</span>
+              )}
+              <button
+                type="submit"
+                disabled={!isValid || isSubmitting}
+                className="w-full rounded bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? 'Logging…' : 'Log found item'}
+              </button>
             </div>
           </div>
         )}

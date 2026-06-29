@@ -61,25 +61,15 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-h">Dashboard</h1>
-          <p className="text-sm text-text">
-            {isAdmin
-              ? selectedVenueId
-                ? 'Overview for the selected venue.'
-                : 'Overview across all venues.'
-              : 'Overview for your venue.'}
-          </p>
-        </div>
-        {isAdmin && (
+      {isAdmin && (
+        <div className="flex flex-wrap items-center justify-end gap-4">
           <VenuePicker
             venues={venuesQuery.data ?? []}
             value={selectedVenueId}
             onChange={setSelectedVenueId}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {kpiError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-border bg-surface p-6">

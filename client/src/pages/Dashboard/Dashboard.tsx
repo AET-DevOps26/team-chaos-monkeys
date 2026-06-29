@@ -7,7 +7,7 @@ import {
 } from '@/api/operations/venue-controller/venue-controller'
 import { useGetFoundItemHistogram } from '@/api/found-items/found-item-controller/found-item-controller'
 import { useGetLostReportHistogram } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import { useGetMatchHistogram } from '@/api/matching/match-controller/match-controller'
+import { useGetMatchHistogram } from '@/api/matches/match-controller/match-controller'
 import StatCard from './StatCard'
 import TrendChart, { type Granularity } from './TrendChart'
 import VenuePicker from './VenuePicker'

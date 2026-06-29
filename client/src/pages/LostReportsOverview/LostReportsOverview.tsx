@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { GetAllLostReportsStatus } from '@/api/lost-items/model'
 import type { GetAllLostReportsStatus as Status } from '@/api/lost-items/model'
+import { filterPillClass } from '@/components/filterPill'
 import LostReportRow, { LostReportRowSkeleton } from './LostReportRow'
 
 type Filter = Status | 'ALL'
@@ -13,11 +14,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: GetAllLostReportsStatus.CLOSED, label: 'Closed' },
   { value: 'ALL', label: 'All' },
 ]
-
-const pillBase =
-  'rounded-full px-3 py-1 text-xs font-medium transition-colors border'
-const pillActive = 'border-accent bg-accent-bg text-accent'
-const pillIdle = 'border-border text-text-h hover:border-accent'
 
 const headCellCls =
   'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-text'
@@ -41,7 +37,7 @@ export default function LostReportsOverview() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setFilter(f.value)}
-                className={`${pillBase} ${active ? pillActive : pillIdle}`}
+                className={filterPillClass(active)}
               >
                 {f.label}
               </button>

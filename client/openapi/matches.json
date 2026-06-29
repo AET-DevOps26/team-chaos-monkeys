@@ -419,6 +419,36 @@
           }
         }
       }
+    },
+    "/api/matches/search": {
+      "post": {
+        "tags": [
+          "item-search-controller"
+        ],
+        "operationId": "search",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -618,6 +648,81 @@
           "count": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ItemSearchRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "LOST",
+              "FOUND",
+              "BOTH"
+            ]
+          },
+          "k": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 32,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "SearchResultItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "itemType": {
+            "type": "string",
+            "enum": [
+              "LOST",
+              "FOUND"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "distance": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "ItemSearchResponse": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "string"
+          },
+          "grounded": {
+            "type": "boolean"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultItem"
+            }
           }
         }
       }

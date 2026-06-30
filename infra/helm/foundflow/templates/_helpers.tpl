@@ -75,16 +75,37 @@ Override with svc.metricsPath.
 {{- end -}}
 
 {{/*
+Browser-facing origin for emailed magic links (match invite, pickup, password
+reset). Derived from the ingress so it tracks the deployment host automatically
+— https on AET (TLS on), http locally — instead of being hardcoded per service.
+The ingress serves /report, / and /api from this one origin, so links must point
+here, never at the gateway. Compose sets PUBLIC_BASE_URL directly (the edge on
+:3000); this helper is the k8s equivalent.
+*/}}
+{{- define "foundflow.publicBaseUrl" -}}
+{{- printf "%s://%s" (ternary "https" "http" .Values.ingress.tls.enabled) .Values.ingress.host -}}
+{{- end -}}
+
+{{/*
 Render the env entries for a service. Args: { ctx, name, svc }
 Combines:
   1. Literal env (svc.env)
-  2. DB env block (when svc.dbRef set): SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD
-  3. Secret-backed env (svc.secretEnv)
+  2. PUBLIC_BASE_URL for spring services (derived; explicit svc.env wins)
+  3. DB env block (when svc.dbRef set): SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD
+  4. Secret-backed env (svc.secretEnv)
 */}}
 {{- define "foundflow.env" -}}
 {{- $svc := .svc -}}
 {{- with $svc.env }}
 {{- toYaml . }}
+{{- end }}
+{{- if eq (default "spring" $svc.kind) "spring" }}
+{{- $hasExplicit := false }}
+{{- range (default (list) $svc.env) }}{{- if eq .name "PUBLIC_BASE_URL" }}{{- $hasExplicit = true }}{{- end }}{{- end }}
+{{- if not $hasExplicit }}
+- name: PUBLIC_BASE_URL
+  value: {{ include "foundflow.publicBaseUrl" .ctx | quote }}
+{{- end }}
 {{- end }}
 {{- if $svc.dbRef }}
 {{- $dbAlias := $svc.dbRef }}

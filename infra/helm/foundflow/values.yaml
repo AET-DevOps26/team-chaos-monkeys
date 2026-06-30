@@ -165,7 +165,6 @@ services:
       - { name: SERVER_PORT, value: "8085" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
       - { name: SPRING_RABBITMQ_PORT, value: "5672" }
-      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
       - { name: SPRING_MAIL_HOST, value: "smtp-relay.brevo.com" }
       - { name: SPRING_MAIL_PORT, value: "587" }
       - { name: SPRING_MAIL_SMTP_AUTH, value: "true" }
@@ -201,8 +200,6 @@ services:
       limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
-      # Public base URL used to build pickup magic links — point at the public ingress.
-      - { name: PUBLIC_BASE_URL, value: "https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de" }
     secretEnv:
       - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
 

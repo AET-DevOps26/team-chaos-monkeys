@@ -186,7 +186,7 @@ class MatchServiceTest {
 
         assertTrue(response.isPresent());
         assertEquals("public-token", response.get().token());
-        assertEquals("http://localhost:8080/api/matches/public/public-token", response.get().matchUrl());
+        assertEquals("http://localhost:8080/report/match/public-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/public-token", response.get().pickupUrl());
         assertEquals("public-token", match.getPublicLinkToken());
         assertEquals("lost@example.com", match.getPublicLinkRecipientEmail());
@@ -195,7 +195,7 @@ class MatchServiceTest {
                 matchId,
                 "lost@example.com",
                 venueId,
-                "http://localhost:8080/api/matches/public/public-token"
+                "http://localhost:8080/report/match/public-token"
         );
     }
 
@@ -221,7 +221,7 @@ class MatchServiceTest {
 
         assertTrue(response.isPresent());
         assertEquals("existing-token", response.get().token());
-        assertEquals("http://localhost:8080/api/matches/public/existing-token", response.get().matchUrl());
+        assertEquals("http://localhost:8080/report/match/existing-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/existing-token", response.get().pickupUrl());
         verify(matchRepository, never()).save(any(Match.class));
         verifyNoInteractions(magicLinkService, matchInviteEventPublisher);
@@ -252,7 +252,7 @@ class MatchServiceTest {
                 matchId,
                 "guest@example.com",
                 venueId,
-                "http://localhost:8080/api/matches/public/public-token"
+                "http://localhost:8080/report/match/public-token"
         );
     }
 
@@ -298,7 +298,7 @@ class MatchServiceTest {
                 matchId,
                 "guest@example.com",
                 venueId,
-                "http://localhost:8080/api/matches/public/public-token"
+                "http://localhost:8080/report/match/public-token"
         );
     }
 

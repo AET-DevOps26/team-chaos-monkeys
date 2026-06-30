@@ -1069,13 +1069,15 @@ if ([string]::IsNullOrWhiteSpace($publicMatchLink.token)) {
 # notification-service writes a row with the match magic link in body when it
 # consumes the MatchInviteRequested event. Poll until it appears so we can
 # verify the URL embedded in body matches the token returned by /public-link.
+# The link points the guest at the /report SPA confirm page (not the JSON API),
+# served by the edge/ingress alongside /api.
 $matchInviteNotification = Wait-ForNotification `
     -Client $opsClient `
     -Email $lostItem.contactEmail `
-    -UrlMarker "/api/matches/public/"
-$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/api/matches/public/"
-if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
-    throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
+    -UrlMarker "/report/match/"
+$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/report/match/"
+if (-not $matchInviteUrl.EndsWith("/report/match/$($publicMatchLink.token)")) {
+    throw "Match-invite notification URL '$matchInviteUrl' should end with '/report/match/$($publicMatchLink.token)'."
 }
 
 # Confirm the match-invite email actually reached the SMTP sink (Mailpit), proving

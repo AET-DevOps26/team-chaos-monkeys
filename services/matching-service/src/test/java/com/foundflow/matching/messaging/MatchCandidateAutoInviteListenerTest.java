@@ -24,7 +24,7 @@ class MatchCandidateAutoInviteListenerTest {
         when(matchService.createAutomaticPublicMatchLink(event.matchId(), event.recipientEmail()))
                 .thenReturn(Optional.of(new PublicMatchLinkResponse(
                         "token",
-                        "http://localhost:8080/api/matches/public/token",
+                        "http://localhost:3000/report/match/token",
                         "http://localhost:8080/api/pickups/public/token"
                 )));
 

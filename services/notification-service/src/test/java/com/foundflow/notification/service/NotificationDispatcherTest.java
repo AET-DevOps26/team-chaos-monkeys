@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 class NotificationDispatcherTest {
 
     private static final String FROM_ADDRESS = "no-reply@foundflow.test";
-    private static final String MATCH_URL = "http://localhost:8080/api/matches/public/public-token";
+    private static final String MATCH_URL = "http://localhost:3000/report/match/public-token";
     private static final String MANAGE_URL = "http://localhost:8080/api/pickups/public/manage-token";
     private static final String RESET_URL = "http://localhost:8080/reset-password?token=reset-token";
 

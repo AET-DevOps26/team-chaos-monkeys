@@ -30,7 +30,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
       DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:?DEV_ADMIN_EMAIL is required}
       DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?DEV_ADMIN_PASSWORD is required}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       PASSWORD_RESET_TOKEN_MINUTES: ${PASSWORD_RESET_TOKEN_MINUTES:-30}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
@@ -150,7 +150,7 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
       # Mail defaults to the local Mailpit sink so test/demo sends never reach the
       # shared Brevo account (every send to a fake recipient is a hard bounce that
       # harms sender reputation). Mailpit needs SMTP auth + STARTTLS off. To send
@@ -185,7 +185,7 @@ services:
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
     depends_on:
       pickup-db:
         condition: service_healthy

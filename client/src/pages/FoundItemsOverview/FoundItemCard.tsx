@@ -13,33 +13,20 @@ import FoundItemDetails from './FoundItemDetails'
 import chevronIcon from '@/assets/chevron-down.svg'
 import closeIcon from '@/assets/close.svg'
 import deleteIcon from '@/assets/delete.svg'
-
-const dateFmt = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
-
-function formatFoundAt(foundAt: string | undefined): string {
-  if (!foundAt) return ''
-  const d = new Date(foundAt)
-  if (Number.isNaN(d.getTime())) return ''
-  return dateFmt.format(d)
-}
+import { formatDate, firstLine } from '@/lib/format'
 
 function primaryLabel(item: FoundItemResponse): string {
-  const description = item.attributes?.description?.trim()
-  if (description) return description
-  const category = item.attributes?.category?.trim()
-  if (category) return category
-  const firstLine = item.intakeText?.split(/\r?\n/)[0]?.trim()
-  if (firstLine) return firstLine
-  return 'Found item'
+  return (
+    item.attributes?.description?.trim() ||
+    item.attributes?.category?.trim() ||
+    firstLine(item.intakeText) ||
+    'Found item'
+  )
 }
 
 export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
   const label = primaryLabel(item)
-  const date = formatFoundAt(item.foundAt)
+  const date = formatDate(item.foundAt)
   const queryClient = useQueryClient()
   const { show } = useToast()
   const [confirming, setConfirming] = useState(false)

@@ -31,7 +31,7 @@ export default function FoundItemDetails({ item }: { item: FoundItemResponse }) 
     marks.length > 0
 
   return (
-    <div className="flex flex-col gap-2 rounded border border-border bg-bg/60 p-3 text-xs animate-[foundItemFadeIn_180ms_ease-out_both]">
+    <div className="flex min-h-[11rem] flex-col gap-2 rounded border border-border bg-bg/60 p-3 text-xs animate-[foundItemFadeIn_180ms_ease-out_both]">
       {item.intakeText?.trim() && (
         <p className="whitespace-pre-line text-text-h">{item.intakeText}</p>
       )}
@@ -62,7 +62,7 @@ export default function FoundItemDetails({ item }: { item: FoundItemResponse }) 
 
       {!hasAnything && <span className="text-text">No extra details yet.</span>}
 
-      <span className="mt-1 text-[10px] uppercase tracking-wide text-text/70">
+      <span className="mt-auto text-[10px] uppercase tracking-wide text-text/70">
         Attributes extracted by AI
       </span>
     </div>

@@ -21,28 +21,54 @@ export type UsePhotoUrl = (
   refetch: () => unknown
 }
 
-function PhotoPlaceholder({ label }: { label: string }) {
+import electronicsIcon from '@/assets/category/electronics.svg'
+import clothingIcon from '@/assets/category/clothing.svg'
+import accessoriesIcon from '@/assets/category/accessories.svg'
+import bagsIcon from '@/assets/category/bags.svg'
+import documentsIcon from '@/assets/category/documents.svg'
+import keysIcon from '@/assets/category/keys.svg'
+import jewelryIcon from '@/assets/category/jewelry.svg'
+import otherIcon from '@/assets/category/other.svg'
+import placeholderIcon from '@/assets/category/placeholder.svg'
+
+// genai Category taxonomy → icon. Lets a lost report with no photo show a
+// category glyph instead of the generic camera placeholder; the icon is tinted
+// via a CSS mask so it follows the theme. OTHER/unknown fall through to the
+// camera placeholder.
+const CATEGORY_ICONS: Record<string, string> = {
+  ELECTRONICS: electronicsIcon,
+  CLOTHING: clothingIcon,
+  ACCESSORIES: accessoriesIcon,
+  BAGS: bagsIcon,
+  DOCUMENTS: documentsIcon,
+  KEYS: keysIcon,
+  JEWELRY: jewelryIcon,
+  OTHER: otherIcon,
+}
+
+function PhotoPlaceholder({ label, category }: { label: string; category?: string }) {
+  const icon =
+    (category && CATEGORY_ICONS[category.toUpperCase()]) || placeholderIcon
   return (
     <div
       role="img"
       aria-label={label}
       className="flex h-full w-full items-center justify-center bg-border/40"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-8 w-8 text-text opacity-40"
+      <span
         aria-hidden="true"
-      >
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <circle cx="9" cy="11" r="1.5" />
-        <path d="M21 17l-5-5-9 9" />
-      </svg>
+        className="h-9 w-9 bg-text opacity-40"
+        style={{
+          maskImage: `url("${icon}")`,
+          WebkitMaskImage: `url("${icon}")`,
+          maskSize: 'contain',
+          WebkitMaskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          WebkitMaskRepeat: 'no-repeat',
+          maskPosition: 'center',
+          WebkitMaskPosition: 'center',
+        }}
+      />
     </div>
   )
 }
@@ -51,10 +77,12 @@ function PhotoThumbnailInner({
   id,
   alt,
   usePhotoUrl,
+  category,
 }: {
   id: string
   alt: string
   usePhotoUrl: UsePhotoUrl
+  category?: string
 }) {
   const { data, isLoading, isError, refetch } = usePhotoUrl(id, {
     query: {
@@ -91,7 +119,8 @@ function PhotoThumbnailInner({
       />
     )
   }
-  if (isError || !url || failed) return <PhotoPlaceholder label={alt} />
+  if (isError || !url || failed)
+    return <PhotoPlaceholder label={alt} category={category} />
 
   return (
     <img
@@ -115,11 +144,20 @@ export default function PhotoThumbnail({
   id,
   alt,
   usePhotoUrl,
+  category,
 }: {
   id: string | undefined
   alt: string
   usePhotoUrl: UsePhotoUrl
+  category?: string
 }) {
-  if (!id) return <PhotoPlaceholder label={alt} />
-  return <PhotoThumbnailInner id={id} alt={alt} usePhotoUrl={usePhotoUrl} />
+  if (!id) return <PhotoPlaceholder label={alt} category={category} />
+  return (
+    <PhotoThumbnailInner
+      id={id}
+      alt={alt}
+      usePhotoUrl={usePhotoUrl}
+      category={category}
+    />
+  )
 }

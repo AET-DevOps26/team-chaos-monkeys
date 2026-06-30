@@ -113,7 +113,7 @@ export default function ConfirmMatch() {
   return (
     <Shell>
       <h1 className="mb-2 text-3xl font-medium text-text-h">Is this your item?</h1>
-      <p className="mb-8 text-sm text-text">
+      <p className="pb-6 text-sm text-text">
         A venue logged a found item that may match your report. Confirm it&apos;s yours to schedule
         a pickup, or reject it if it isn&apos;t.
       </p>
@@ -127,7 +127,7 @@ export default function ConfirmMatch() {
       )}
 
       {item?.description && (
-        <p className="mb-6 text-base text-text-h">{item.description}</p>
+        <p className="pb-4 text-base text-text-h">{item.description}</p>
       )}
 
       <dl className="mb-8 flex flex-col divide-y divide-border border-y border-border">

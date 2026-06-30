@@ -1132,7 +1132,7 @@ if ([string]::IsNullOrWhiteSpace($publicPickup.manageUrl)) {
 }
 
 # Same poll-then-regex pattern for the pickup-confirmation notification. The
-# extracted URL is the manage link the public client uses to update/cancel.
+# extracted URL is the manage link the guest uses to update/cancel.
 $pickupConfirmationNotification = Wait-ForNotification `
     -Client $opsClient `
     -Email $lostItem.contactEmail `
@@ -1140,7 +1140,12 @@ $pickupConfirmationNotification = Wait-ForNotification `
 $manageLink = Extract-MagicLinkUrl `
     -Body $pickupConfirmationNotification.body `
     -UrlMarker "/api/pickups/public/"
-$publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
+# The emailed link uses the public origin (PUBLIC_BASE_URL = the edge/ingress),
+# but this E2E stack starts services by name and omits the edge — so hit the
+# same endpoint through the gateway, keyed by the manage token from the email.
+$manageToken = $manageLink.TrimEnd('/').Split('/')[-1]
+$manageUrl = "$GatewayBaseUrl/api/pickups/public/$manageToken"
+$publicPickupUpdateResponse = $publicClient.PutAsync($manageUrl, (JsonContent @{
     pickupAt = $pickupSlot0930
     email = $lostItem.contactEmail
 })).Result
@@ -1153,7 +1158,7 @@ if (@($staffPickups | Where-Object { $_.id -eq $publicPickup.id }).Count -ne 1) 
     throw "Staff pickup list should include the public pickup."
 }
 
-$publicPickupDeleteResponse = $publicClient.DeleteAsync($manageLink).Result
+$publicPickupDeleteResponse = $publicClient.DeleteAsync($manageUrl).Result
 Assert-Status $publicPickupDeleteResponse 204 "Public pickup manage link can cancel pickup"
 
 $confirmedMatchResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result

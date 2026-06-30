@@ -251,8 +251,11 @@ jobs:
             -f "$RUNNER_TEMP/aet-secrets.json" \
             --set-string global.imageTag="$IMAGE_TAG" \
             --wait \
-            --atomic \
             --timeout 15m
+        # No --atomic: under the tight AET quota (4 CPU / 6Gi) a --wait timeout
+        # would roll back to the last *deployed* revision, which re-creates the
+        # quota deadlock and re-sticks the release. Leaving the new state in
+        # place is recoverable; a failed revision can simply be re-upgraded.
 
       - name: Show rollout status
         if: always()

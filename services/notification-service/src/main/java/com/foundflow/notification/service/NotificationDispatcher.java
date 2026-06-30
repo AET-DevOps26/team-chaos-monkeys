@@ -33,6 +33,11 @@ public class NotificationDispatcher {
     private static final String PASSWORD_RESET_BODY_PREFIX =
             "Use this link to reset your FoundFlow password: ";
 
+    private static final String REPORT_CONFIRMATION_SUBJECT = "We received your lost-item report";
+    private static final String REPORT_CONFIRMATION_BODY =
+            "Thanks for submitting your lost-item report. We have it on file and will email "
+                    + "this address if we find a matching item.";
+
     private final NotificationRepository notificationRepository;
     private final JavaMailSender mailSender;
     private final String fromAddress;
@@ -68,6 +73,19 @@ public class NotificationDispatcher {
                 recipient,
                 PICKUP_CONFIRMATION_SUBJECT,
                 PICKUP_CONFIRMATION_BODY_PREFIX + manageUrl
+        );
+        sendAndMarkSent(notification);
+    }
+
+    // Unlike the link-bearing notifications, this is a plain receipt: no magic link,
+    // and no match exists yet, so matchId is null (same as password reset).
+    public void dispatchReportConfirmation(String recipient, UUID venueId) {
+        Notification notification = persist(
+                null,
+                venueId,
+                recipient,
+                REPORT_CONFIRMATION_SUBJECT,
+                REPORT_CONFIRMATION_BODY
         );
         sendAndMarkSent(notification);
     }

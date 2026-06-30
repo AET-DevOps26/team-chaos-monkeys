@@ -50,6 +50,11 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue lostReportConfirmationQueue() {
+        return new Queue(FoundFlowEventRouting.NOTIFICATION_LOST_REPORT_CONFIRMATIONS_QUEUE, true);
+    }
+
+    @Bean
     public Binding matchInviteRequestedBinding(
             Queue matchInviteRequestedQueue,
             TopicExchange domainEventsExchange
@@ -77,6 +82,18 @@ public class AmqpConfig {
         return BindingBuilder.bind(passwordResetRequestedQueue)
                 .to(domainEventsExchange)
                 .with(FoundFlowEventRouting.PASSWORD_RESET_REQUESTED);
+    }
+
+    // Second subscriber on lost-report.created.v1 (matching-service binds its own
+    // queue to the same key for intake). The guest gets a receipt for the report.
+    @Bean
+    public Binding lostReportConfirmationBinding(
+            Queue lostReportConfirmationQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(lostReportConfirmationQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.LOST_REPORT_CREATED);
     }
 
     @Bean
@@ -110,6 +127,7 @@ public class AmqpConfig {
         return switch (routingKey) {
             case FoundFlowEventRouting.MATCH_INVITE_REQUESTED -> "match-invite-requested";
             case FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED -> "pickup-confirmation-requested";
+            case FoundFlowEventRouting.LOST_REPORT_CREATED -> "lost-report-confirmation";
             default -> "unknown";
         };
     }

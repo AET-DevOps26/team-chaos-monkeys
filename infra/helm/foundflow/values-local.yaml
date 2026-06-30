@@ -43,14 +43,9 @@ monitoring:
   enabled: true
   prometheusReleaseLabel: kps
 
-# Per-service overrides. NOTE: `env` is a list, and Helm replaces lists wholesale
-# (it does not merge them), so the full env list must be restated here — not just
-# the keys that differ. Point pickup magic links at the local ingress host.
-services:
-  pickup-service:
-    env:
-      - { name: SERVER_PORT, value: "8087" }
-      - { name: PUBLIC_BASE_URL, value: "http://foundflow.localtest.me" }
+# Magic-link URLs (match invite, pickup, password reset) are derived from
+# ingress.host + ingress.tls by the foundflow.publicBaseUrl helper, so the local
+# host (http://foundflow.localtest.me) needs no per-service override here.
 
 # Smaller PVCs locally — the hostpath/local-path provisioner is fine for these.
 databases:

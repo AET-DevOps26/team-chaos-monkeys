@@ -29,7 +29,7 @@ class NotificationListenerTest {
         MatchInviteEventListener listener = new MatchInviteEventListener(dispatcher);
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        String matchUrl = "http://localhost:8080/api/matches/public/public-token";
+        String matchUrl = "http://localhost:3000/report/match/public-token";
 
         listener.onMatchInviteRequested(new MatchInviteRequestedEvent(
                 UUID.randomUUID(),

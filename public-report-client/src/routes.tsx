@@ -4,6 +4,7 @@ import ReportLostItem from '@/pages/ReportLostItem'
 import ReportConfirmation from '@/pages/ReportLostItem/ReportConfirmation'
 import SchedulePickup from '@/pages/SchedulePickup/SchedulePickup'
 import PickupConfirmation from '@/pages/SchedulePickup/PickupConfirmation'
+import ConfirmMatch from '@/pages/ConfirmMatch/ConfirmMatch'
 
 // Routes are relative to the router basename (/report). A report is always
 // scoped to a venue, supplied as the first path segment as a readable name
@@ -34,6 +35,14 @@ export default function AppRoutes() {
         element={
           <PublicLayout>
             <PickupConfirmation />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/match/:token"
+        element={
+          <PublicLayout>
+            <ConfirmMatch />
           </PublicLayout>
         }
       />

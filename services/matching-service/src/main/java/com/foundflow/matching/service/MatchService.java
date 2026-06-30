@@ -390,7 +390,7 @@ public class MatchService {
                 match.getVenueId(),
                 normalizedRecipient
         );
-        String matchUrl = publicBaseUrl + "/api/matches/public/" + token;
+        String matchUrl = publicBaseUrl + "/report/match/" + token;
         match.setPublicLinkToken(token);
         match.setPublicLinkRecipientEmail(normalizedRecipient);
         match.setPublicLinkIssuedAt(LocalDateTime.now());
@@ -416,7 +416,7 @@ public class MatchService {
     private PublicMatchLinkResponse toPublicMatchLinkResponse(String token) {
         return new PublicMatchLinkResponse(
                 token,
-                publicBaseUrl + "/api/matches/public/" + token,
+                publicBaseUrl + "/report/match/" + token,
                 pickupUrl(token)
         );
     }

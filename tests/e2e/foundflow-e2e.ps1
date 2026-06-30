@@ -552,6 +552,14 @@ Assert-Status $publicLostReport 201 "Public lost-item report can be created with
 $publicLostReportBody = Read-Json $publicLostReport
 Assert-NoPhotoKey $publicLostReportBody "Public lost-item JSON create"
 
+# Submitting a lost report fires lost-report.created.v1; notification-service binds
+# its own queue to that key and emails the guest a receipt. Confirm it reached Mailpit.
+Wait-ForMailpitMessage `
+    -Client $mailpitClient `
+    -Recipient $publicLostReportRequest.contactEmail `
+    -Subject "We received your lost-item report" | Out-Null
+Write-Host "[OK] Mailpit captured the lost-report confirmation email to $($publicLostReportRequest.contactEmail)"
+
 $publicLostPhotoUpload = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
     (PhotoOnlyContent)

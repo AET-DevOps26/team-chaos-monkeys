@@ -1,5 +1,6 @@
 package com.foundflow.notification.messaging;
 
+import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.MatchInviteRequestedEvent;
 import com.foundflow.events.PasswordResetRequestedEvent;
 import com.foundflow.events.PickupConfirmationRequestedEvent;
@@ -12,6 +13,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -77,5 +81,41 @@ class NotificationListenerTest {
         ));
 
         verify(dispatcher).dispatchPasswordReset("staff@example.com", venueId, resetUrl);
+    }
+
+    @Test
+    void lostReportConfirmationListener_delegatesContactEmailAndVenueToDispatcher() {
+        LostReportConfirmationEventListener listener = new LostReportConfirmationEventListener(dispatcher);
+        UUID venueId = UUID.randomUUID();
+
+        listener.onLostReportCreated(lostReportCreated(venueId, "lost@example.com"));
+
+        verify(dispatcher).dispatchReportConfirmation("lost@example.com", venueId);
+    }
+
+    @Test
+    void lostReportConfirmationListener_skipsWhenContactEmailMissing() {
+        LostReportConfirmationEventListener listener = new LostReportConfirmationEventListener(dispatcher);
+
+        listener.onLostReportCreated(lostReportCreated(UUID.randomUUID(), null));
+        listener.onLostReportCreated(lostReportCreated(UUID.randomUUID(), "   "));
+
+        verify(dispatcher, never()).dispatchReportConfirmation(anyString(), any());
+    }
+
+    private static LostReportCreatedEvent lostReportCreated(UUID venueId, String contactEmail) {
+        return new LostReportCreatedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                UUID.randomUUID(),
+                venueId,
+                null,
+                "black leather wallet",
+                Instant.now(),
+                "Lobby",
+                "OPEN",
+                contactEmail,
+                null
+        );
     }
 }

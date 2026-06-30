@@ -174,6 +174,39 @@ class NotificationDispatcherTest {
         assertThat(sentAtAtEachSave.get(1)).isNotNull();
     }
 
+    @Test
+    void dispatchReportConfirmation_persistsRowFirstThenSendsAndMarksSent() {
+        NotificationDispatcher dispatcher = dispatcher();
+        UUID venueId = UUID.randomUUID();
+        String recipient = "lost@example.com";
+
+        java.util.List<java.time.LocalDateTime> sentAtAtEachSave = new java.util.ArrayList<>();
+        org.mockito.Mockito.when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> {
+                    Notification arg = invocation.getArgument(0);
+                    sentAtAtEachSave.add(arg.getSentAt());
+                    return arg;
+                });
+
+        dispatcher.dispatchReportConfirmation(recipient, venueId);
+
+        ArgumentCaptor<Notification> savedCaptor = ArgumentCaptor.forClass(Notification.class);
+        InOrder order = inOrder(notificationRepository, mailSender);
+        order.verify(notificationRepository).save(savedCaptor.capture());
+        order.verify(mailSender).send(any(SimpleMailMessage.class));
+        order.verify(notificationRepository).save(any(Notification.class));
+
+        Notification finalState = savedCaptor.getValue();
+        assertThat(finalState.getMatchId()).isNull();
+        assertThat(finalState.getVenueId()).isEqualTo(venueId);
+        assertThat(finalState.getRecipientAddress()).isEqualTo(recipient);
+        assertThat(finalState.getSubject()).isEqualTo("We received your lost-item report");
+        assertThat(finalState.getBody()).doesNotContain("http");
+        assertThat(sentAtAtEachSave).hasSize(2);
+        assertThat(sentAtAtEachSave.get(0)).isNull();
+        assertThat(sentAtAtEachSave.get(1)).isNotNull();
+    }
+
     private NotificationDispatcher dispatcher() {
         return new NotificationDispatcher(
                 notificationRepository,

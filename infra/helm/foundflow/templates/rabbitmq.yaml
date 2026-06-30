@@ -148,6 +148,13 @@ spec:
                 secretKeyRef:
                   name: foundflow-rabbitmq
                   key: password
+            # Erlang starts one scheduler (and allocator carriers) per *node*
+            # CPU core — it does not see the container CPU limit — so on a
+            # 6-core AET node the BEAM's memory overhead blows past the 384Mi
+            # cap at boot and the kernel OOM-kills it. Pin schedulers low and
+            # disable scheduler busy-wait to keep the broker inside its limit.
+            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+              value: "+S 2:2 +sbwt none +sbwtdcpu none +sbwtdio none"
           readinessProbe:
             exec:
               command: ["rabbitmq-diagnostics", "-q", "ping"]

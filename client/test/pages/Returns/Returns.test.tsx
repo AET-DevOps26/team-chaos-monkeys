@@ -1,0 +1,123 @@
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, screen, within } from '@testing-library/react'
+import { renderWithProviders } from '@test/render'
+import { server } from '@test/server'
+import {
+  pickupsList,
+  pickupsListError,
+  schedulesList,
+  schedulesListError,
+  scheduleCreate,
+  scheduleDelete,
+} from '@test/handlers'
+import Returns from '@/pages/Returns/Returns'
+import type { PickupResponse, PickupScheduleResponse } from '@/api/pickups/model'
+
+const SCHEDULE: PickupScheduleResponse = {
+  id: 's1111111-1111-1111-1111-111111111111',
+  recurrenceType: 'WEEKLY',
+  startDate: '2026-01-01',
+  endDate: '2026-12-31',
+  dayOfWeek: 'MONDAY',
+  startTime: '09:00:00',
+  endTime: '17:00:00',
+  slotLengthInMinutes: 15,
+}
+
+// One past pickup (must be filtered out) and one far-future one (must show).
+const PICKUPS: PickupResponse[] = [
+  {
+    id: 'p0000000-0000-0000-0000-000000000000',
+    pickupAt: '2020-01-01T10:00:00',
+    matchId: 'm1111111-1111-1111-1111-111111111111',
+    email: 'past@example.test',
+  },
+  {
+    id: 'p1111111-1111-1111-1111-111111111111',
+    pickupAt: '2099-06-05T14:30:00',
+    matchId: 'm2222222-2222-2222-2222-222222222222',
+    email: 'guest@example.test',
+  },
+]
+
+function seed(pickups = PICKUPS, schedules = [SCHEDULE]) {
+  server.use(pickupsList(pickups), schedulesList(schedules))
+}
+
+describe('<Returns />', () => {
+  it('lists only upcoming booked pickups, newest deadlines first', async () => {
+    seed()
+    renderWithProviders(<Returns />)
+
+    expect(await screen.findByText('guest@example.test')).toBeInTheDocument()
+    // The past pickup is filtered out.
+    expect(screen.queryByText('past@example.test')).not.toBeInTheDocument()
+  })
+
+  it('renders the configured schedule windows', async () => {
+    seed()
+    renderWithProviders(<Returns />)
+
+    expect(
+      await screen.findByText(/Weekly on Monday, 09:00–17:00/),
+    ).toBeInTheDocument()
+  })
+
+  it('creates a schedule and sends a payload built from the generated client', async () => {
+    let body: Record<string, unknown> | undefined
+    server.use(
+      pickupsList([]),
+      schedulesList([]),
+      scheduleCreate((b) => {
+        body = b as Record<string, unknown>
+      }),
+    )
+    const { user } = renderWithProviders(<Returns />)
+
+    await screen.findByText(/No schedules yet/i)
+
+    // Only the start date is empty in the defaults; fill it to make the form valid.
+    fireEvent.change(screen.getByLabelText('Start date'), {
+      target: { value: '2099-01-15' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Add schedule' }))
+
+    expect(await screen.findByText('Schedule created.')).toBeInTheDocument()
+    expect(body).toMatchObject({
+      recurrenceType: 'WEEKLY',
+      startDate: '2099-01-15',
+      dayOfWeek: 'MONDAY',
+      startTime: '09:00',
+      endTime: '17:00',
+      slotLengthInMinutes: 15,
+    })
+    // Optional fields are omitted, not sent empty.
+    expect(body).not.toHaveProperty('endDate')
+    expect(body).not.toHaveProperty('venueId')
+  })
+
+  it('deletes a schedule', async () => {
+    const onDelete = vi.fn()
+    server.use(pickupsList([]), schedulesList([SCHEDULE]), scheduleDelete(onDelete))
+    const { user } = renderWithProviders(<Returns />)
+
+    const row = (await screen.findByText(/Weekly on Monday/)).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText('Schedule deleted.')).toBeInTheDocument()
+    expect(onDelete).toHaveBeenCalledWith(SCHEDULE.id)
+  })
+
+  it('shows empty and error states', async () => {
+    server.use(pickupsList([]), schedulesList([]))
+    const { unmount } = renderWithProviders(<Returns />)
+    expect(await screen.findByText(/No upcoming pickups booked/i)).toBeInTheDocument()
+    expect(screen.getByText(/No schedules yet/i)).toBeInTheDocument()
+    unmount()
+
+    server.use(pickupsListError(), schedulesListError())
+    renderWithProviders(<Returns />)
+    expect(await screen.findByText(/Couldn't load pickups/i)).toBeInTheDocument()
+    expect(screen.getByText(/Couldn't load schedules/i)).toBeInTheDocument()
+  })
+})

@@ -281,14 +281,19 @@ postgresDefaults:
 # Secret: a literal `password` here is used as-is; if left empty, a random
 # password is generated on first install and held stable via lookup() (same
 # pattern as templates/databases.yaml).
+# Plain rabbitmq:4.0 (no management plugin): the web UI is local-debug only and
+# internal-only in AET, and it is NOT our metrics source (those would come from
+# rabbitmq_prometheus). Dropping it saves ~80-120Mi so the broker fits 384Mi
+# inside the tight AET namespace quota (4 CPU / 6Gi). Compose keeps -management
+# for the local UI. disk_free_limit + memory watermark are set in rabbitmq.yaml.
 rabbitmq:
   enabled: true
-  image: rabbitmq:4.0-management
+  image: rabbitmq:4.0
   username: foundflow
   password: ""
   resources:
-    requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 100m, memory: 256Mi }
+    requests: { cpu: 50m,  memory: 256Mi }
+    limits:   { cpu: 200m, memory: 384Mi }
   # Persistence is off by default: RabbitMQ here carries transient domain events
   # only — losing the queue contents on pod restart is acceptable. Flip to true
   # and set storageSize for broker data survivability. Durable queues already

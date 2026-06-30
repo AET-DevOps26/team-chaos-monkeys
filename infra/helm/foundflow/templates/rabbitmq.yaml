@@ -3,9 +3,14 @@ In-namespace RabbitMQ broker. Renders:
   - Secret  foundflow-rabbitmq   (keys: username, password — username from
     values, password fixed if set or randomised on first install and held
     stable across upgrades via lookup() — same pattern as databases.yaml)
-  - Service rabbitmq             (ClusterIP, AMQP on 5672, management UI on 15672)
+  - ConfigMap rabbitmq-conf      (disk_free_limit + vm_memory_high_watermark)
+  - Service rabbitmq             (ClusterIP, AMQP on 5672)
   - Deployment rabbitmq          (single replica; emptyDir or PVC depending on
     rabbitmq.persistence.enabled)
+
+Plain rabbitmq:4.0 image — no management plugin (web UI dropped to fit the tight
+AET quota; see values.yaml). AMQP on 5672 is the bus; readiness is a CLI ping,
+not HTTP, so no management port is exposed.
 
 Service name "rabbitmq" deliberately matches docker-compose so Spring services
 consume the same SPRING_RABBITMQ_HOST=rabbitmq value everywhere.
@@ -41,6 +46,25 @@ stringData:
   password: {{ $password | quote }}
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-conf
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/component: broker
+data:
+  10-foundflow.conf: |
+    # No node DiskPressure exists; keep RabbitMQ's own disk-free alarm from
+    # tripping on the small ephemeral volume (a full emptyDir on a long-lived
+    # crashlooping pod was a prior false alarm). 50MB is ample for transient events.
+    disk_free_limit.absolute = 50MB
+    # Block publishers only near the top of the memory limit, leaving boot headroom
+    # within the 384Mi cap so the broker doesn't trip its watermark on startup.
+    vm_memory_high_watermark.relative = 0.7
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq
@@ -55,10 +79,6 @@ spec:
     - name: amqp
       port: 5672
       targetPort: amqp
-      protocol: TCP
-    - name: management
-      port: 15672
-      targetPort: management
       protocol: TCP
   selector:
     app.kubernetes.io/name: rabbitmq
@@ -117,8 +137,6 @@ spec:
           ports:
             - name: amqp
               containerPort: 5672
-            - name: management
-              containerPort: 15672
           env:
             - name: RABBITMQ_DEFAULT_USER
               valueFrom:
@@ -147,11 +165,17 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/rabbitmq
+            - name: conf
+              mountPath: /etc/rabbitmq/conf.d
+              readOnly: true
           {{- with .Values.rabbitmq.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
+        - name: conf
+          configMap:
+            name: rabbitmq-conf
         - name: data
           {{- if .Values.rabbitmq.persistence.enabled }}
           persistentVolumeClaim:

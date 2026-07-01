@@ -1,6 +1,7 @@
 package com.foundflow.notification.controller;
 
 import com.foundflow.notification.dto.CreateNotificationRequest;
+import com.foundflow.notification.dto.MatchContactStatusResponse;
 import com.foundflow.notification.dto.NotificationBlueprintResponse;
 import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
@@ -43,6 +44,13 @@ public class NotificationController {
             JwtAuthenticationToken authentication
     ) {
         return ResponseEntity.ok(notificationService.getAllNotifications(email, authentication.getToken()));
+    }
+
+    @GetMapping("/match-contacts")
+    public ResponseEntity<List<MatchContactStatusResponse>> getMatchContacts(
+            JwtAuthenticationToken authentication
+    ) {
+        return ResponseEntity.ok(notificationService.getMatchContactStatuses(authentication.getToken()));
     }
 
     @GetMapping("/{id}")

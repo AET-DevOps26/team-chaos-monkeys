@@ -2,6 +2,7 @@ package com.foundflow.notification.service;
 
 import com.foundflow.notification.domain.Notification;
 import com.foundflow.notification.dto.CreateNotificationRequest;
+import com.foundflow.notification.dto.MatchContactStatusResponse;
 import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
 import com.foundflow.notification.repository.NotificationRepository;
@@ -67,6 +68,38 @@ class NotificationServiceTest {
 
         assertNull(captor.getValue().getVenueId());
         assertNull(response.venueId());
+    }
+
+    @Test
+    void getMatchContactStatuses_shouldScopeToVenueForStaff() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        UUID venueId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        LocalDateTime sentAt = LocalDateTime.of(2026, 6, 30, 9, 0);
+        when(notificationRepository.findMatchContactStatusesByVenueId(venueId))
+                .thenReturn(List.of(new MatchContactStatusResponse(matchId, sentAt)));
+
+        List<MatchContactStatusResponse> statuses = service.getMatchContactStatuses(staffJwt(venueId));
+
+        assertEquals(1, statuses.size());
+        assertEquals(matchId, statuses.get(0).matchId());
+        assertEquals(sentAt, statuses.get(0).sentAt());
+        verify(notificationRepository).findMatchContactStatusesByVenueId(venueId);
+        verify(notificationRepository, never()).findAllMatchContactStatuses();
+    }
+
+    @Test
+    void getMatchContactStatuses_shouldReturnAllForAdmin() {
+        NotificationService service = new NotificationService(notificationRepository, venueAccessService);
+
+        when(notificationRepository.findAllMatchContactStatuses())
+                .thenReturn(List.of(new MatchContactStatusResponse(UUID.randomUUID(), null)));
+
+        List<MatchContactStatusResponse> statuses = service.getMatchContactStatuses(adminJwt());
+
+        assertEquals(1, statuses.size());
+        verify(notificationRepository).findAllMatchContactStatuses();
     }
 
     @Test

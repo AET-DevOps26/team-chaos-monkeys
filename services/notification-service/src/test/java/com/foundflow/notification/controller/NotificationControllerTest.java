@@ -1,6 +1,7 @@
 package com.foundflow.notification.controller;
 
 import com.foundflow.notification.dto.CreateNotificationRequest;
+import com.foundflow.notification.dto.MatchContactStatusResponse;
 import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
 import com.foundflow.notification.service.NotificationService;
@@ -73,6 +74,28 @@ class NotificationControllerTest {
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].recipientAddress").value("person@example.com"));
+    }
+
+    @Test
+    void getMatchContacts_shouldReturnPerMatchContactStatus() throws Exception {
+        UUID venueId = UUID.randomUUID();
+        UUID contactedMatchId = UUID.randomUUID();
+        UUID queuedMatchId = UUID.randomUUID();
+        LocalDateTime sentAt = LocalDateTime.of(2026, 6, 30, 9, 0);
+
+        when(notificationService.getMatchContactStatuses(any(Jwt.class)))
+                .thenReturn(List.of(
+                        new MatchContactStatusResponse(contactedMatchId, sentAt),
+                        new MatchContactStatusResponse(queuedMatchId, null)
+                ));
+
+        mockMvc.perform(get("/api/notifications/match-contacts")
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].matchId").value(contactedMatchId.toString()))
+                .andExpect(jsonPath("$[0].sentAt").exists())
+                .andExpect(jsonPath("$[1].matchId").value(queuedMatchId.toString()))
+                .andExpect(jsonPath("$[1].sentAt").doesNotExist());
     }
 
     @Test

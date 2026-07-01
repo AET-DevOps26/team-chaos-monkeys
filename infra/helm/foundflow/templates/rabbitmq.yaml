@@ -155,17 +155,27 @@ spec:
             # disable scheduler busy-wait to keep the broker inside its limit.
             - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
               value: "+S 2:2 +sbwt none +sbwtdcpu none +sbwtdio none"
+            # CLI tools (rabbitmq-diagnostics/rabbitmqctl) each spawn their own
+            # Erlang VM; without this they too grab a scheduler per node core and
+            # OOM inside the 384Mi cap. Kept so manual diagnostics don't kill the pod.
+            - name: RABBITMQ_CTL_ERL_ARGS
+              value: "+S 2:2 +sbwt none +sbwtdcpu none +sbwtdio none"
+          # TCP probes, not `rabbitmq-diagnostics ping`: the diagnostics CLI spins
+          # up an Erlang node that OOMs the pod under the tight memory limit (the
+          # liveness variant was killing the broker on every cycle). A 5672 connect
+          # confirms the AMQP listener is accepting, which is the readiness signal
+          # the Spring services actually need.
           readinessProbe:
-            exec:
-              command: ["rabbitmq-diagnostics", "-q", "ping"]
-            initialDelaySeconds: 15
+            tcpSocket:
+              port: amqp
+            initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
           livenessProbe:
-            exec:
-              command: ["rabbitmq-diagnostics", "-q", "ping"]
-            initialDelaySeconds: 30
+            tcpSocket:
+              port: amqp
+            initialDelaySeconds: 45
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 3

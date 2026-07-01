@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGetAllMatches } from '@/api/matches/match-controller/match-controller'
 import { GetAllMatchesStatus } from '@/api/matches/model'
 import type { GetAllMatchesStatus as Status } from '@/api/matches/model'
@@ -72,6 +72,15 @@ export default function Matching() {
       matchSearchText(lostById.get(m.lostReportId ?? ''), foundById.get(m.foundItemId ?? '')).includes(q),
     )
   }, [recentMatches, q, lostById, foundById])
+
+  // Deep-link support: /matches#match-<id> (e.g. from the Returns page) scrolls
+  // the target card into view once the list has rendered. The highlight itself
+  // is pure CSS via the `target:` variant on the card.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (!hash || visibleMatches.length === 0) return
+    document.getElementById(hash)?.scrollIntoView({ block: 'center' })
+  }, [visibleMatches])
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">

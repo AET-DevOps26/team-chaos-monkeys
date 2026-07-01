@@ -14,6 +14,7 @@ const labelCls = 'text-xs font-medium text-text-h'
 
 type Props = {
   defaultValues: ScheduleFormValues
+  heading: string
   submitLabel: string
   isSubmitting: boolean
   onSubmit: (payload: CreatePickupScheduleRequest) => void
@@ -21,6 +22,7 @@ type Props = {
 }
 
 export default function ScheduleForm({
+  heading,
   defaultValues,
   submitLabel,
   isSubmitting,
@@ -59,10 +61,11 @@ export default function ScheduleForm({
   return (
     <form
       onSubmit={handleSubmit(submit)}
-      className="flex flex-col gap-3 rounded-lg border border-border p-4"
+      className="flex flex-col gap-4 rounded-lg border border-border bg-bg p-5 shadow-[var(--shadow)]"
       noValidate
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <h3 className="text-sm font-semibold text-text-h">{heading}</h3>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="recurrenceType" className={labelCls}>Recurrence</label>
           <select id="recurrenceType" className={inputCls} {...register('recurrenceType')}>

@@ -5,6 +5,8 @@ import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 import { setCurrentToken } from '@/auth/token-store'
 import { server } from '@test/server'
 
+const jpegBody = new Uint8Array([0xff, 0xd8, 0xff, 0xd9])
+
 beforeEach(() => {
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,
@@ -29,7 +31,9 @@ describe('<PhotoThumbnail />', () => {
     server.use(
       http.get('*/api/found-items/x/photo', ({ request }) => {
         authorization = request.headers.get('authorization')
-        return new HttpResponse(new Blob(['photo'], { type: 'image/jpeg' }))
+        return new HttpResponse(jpegBody, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        })
       }),
     )
     setCurrentToken('staff-token')
@@ -48,7 +52,9 @@ describe('<PhotoThumbnail />', () => {
   it('falls back to the placeholder when the image fails to load', async () => {
     server.use(
       http.get('*/api/found-items/x/photo', () =>
-        new HttpResponse(new Blob(['photo'], { type: 'image/jpeg' })),
+        new HttpResponse(jpegBody, {
+          headers: { 'Content-Type': 'image/jpeg' },
+        }),
       ),
     )
     render(<PhotoThumbnail src="/api/found-items/x/photo" alt="Wallet" />)

@@ -5,6 +5,8 @@ import type { LostReportResponse } from '@/api/lost-items/model'
 import type { ItemSearchResponse, MatchResponse } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 
+const jpegBody = new Uint8Array([0xff, 0xd8, 0xff, 0xd9])
+
 export const loginSuccess = (accessToken = 'test-access-token') =>
   http.post('*/api/auth/login', () =>
     HttpResponse.json<TokenResponse>({
@@ -57,7 +59,7 @@ export const foundItemPhotoUrl = (url = 'https://example.test/photo.jpg') =>
 
 export const foundItemPhoto = () =>
   http.get('*/api/found-items/:id/photo', () =>
-    new HttpResponse(new Blob(['found-photo'], { type: 'image/jpeg' }), {
+    new HttpResponse(jpegBody, {
       headers: { 'Content-Type': 'image/jpeg' },
     }),
   )
@@ -84,7 +86,7 @@ export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') 
 
 export const lostReportPhoto = () =>
   http.get('*/api/lost-items/:id/photo', () =>
-    new HttpResponse(new Blob(['lost-photo'], { type: 'image/jpeg' }), {
+    new HttpResponse(jpegBody, {
       headers: { 'Content-Type': 'image/jpeg' },
     }),
   )

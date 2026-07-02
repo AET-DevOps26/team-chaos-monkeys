@@ -63,13 +63,14 @@ function PhotoThumbnailInner({
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     let objectUrl: string | null = null
 
     setPhoto(null)
     setFailed(false)
 
     axiosInstance
-      .get<Blob>(src, { responseType: 'blob' })
+      .get<Blob>(src, { responseType: 'blob', signal: controller.signal })
       .then(({ data }) => {
         if (cancelled) return
         objectUrl = URL.createObjectURL(data)
@@ -81,6 +82,7 @@ function PhotoThumbnailInner({
 
     return () => {
       cancelled = true
+      controller.abort()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [src])

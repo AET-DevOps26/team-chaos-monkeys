@@ -57,7 +57,7 @@ export const foundItemPhotoUrl = (url = 'https://example.test/photo.jpg') =>
 
 export const foundItemPhoto = () =>
   http.get('*/api/found-items/:id/photo', () =>
-    new HttpResponse(null, {
+    HttpResponse.text('', {
       headers: { 'Content-Type': 'image/jpeg' },
     }),
   )
@@ -84,7 +84,7 @@ export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') 
 
 export const lostReportPhoto = () =>
   http.get('*/api/lost-items/:id/photo', () =>
-    new HttpResponse(null, {
+    HttpResponse.text('', {
       headers: { 'Content-Type': 'image/jpeg' },
     }),
   )

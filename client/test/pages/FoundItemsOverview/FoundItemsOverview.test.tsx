@@ -1,16 +1,25 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
   foundItemDeleteSuccess,
-  foundItemPhoto,
   foundItemsList,
   foundItemsListError,
 } from '@test/handlers'
 import FoundItemsOverview from '@/pages/FoundItemsOverview/FoundItemsOverview'
 import { FoundItemResponseStatus } from '@/api/found-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
+
+vi.mock('@/components/PhotoThumbnail/PhotoThumbnail', async () => {
+  const React = await import('react')
+  return {
+    default: ({ src, alt }: { src?: string; alt: string }) =>
+      src
+        ? React.createElement('img', { src, alt })
+        : React.createElement('div', { role: 'img', 'aria-label': alt }),
+  }
+})
 
 const ITEMS: FoundItemResponse[] = [
   {
@@ -33,7 +42,7 @@ const ITEMS: FoundItemResponse[] = [
 
 describe('<FoundItemsOverview />', () => {
   it('renders the stored items returned by the API', async () => {
-    server.use(foundItemsList(ITEMS), foundItemPhoto())
+    server.use(foundItemsList(ITEMS))
     renderWithProviders(<FoundItemsOverview />)
 
     expect(await screen.findByText('Wallet')).toBeInTheDocument()
@@ -57,7 +66,7 @@ describe('<FoundItemsOverview />', () => {
   })
 
   it('switches the listing when a different status filter is selected', async () => {
-    server.use(foundItemsList(ITEMS), foundItemPhoto())
+    server.use(foundItemsList(ITEMS))
     const { user } = renderWithProviders(<FoundItemsOverview />)
 
     await screen.findByText('Wallet')
@@ -75,7 +84,7 @@ describe('<FoundItemsOverview />', () => {
       await screen.findByText(/no found items match this filter/i),
     ).toBeInTheDocument()
 
-    server.use(foundItemsList(ITEMS), foundItemPhoto())
+    server.use(foundItemsList(ITEMS))
     await user.click(screen.getByRole('button', { name: /show all/i }))
 
     expect(await screen.findByText('Wallet')).toBeInTheDocument()
@@ -93,7 +102,6 @@ describe('<FoundItemsOverview />', () => {
   it('requires a second click to confirm delete, and a cancel X aborts the flow', async () => {
     server.use(
       foundItemsList(ITEMS),
-      foundItemPhoto(),
       foundItemDeleteSuccess(),
     )
     const { user } = renderWithProviders(<FoundItemsOverview />)

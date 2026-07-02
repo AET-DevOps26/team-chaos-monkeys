@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
-  foundItemPhoto,
   foundItemsList,
   lostReportsList,
   matchesList,
@@ -16,6 +15,16 @@ import type { MatchResponse } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
+
+vi.mock('@/components/PhotoThumbnail/PhotoThumbnail', async () => {
+  const React = await import('react')
+  return {
+    default: ({ src, alt }: { src?: string; alt: string }) =>
+      src
+        ? React.createElement('img', { src, alt })
+        : React.createElement('div', { role: 'img', 'aria-label': alt }),
+  }
+})
 
 const M1 = 'a1111111-1111-1111-1111-111111111111'
 const M2 = 'b2222222-2222-2222-2222-222222222222'
@@ -87,7 +96,6 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
     pickupsList(pickups),
     foundItemsList(FOUND),
     lostReportsList(LOST),
-    foundItemPhoto(),
   )
 }
 
@@ -222,7 +230,6 @@ describe('<Matching />', () => {
       pickupsList([]),
       foundItemsList(FOUND),
       lostReportsList(LOST),
-      foundItemPhoto(),
     )
     const { user } = renderWithProviders(<Matching />)
 
@@ -241,7 +248,12 @@ describe('<Matching />', () => {
   })
 
   it('shows an error state with a retry button when the request fails', async () => {
-    server.use(matchesListError(), pickupsList([]))
+    server.use(
+      matchesListError(),
+      pickupsList([]),
+      foundItemsList([]),
+      lostReportsList([]),
+    )
     renderWithProviders(<Matching />)
 
     expect(await screen.findByText(/couldn't load matches/i)).toBeInTheDocument()

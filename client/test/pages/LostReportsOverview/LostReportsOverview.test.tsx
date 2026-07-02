@@ -1,15 +1,24 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
-  lostReportPhoto,
   lostReportsList,
   lostReportsListError,
 } from '@test/handlers'
 import LostReportsOverview from '@/pages/LostReportsOverview/LostReportsOverview'
 import { LostReportResponseStatus } from '@/api/lost-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
+
+vi.mock('@/components/PhotoThumbnail/PhotoThumbnail', async () => {
+  const React = await import('react')
+  return {
+    default: ({ src, alt }: { src?: string; alt: string }) =>
+      src
+        ? React.createElement('img', { src, alt })
+        : React.createElement('div', { role: 'img', 'aria-label': alt }),
+  }
+})
 
 const REPORTS: LostReportResponse[] = [
   {
@@ -36,7 +45,7 @@ const REPORTS: LostReportResponse[] = [
 
 describe('<LostReportsOverview />', () => {
   it('renders the open reports returned by the API', async () => {
-    server.use(lostReportsList(REPORTS), lostReportPhoto())
+    server.use(lostReportsList(REPORTS))
     renderWithProviders(<LostReportsOverview />)
 
     expect(await screen.findByText('Black leather wallet')).toBeInTheDocument()
@@ -45,7 +54,7 @@ describe('<LostReportsOverview />', () => {
   })
 
   it('switches the listing when a different status filter is selected', async () => {
-    server.use(lostReportsList(REPORTS), lostReportPhoto())
+    server.use(lostReportsList(REPORTS))
     const { user } = renderWithProviders(<LostReportsOverview />)
 
     await screen.findByText('Black leather wallet')
@@ -56,7 +65,7 @@ describe('<LostReportsOverview />', () => {
   })
 
   it('renders a thumbnail for each report inline (no expansion needed)', async () => {
-    server.use(lostReportsList(REPORTS), lostReportPhoto())
+    server.use(lostReportsList(REPORTS))
     renderWithProviders(<LostReportsOverview />)
 
     // The row label is the first line of the description...
@@ -75,7 +84,7 @@ describe('<LostReportsOverview />', () => {
       await screen.findByText(/no lost reports match this filter/i),
     ).toBeInTheDocument()
 
-    server.use(lostReportsList(REPORTS), lostReportPhoto())
+    server.use(lostReportsList(REPORTS))
     await user.click(screen.getByRole('button', { name: /show all/i }))
 
     expect(await screen.findByText('Black leather wallet')).toBeInTheDocument()

@@ -4,7 +4,7 @@ import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
   foundItemDeleteSuccess,
-  foundItemPhotoUrl,
+  foundItemPhoto,
   foundItemsList,
   foundItemsListError,
 } from '@test/handlers'
@@ -15,6 +15,7 @@ import type { FoundItemResponse } from '@/api/found-items/model'
 const ITEMS: FoundItemResponse[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
+    photoUrl: '/api/found-items/11111111-1111-1111-1111-111111111111/photo',
     intakeText: 'Black wallet',
     foundAt: '2026-05-20T10:00:00Z',
     status: FoundItemResponseStatus.STORED,
@@ -22,6 +23,7 @@ const ITEMS: FoundItemResponse[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
+    photoUrl: '/api/found-items/22222222-2222-2222-2222-222222222222/photo',
     intakeText: 'Blue umbrella',
     foundAt: '2026-05-21T10:00:00Z',
     status: FoundItemResponseStatus.RETURNED,
@@ -31,7 +33,7 @@ const ITEMS: FoundItemResponse[] = [
 
 describe('<FoundItemsOverview />', () => {
   it('renders the stored items returned by the API', async () => {
-    server.use(foundItemsList(ITEMS), foundItemPhotoUrl())
+    server.use(foundItemsList(ITEMS), foundItemPhoto())
     renderWithProviders(<FoundItemsOverview />)
 
     expect(await screen.findByText('Wallet')).toBeInTheDocument()
@@ -47,7 +49,7 @@ describe('<FoundItemsOverview />', () => {
       status: FoundItemResponseStatus.STORED,
       attributes: { category: 'CLOTHING', description: 'purple cotton shirt' },
     }
-    server.use(foundItemsList([item]), foundItemPhotoUrl())
+    server.use(foundItemsList([item]))
     renderWithProviders(<FoundItemsOverview />)
 
     expect(await screen.findByText('purple cotton shirt')).toBeInTheDocument()
@@ -55,7 +57,7 @@ describe('<FoundItemsOverview />', () => {
   })
 
   it('switches the listing when a different status filter is selected', async () => {
-    server.use(foundItemsList(ITEMS), foundItemPhotoUrl())
+    server.use(foundItemsList(ITEMS), foundItemPhoto())
     const { user } = renderWithProviders(<FoundItemsOverview />)
 
     await screen.findByText('Wallet')
@@ -66,14 +68,14 @@ describe('<FoundItemsOverview />', () => {
   })
 
   it('shows the empty state and recovers via "Show all"', async () => {
-    server.use(foundItemsList([]), foundItemPhotoUrl())
+    server.use(foundItemsList([]))
     const { user } = renderWithProviders(<FoundItemsOverview />)
 
     expect(
       await screen.findByText(/no found items match this filter/i),
     ).toBeInTheDocument()
 
-    server.use(foundItemsList(ITEMS), foundItemPhotoUrl())
+    server.use(foundItemsList(ITEMS), foundItemPhoto())
     await user.click(screen.getByRole('button', { name: /show all/i }))
 
     expect(await screen.findByText('Wallet')).toBeInTheDocument()
@@ -91,7 +93,7 @@ describe('<FoundItemsOverview />', () => {
   it('requires a second click to confirm delete, and a cancel X aborts the flow', async () => {
     server.use(
       foundItemsList(ITEMS),
-      foundItemPhotoUrl(),
+      foundItemPhoto(),
       foundItemDeleteSuccess(),
     )
     const { user } = renderWithProviders(<FoundItemsOverview />)

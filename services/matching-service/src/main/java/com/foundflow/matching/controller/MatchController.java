@@ -8,13 +8,16 @@ import com.foundflow.matching.dto.MatchResponse;
 import com.foundflow.matching.dto.PublicFoundItemResponse;
 import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.UpdateMatchRequest;
+import com.foundflow.matching.client.RemotePhoto;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.service.MatchService;
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.net.URI;
@@ -137,6 +140,13 @@ public class MatchController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/public/{token}/found-item/photo")
+    public ResponseEntity<byte[]> getPublicFoundItemPhoto(@PathVariable String token) {
+        return matchService.getPublicFoundItemPhoto(token)
+                .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PutMapping("/public/match-links/{token}/confirm")
     public ResponseEntity<MatchResponse> confirmPublicMatch(@PathVariable String token) {
         return matchService.confirmPublicMatch(token)
@@ -149,6 +159,14 @@ public class MatchController {
         return matchService.rejectPublicMatch(token)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private ResponseEntity<byte[]> photoResponse(RemotePhoto photo) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePrivate())
+                .contentType(photo.contentType())
+                .contentLength(photo.sizeBytes())
+                .body(photo.content());
     }
 
 }

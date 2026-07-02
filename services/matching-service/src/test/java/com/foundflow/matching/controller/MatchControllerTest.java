@@ -1,5 +1,6 @@
 package com.foundflow.matching.controller;
 
+import com.foundflow.matching.client.RemotePhoto;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.MatchResponse;
@@ -223,6 +224,25 @@ class MatchControllerTest {
         mockMvc.perform(get("/api/matches/{id}", id)
                         .with(staffJwt(venueId)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getPublicFoundItemPhoto_shouldStreamPhotoBytes() throws Exception {
+        byte[] bytes = "photo-bytes".getBytes();
+
+        when(matchService.getPublicFoundItemPhoto("public-token"))
+                .thenReturn(Optional.of(new RemotePhoto(
+                        bytes,
+                        MediaType.IMAGE_JPEG,
+                        bytes.length
+                )));
+
+        mockMvc.perform(get("/api/matches/public/{token}/found-item/photo", "public-token"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", MediaType.IMAGE_JPEG_VALUE))
+                .andExpect(header().string("Content-Length", String.valueOf(bytes.length)))
+                .andExpect(header().string("Cache-Control", "max-age=300, private"))
+                .andExpect(content().bytes(bytes));
     }
 
     @Test

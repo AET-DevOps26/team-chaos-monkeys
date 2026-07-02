@@ -3,10 +3,9 @@ import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
+  foundItemPhoto,
   foundItemsList,
-  foundItemPhotoUrl,
   lostReportsList,
-  lostReportPhotoUrl,
   matchesList,
   matchesListError,
   pickupsList,
@@ -47,9 +46,18 @@ const MATCHES: MatchResponse[] = [
 ]
 
 const FOUND: FoundItemResponse[] = [
-  // A photo is required for every found item, so both have a photoKey.
-  { id: FI1, photoKey: 'found/fi1.jpg', attributes: { category: 'Found Wallet' } },
-  { id: FI2, photoKey: 'found/fi2.jpg', attributes: { category: 'Found Umbrella' } },
+  {
+    id: FI1,
+    photoKey: 'found/fi1.jpg',
+    photoUrl: `/api/found-items/${FI1}/photo`,
+    attributes: { category: 'Found Wallet' },
+  },
+  {
+    id: FI2,
+    photoKey: 'found/fi2.jpg',
+    photoUrl: `/api/found-items/${FI2}/photo`,
+    attributes: { category: 'Found Umbrella' },
+  },
 ]
 
 const LOST: LostReportResponse[] = [
@@ -79,8 +87,7 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
     pickupsList(pickups),
     foundItemsList(FOUND),
     lostReportsList(LOST),
-    foundItemPhotoUrl(),
-    lostReportPhotoUrl(),
+    foundItemPhoto(),
   )
 }
 
@@ -118,7 +125,7 @@ describe('<Matching />', () => {
     const withPhoto = (await screen.findByText('Found Wallet')).closest(
       'article',
     ) as HTMLElement
-    // The found item's photoKey → the photo URL is requested and rendered as an <img>.
+    // The found item's proxy photo URL is rendered directly as an <img>.
     expect(await within(withPhoto).findByRole('img', { name: 'Found Wallet' })).toBeInTheDocument()
   })
 
@@ -215,8 +222,7 @@ describe('<Matching />', () => {
       pickupsList([]),
       foundItemsList(FOUND),
       lostReportsList(LOST),
-      foundItemPhotoUrl(),
-      lostReportPhotoUrl(),
+      foundItemPhoto(),
     )
     const { user } = renderWithProviders(<Matching />)
 

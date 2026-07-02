@@ -16,6 +16,7 @@ import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
 import com.foundflow.genai.client.AttributeExtractionService;
+import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoUrlResponse;
@@ -31,6 +32,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -380,6 +382,58 @@ class LostReportServiceTest {
 
         assertTrue(response.isPresent());
         assertEquals(signedUrl, response.get().url());
+    }
+
+    @Test
+    void getLostReportPhoto_shouldRetrieveStoredPhoto() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        PhotoData photo = new PhotoData(
+                new ByteArrayInputStream("photo-bytes".getBytes()),
+                MediaType.IMAGE_JPEG_VALUE,
+                11
+        );
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport(venueId)));
+        when(photoStorage.retrieve("photo-123")).thenReturn(photo);
+
+        Optional<PhotoData> response = service.getLostReportPhoto(id, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertSame(photo, response.get());
+    }
+
+    @Test
+    void getLostReportPhoto_shouldReturnEmptyWhenReportDoesNotExist() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertTrue(service.getLostReportPhoto(id, staffJwt(venueId)).isEmpty());
+    }
+
+    @Test
+    void getLostReportPhoto_shouldReturnNotFoundWhenReportHasNoPhoto() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        LostReport lostReport = lostReport(venueId);
+        lostReport.setPhotoKey(null);
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(lostReport));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.getLostReportPhoto(id, staffJwt(venueId))
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
     }
 
     @Test

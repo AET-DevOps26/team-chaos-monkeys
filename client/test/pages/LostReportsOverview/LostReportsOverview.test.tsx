@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
-  lostReportPhotoUrl,
+  lostReportPhoto,
   lostReportsList,
   lostReportsListError,
 } from '@test/handlers'
@@ -14,6 +14,7 @@ import type { LostReportResponse } from '@/api/lost-items/model'
 const REPORTS: LostReportResponse[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
+    photoUrl: '/api/lost-items/11111111-1111-1111-1111-111111111111/photo',
     description: 'Black leather wallet\nwith three cards inside',
     location: 'Main entrance',
     contactEmail: 'anna@example.com',
@@ -23,6 +24,7 @@ const REPORTS: LostReportResponse[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
+    photoUrl: '/api/lost-items/22222222-2222-2222-2222-222222222222/photo',
     description: 'Blue umbrella',
     location: 'Lobby cafe',
     contactEmail: 'ben@example.com',
@@ -34,7 +36,7 @@ const REPORTS: LostReportResponse[] = [
 
 describe('<LostReportsOverview />', () => {
   it('renders the open reports returned by the API', async () => {
-    server.use(lostReportsList(REPORTS))
+    server.use(lostReportsList(REPORTS), lostReportPhoto())
     renderWithProviders(<LostReportsOverview />)
 
     expect(await screen.findByText('Black leather wallet')).toBeInTheDocument()
@@ -43,7 +45,7 @@ describe('<LostReportsOverview />', () => {
   })
 
   it('switches the listing when a different status filter is selected', async () => {
-    server.use(lostReportsList(REPORTS))
+    server.use(lostReportsList(REPORTS), lostReportPhoto())
     const { user } = renderWithProviders(<LostReportsOverview />)
 
     await screen.findByText('Black leather wallet')
@@ -54,7 +56,7 @@ describe('<LostReportsOverview />', () => {
   })
 
   it('renders a thumbnail for each report inline (no expansion needed)', async () => {
-    server.use(lostReportsList(REPORTS), lostReportPhotoUrl())
+    server.use(lostReportsList(REPORTS), lostReportPhoto())
     renderWithProviders(<LostReportsOverview />)
 
     // The row label is the first line of the description...
@@ -73,7 +75,7 @@ describe('<LostReportsOverview />', () => {
       await screen.findByText(/no lost reports match this filter/i),
     ).toBeInTheDocument()
 
-    server.use(lostReportsList(REPORTS))
+    server.use(lostReportsList(REPORTS), lostReportPhoto())
     await user.click(screen.getByRole('button', { name: /show all/i }))
 
     expect(await screen.findByText('Black leather wallet')).toBeInTheDocument()

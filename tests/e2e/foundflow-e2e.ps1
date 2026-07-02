@@ -52,6 +52,88 @@ function Assert-Status {
     Write-Host "[OK] $Label -> HTTP $actual"
 }
 
+function Assert-JsonPostStatus {
+    param(
+        [string]$Url,
+        [object]$Body,
+        [int]$Expected,
+        [string]$Label
+    )
+
+    $requestBody = $Body | ConvertTo-Json -Depth 8
+    $actual = $null
+    $responseBody = ""
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri $Url `
+            -Method POST `
+            -ContentType "application/json" `
+            -Body $requestBody `
+            -UseBasicParsing
+        $actual = [int]$response.StatusCode
+        $responseBody = [string]$response.Content
+    } catch {
+        if ($_.Exception.Response) {
+            $actual = [int]$_.Exception.Response.StatusCode
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $responseBody = [string]$_.ErrorDetails.Message
+            }
+        } else {
+            throw "$Label expected HTTP $Expected but the request failed before an HTTP response. Error: $($_.Exception.Message)"
+        }
+    }
+
+    if ($actual -ne $Expected) {
+        throw "$Label expected HTTP $Expected but got $actual. Body: $responseBody"
+    }
+
+    Write-Host "[OK] $Label -> HTTP $actual"
+}
+
+function Assert-EmptyPostStatus {
+    param(
+        [string]$Url,
+        [string]$AccessToken,
+        [int]$Expected,
+        [string]$Label
+    )
+
+    $headers = @{}
+    if (-not [string]::IsNullOrWhiteSpace($AccessToken)) {
+        $headers.Authorization = "Bearer $AccessToken"
+    }
+
+    $actual = $null
+    $responseBody = ""
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri $Url `
+            -Method POST `
+            -Headers $headers `
+            -Body "" `
+            -UseBasicParsing
+        $actual = [int]$response.StatusCode
+        $responseBody = [string]$response.Content
+    } catch {
+        if ($_.Exception.Response) {
+            $actual = [int]$_.Exception.Response.StatusCode
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $responseBody = [string]$_.ErrorDetails.Message
+            }
+        } else {
+            throw "$Label expected HTTP $Expected but the request failed before an HTTP response. Error: $($_.Exception.Message)"
+        }
+    }
+
+    if ($actual -ne $Expected) {
+        throw "$Label expected HTTP $Expected but got $actual. Body: $responseBody"
+    }
+
+    Write-Host "[OK] $Label -> HTTP $actual"
+}
+
 function Wait-ForStatus {
     param(
         [string]$Url,
@@ -156,13 +238,10 @@ function Assert-LoginRejected {
         [string]$Label
     )
 
-    $client = [System.Net.Http.HttpClient]::new()
-    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+    Assert-JsonPostStatus "$GatewayBaseUrl/api/auth/login" @{
         email = $Username
         password = $Password
-    })).Result
-
-    Assert-Status $response 401 $Label
+    } 401 $Label
 }
 
 function Refresh-TokenPair {
@@ -218,12 +297,9 @@ function Assert-RefreshRejected {
         [string]$Label
     )
 
-    $client = [System.Net.Http.HttpClient]::new()
-    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
+    Assert-JsonPostStatus "$GatewayBaseUrl/api/auth/refresh" @{
         refreshToken = $RefreshToken
-    })).Result
-
-    Assert-Status $response 401 $Label
+    } 401 $Label
 }
 
 function New-GatewayClient {
@@ -383,6 +459,23 @@ function Assert-SignedPhotoUrl {
     }
     if (-not $Body.url.Contains("X-Amz-Signature")) {
         throw "$Label should return a MinIO presigned URL. Actual: $($Body.url)"
+    }
+}
+
+function Assert-ImageResponse {
+    param(
+        [System.Net.Http.HttpResponseMessage]$Response,
+        [string]$Label
+    )
+
+    $contentType = [string]$Response.Content.Headers.ContentType
+    if ($contentType -ne $E2E_PHOTO_MEDIA_TYPE) {
+        throw "$Label should be returned as $E2E_PHOTO_MEDIA_TYPE but got $contentType."
+    }
+
+    $bytes = $Response.Content.ReadAsByteArrayAsync().Result
+    if ($bytes.Length -eq 0) {
+        throw "$Label should return non-empty image bytes."
     }
 }
 
@@ -579,8 +672,11 @@ $publicClient = New-GatewayClient
 # Mailpit's REST API is unauthenticated and not behind the gateway.
 $mailpitClient = [System.Net.Http.HttpClient]::new()
 
-$health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
-Assert-Status $health 200 "Gateway health is public"
+$health = Wait-ForStatus `
+    -Url "$GatewayBaseUrl/actuator/health" `
+    -Expected 200 `
+    -Label "Gateway health is public" `
+    -TimeoutSeconds 300
 
 $swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/swagger-ui/index.html").Result
 Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
@@ -1204,9 +1300,15 @@ if ($publicFoundItem.id -ne $foundItem.id) {
     throw "Public found-item response should expose the linked found item for guest confirmation."
 }
 if ([string]::IsNullOrWhiteSpace($publicFoundItem.photoUrl)) {
-    throw "Public found-item response should include a signed found-item photo URL."
+    throw "Public found-item response should include a found-item photo URL."
 }
-Assert-SignedPhotoUrl ([pscustomobject]@{ url = $publicFoundItem.photoUrl }) "Public match found-item photo URL"
+$expectedPublicPhotoUrl = "/api/matches/public/$($publicMatchLink.token)/found-item/photo"
+if ($publicFoundItem.photoUrl -ne $expectedPublicPhotoUrl) {
+    throw "Public found-item response should expose the token-scoped photo proxy URL. Expected $expectedPublicPhotoUrl but got $($publicFoundItem.photoUrl)."
+}
+$publicFoundItemPhotoResponse = $publicClient.GetAsync("$GatewayBaseUrl$($publicFoundItem.photoUrl)").Result
+Assert-Status $publicFoundItemPhotoResponse 200 "Public match link can load found-item photo"
+Assert-ImageResponse $publicFoundItemPhotoResponse "Public match found-item photo"
 
 $publicConfirmResponse = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/matches/public/match-links/$($publicMatchLink.token)/confirm",
@@ -1335,8 +1437,11 @@ Assert-Status $publicBlueprintRead 401 "Public client cannot list notification b
 $blueprintsRead = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
 Assert-Status $blueprintsRead 200 "OPS_MANAGER can list notification blueprints"
 
-$staffBlueprintWrite = $staffClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
-Assert-Status $staffBlueprintWrite 403 "STAFF cannot create notification blueprints"
+Assert-EmptyPostStatus `
+    -Url "$GatewayBaseUrl/api/notifications/bluePrints" `
+    -AccessToken $staffTokens.accessToken `
+    -Expected 403 `
+    -Label "STAFF cannot create notification blueprints"
 
 $opsBlueprintWrite = $opsClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
 Assert-Status $opsBlueprintWrite 202 "OPS_MANAGER can create notification blueprints"

@@ -271,6 +271,28 @@ class ItemEmbeddingRepositoryIT {
         assertThat(results).hasSize(2);
     }
 
+    @Test
+    void deleteByItemTypeAndItemId_removesOnlyMatchingEmbedding() {
+        UUID venueId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostItemId = UUID.randomUUID();
+
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.FOUND, foundItemId, venueId, "Bag", null,
+                unitVector(1.0f, 0.0f), "found"
+        ));
+        repository.upsert(new ItemEmbedding(
+                UUID.randomUUID(), ItemType.LOST, lostItemId, venueId, "Bag", "guest@example.com",
+                unitVector(1.0f, 0.0f), "lost"
+        ));
+
+        int deleted = repository.deleteByItemTypeAndItemId(ItemType.FOUND, foundItemId);
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(repository.findTextSource(ItemType.FOUND, foundItemId)).isEmpty();
+        assertThat(repository.findTextSource(ItemType.LOST, lostItemId)).contains("lost");
+    }
+
     private static float[] randomUnitVector() {
         return unitVector(1.0f, 0.0f);
     }

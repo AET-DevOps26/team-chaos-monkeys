@@ -477,6 +477,24 @@ class FoundItemServiceTest {
     }
 
     @Test
+    void deleteFoundItem_shouldDeletePhotoAndPublishDeletedEvent() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem existingItem = foundItem(venueId);
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
+
+        boolean deleted = service.deleteFoundItem(id, staffJwt(venueId));
+
+        assertTrue(deleted);
+        verify(foundItemRepository).delete(existingItem);
+        verify(eventPublisher).publishFoundItemDeleted(existingItem);
+        verify(photoStorage).delete("photo-123");
+    }
+
+    @Test
     void getFoundItemPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
         FoundItemService service = service();
 

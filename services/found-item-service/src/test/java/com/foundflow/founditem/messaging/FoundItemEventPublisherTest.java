@@ -3,6 +3,7 @@ package com.foundflow.founditem.messaging;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.FoundItemCreatedEvent;
+import com.foundflow.events.FoundItemDeletedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.founditem.domain.FoundItem;
 import com.foundflow.founditem.domain.ItemStatus;
@@ -82,6 +83,29 @@ class FoundItemEventPublisherTest {
         assertEquals("Front desk", event.location());
         assertEquals("STORED", event.status());
         assertEquals("Bag", event.attributes().category());
+    }
+
+    @Test
+    void publishFoundItemDeleted_shouldSendDomainEvent() {
+        RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+        FoundItemEventPublisher publisher = new FoundItemEventPublisher(rabbitTemplate);
+        FoundItem foundItem = foundItem();
+
+        publisher.publishFoundItemDeleted(foundItem);
+
+        ArgumentCaptor<FoundItemDeletedEvent> eventCaptor =
+                ArgumentCaptor.forClass(FoundItemDeletedEvent.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq(FoundFlowEventRouting.EXCHANGE),
+                eq(FoundFlowEventRouting.FOUND_ITEM_DELETED),
+                eventCaptor.capture()
+        );
+
+        FoundItemDeletedEvent event = eventCaptor.getValue();
+        assertNotNull(event.eventId());
+        assertNotNull(event.occurredAt());
+        assertEquals(foundItem.getId(), event.foundItemId());
+        assertEquals(foundItem.getVenueId(), event.venueId());
     }
 
     private FoundItem foundItem() {

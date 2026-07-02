@@ -1,5 +1,6 @@
 param(
     [string]$GatewayBaseUrl = "http://localhost:8080",
+    [string]$GenaiBaseUrl = "http://localhost:8000",
     [string]$MailpitBaseUrl = "http://localhost:8025",
     [string]$AdminEmail = "admin@foundflow.local",
     [string]$AdminPassword = "admin12345"
@@ -265,6 +266,27 @@ function Read-Json {
     return $parsed
 }
 
+function Get-GenaiProvider {
+    if ($env:GENAI_PROVIDER) {
+        return $env:GENAI_PROVIDER
+    }
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri "$GenaiBaseUrl/_diagnostic" `
+            -Method GET `
+            -UseBasicParsing
+        $diagnostic = $response.Content | ConvertFrom-Json
+        if (-not [string]::IsNullOrWhiteSpace($diagnostic.provider)) {
+            return $diagnostic.provider
+        }
+    } catch {
+        Write-Warning "Could not read GenAI provider from $GenaiBaseUrl/_diagnostic: $($_.Exception.Message)"
+    }
+
+    return 'fake'
+}
+
 function Decode-JwtPayload {
     param([string]$Token)
 
@@ -460,6 +482,47 @@ function Wait-ForUserDeleted {
     }
 
     throw "$Label timed out waiting for user $UserId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
+function Wait-ForMatchDeleted {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$MatchId,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = $Client.GetAsync("$GatewayBaseUrl/api/matches/$MatchId").Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
+            }
+
+            if ($lastStatus -eq 404) {
+                Write-Host "[OK] $Label -> HTTP 404"
+                return
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label timed out waiting for match $MatchId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
 }
 
 # A persisted notifications row only proves the listener ran; it does NOT prove
@@ -1037,6 +1100,38 @@ Assert-Status $crossVenueMatch 403 "Cross-venue match is rejected"
 $matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
 Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
 
+$cleanupFoundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" @{
+    intakeText = "E2E found item for match cleanup"
+    foundAt = "2026-05-19T15:57:00"
+    venueId = $venueId
+    attributes = @{
+        category = "Bag"
+        brand = "Test"
+        color = "Black"
+        marks = @("E2E cleanup")
+    }
+}
+Assert-Status $cleanupFoundResponse 201 "OPS_MANAGER can create found item for match cleanup"
+$cleanupFoundItem = Read-Json $cleanupFoundResponse
+
+$cleanupMatchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
+    foundItemId = $cleanupFoundItem.id
+    lostReportId = $lostItem.id
+    venueId = $venueId
+    attributeScore = 0.7
+    semanticScore = 0.8
+    combinedScore = 0.75
+}
+Assert-Status $cleanupMatchResponse 201 "OPS_MANAGER can create match for found-item cleanup"
+$cleanupMatch = Read-Json $cleanupMatchResponse
+
+$cleanupFoundDeleteResponse = $opsClient.DeleteAsync("$GatewayBaseUrl/api/found-items/$($cleanupFoundItem.id)").Result
+Assert-Status $cleanupFoundDeleteResponse 204 "OPS_MANAGER can delete found item for match cleanup"
+Wait-ForMatchDeleted `
+    -Client $opsClient `
+    -MatchId $cleanupMatch.id `
+    -Label "Found-item delete event removes matching rows"
+
 # Pickup slots are only generated from today onward (PickupService.weeklyDates clamps
 # the start to LocalDate.now()), so anchor the schedule on a Monday computed at run time.
 # Absolute dates rot: once "today" passes the hardcoded date the slot is no longer emitted.
@@ -1266,7 +1361,7 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
 # (GENAI_PROVIDER=openai|local) the category value depends on the model,
 # so we relax to a presence check - the contract is "extraction ran and
 # populated a non-empty category", not the specific value.
-$genaiProvider = if ($env:GENAI_PROVIDER) { $env:GENAI_PROVIDER } else { 'fake' }
+$genaiProvider = Get-GenaiProvider
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"

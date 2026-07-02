@@ -227,6 +227,7 @@ public class FoundItemService {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
                     String photoKey = foundItem.getPhotoKey();
                     foundItemRepository.delete(foundItem);
+                    eventPublisher.publishFoundItemDeleted(foundItem);
                     safeDeletePhoto(photoKey, id);
                     return true;
                 })

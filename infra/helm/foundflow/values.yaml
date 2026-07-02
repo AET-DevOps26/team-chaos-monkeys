@@ -67,10 +67,16 @@ services:
     env:
       - { name: SERVER_PORT, value: "8081" }
       - { name: SPRING_PROFILES_ACTIVE, value: "dev" }
+      # auth-service starts an AMQP listener; the k8s broker has no default
+      # `guest` user (unlike compose), so it needs the foundflow credentials.
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
     secretEnv:
       - { name: DEV_ADMIN_EMAIL,    secret: foundflow-app-secrets, key: devAdminEmail }
       - { name: DEV_ADMIN_PASSWORD, secret: foundflow-app-secrets, key: devAdminPassword }
       - { name: JWT_RSA_PRIVATE_KEY, secret: foundflow-app-secrets, key: jwtRsaPrivateKey, optional: true }
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
 
   lost-item-service:
     kind: spring
@@ -188,6 +194,13 @@ services:
       limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8086" }
+      # operations-service opens an AMQP connection; without a host it defaults
+      # to localhost. Point it at the broker with the foundflow credentials.
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
+    secretEnv:
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
 
   pickup-service:
     kind: spring
@@ -200,8 +213,14 @@ services:
       limits:   { cpu: 300m, memory: 448Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
+      # All Spring services share the AMQP autoconfig and open a broker
+      # connection at startup; give pickup the same host + credentials.
+      - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
+      - { name: SPRING_RABBITMQ_PORT, value: "5672" }
     secretEnv:
       - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
+      - { name: SPRING_RABBITMQ_USERNAME, secret: foundflow-rabbitmq, key: username }
+      - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
 
   genai-service:
     kind: python
@@ -281,14 +300,19 @@ postgresDefaults:
 # Secret: a literal `password` here is used as-is; if left empty, a random
 # password is generated on first install and held stable via lookup() (same
 # pattern as templates/databases.yaml).
+# Plain rabbitmq:4.0 (no management plugin): the web UI is local-debug only and
+# internal-only in AET, and it is NOT our metrics source (those would come from
+# rabbitmq_prometheus). Dropping it saves ~80-120Mi so the broker fits 384Mi
+# inside the tight AET namespace quota (4 CPU / 6Gi). Compose keeps -management
+# for the local UI. disk_free_limit + memory watermark are set in rabbitmq.yaml.
 rabbitmq:
   enabled: true
-  image: rabbitmq:4.0-management
+  image: rabbitmq:4.0
   username: foundflow
   password: ""
   resources:
-    requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 100m, memory: 256Mi }
+    requests: { cpu: 50m,  memory: 256Mi }
+    limits:   { cpu: 200m, memory: 384Mi }
   # Persistence is off by default: RabbitMQ here carries transient domain events
   # only — losing the queue contents on pod restart is acceptable. Flip to true
   # and set storageSize for broker data survivability. Durable queues already

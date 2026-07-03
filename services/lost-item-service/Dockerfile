@@ -22,7 +22,8 @@ RUN "$JAVA_HOME/bin/jlink" \
 
 FROM alpine:3.21
 
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata \
+ && adduser -D -u 10001 appuser
 
 ENV JAVA_HOME=/opt/jre PATH="/opt/jre/bin:$PATH"
 
@@ -33,5 +34,7 @@ WORKDIR /app
 COPY --from=build /workspace/services/lost-item-service/build/libs/*.jar app.jar
 
 EXPOSE 8082
+
+USER appuser
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

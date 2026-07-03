@@ -35,3 +35,6 @@ services/genai-service/uv.lock
 
 # Local-only helm secrets (see docs/deployment/local-kubernetes.md)
 infra/helm/foundflow/values-local.yaml.local
+
+# helm output rendered by the iac-scan CI job (contains generated secrets)
+rendered-manifests/

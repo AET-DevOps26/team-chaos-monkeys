@@ -17,9 +17,11 @@ import Returns from '@/pages/Returns/Returns'
 import type { PickupResponse, PickupScheduleResponse } from '@/api/pickups/model'
 import type { MatchResponse } from '@/api/matches/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
+import type { LostReportResponse } from '@/api/lost-items/model'
 
 const M1 = 'a2222222-2222-2222-2222-222222222222'
 const FI1 = 'f1111111-1111-1111-1111-111111111111'
+const LR1 = 'l1111111-1111-1111-1111-111111111111'
 
 const SCHEDULE: PickupScheduleResponse = {
   id: 's1111111-1111-1111-1111-111111111111',
@@ -49,16 +51,24 @@ const PICKUPS: PickupResponse[] = [
 ]
 
 const MATCHES: MatchResponse[] = [
-  { id: M1, foundItemId: FI1, lostReportId: 'l1111111-1111-1111-1111-111111111111' },
+  { id: M1, foundItemId: FI1, lostReportId: LR1 },
 ]
 
 const FOUND: FoundItemResponse[] = [
-  { id: FI1, photoKey: 'found/fi1.jpg', attributes: { category: 'Blue Umbrella' } },
+  { id: FI1, photoKey: 'found/fi1.jpg', attributes: { category: 'CLOTHING' } },
+]
+
+const LOST: LostReportResponse[] = [
+  {
+    id: LR1,
+    description: 'Purple puffer jacket left in the cloakroom',
+    attributes: { category: 'CLOTHING' },
+  },
 ]
 
 // Returns joins pickups → match → found/lost, so all four lists must be served.
-function joins(matches = MATCHES, found = FOUND) {
-  return [matchesList(matches), lostReportsList([]), foundItemsList(found)]
+function joins(matches = MATCHES, found = FOUND, lost = LOST) {
+  return [matchesList(matches), lostReportsList(lost), foundItemsList(found)]
 }
 
 function seed(pickups = PICKUPS, schedules = [SCHEDULE]) {
@@ -70,8 +80,8 @@ describe('<Returns />', () => {
     seed()
     renderWithProviders(<Returns />)
 
-    // The joined found-item label is shown instead of a raw id.
-    const label = await screen.findByText('Blue Umbrella')
+    // The guest's lost-item description is shown, preferred over the generic category.
+    const label = await screen.findByText('Purple puffer jacket left in the cloakroom')
     expect(screen.getByText('guest@example.test')).toBeInTheDocument()
     // The past pickup is filtered out.
     expect(screen.queryByText('past@example.test')).not.toBeInTheDocument()

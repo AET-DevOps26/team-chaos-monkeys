@@ -39,11 +39,14 @@ function itemLabel(
   found: FoundItemResponse | undefined,
   lost: LostReportResponse | undefined,
 ): string {
+  // Lead with the guest's own description of what they're collecting — far more
+  // identifying for staff than a generic category ("CLOTHING"). Fall back to the
+  // staff intake note, then categories.
   return (
-    found?.attributes?.category?.trim() ||
+    firstLine(lost?.description) ||
     firstLine(found?.intakeText) ||
     lost?.attributes?.category?.trim() ||
-    firstLine(lost?.description) ||
+    found?.attributes?.category?.trim() ||
     'Pickup'
   )
 }

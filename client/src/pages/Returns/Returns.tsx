@@ -10,8 +10,7 @@ import {
   getGetSchedulesQueryKey,
 } from '@/api/pickups/pickup-controller/pickup-controller'
 import { useGetAllMatches } from '@/api/matches/match-controller/match-controller'
-import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useItemMaps } from '@/lib/useItemMaps'
 import type { PickupScheduleResponse } from '@/api/pickups/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
@@ -95,17 +94,8 @@ export default function Returns() {
     useGetSchedules(undefined)
   // Joined so each booked pickup shows the item to prepare, not just a raw id.
   const { data: matches } = useGetAllMatches(undefined)
-  const { data: lostReports } = useGetAllLostReports(undefined)
-  const { data: foundItems } = useGetAllFoundItems(undefined)
+  const { lostById, foundById } = useItemMaps()
 
-  const foundById = useMemo(
-    () => new Map((foundItems ?? []).map((f) => [f.id, f])),
-    [foundItems],
-  )
-  const lostById = useMemo(
-    () => new Map((lostReports ?? []).map((r) => [r.id, r])),
-    [lostReports],
-  )
   const matchById = useMemo(
     () => new Map((matches ?? []).map((m) => [m.id, m])),
     [matches],

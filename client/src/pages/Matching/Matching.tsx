@@ -3,8 +3,7 @@ import { useGetAllMatches } from '@/api/matches/match-controller/match-controlle
 import { GetAllMatchesStatus } from '@/api/matches/model'
 import type { GetAllMatchesStatus as Status } from '@/api/matches/model'
 import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller'
-import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useItemMaps } from '@/lib/useItemMaps'
 import { filterPillClass } from '@/components/filterPill'
 import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
 import searchIcon from '@/assets/search-icon.svg'
@@ -32,24 +31,15 @@ export default function Matching() {
   const { data: matches, isLoading, isError, refetch, isFetching } =
     useGetAllMatches(params)
 
-  // Single fetch of pickups + the lost/found detail lists, joined to matches by
-  // id. The server already scopes every list to the staff member's venue via the
-  // JWT, so one list fetch each replaces the per-card by-id lookups.
+  // Pickups (for the per-card badge) plus the shared lost/found detail maps,
+  // joined to matches by id. The server scopes every list to the staff member's
+  // venue via the JWT, so one list fetch each replaces per-card by-id lookups.
   const { data: pickups } = useGetPickups(undefined)
-  const { data: lostReports } = useGetAllLostReports(undefined)
-  const { data: foundItems } = useGetAllFoundItems(undefined)
+  const { lostById, foundById } = useItemMaps()
 
   const pickupByMatchId = useMemo(
     () => new Map((pickups ?? []).map((p) => [p.matchId, p])),
     [pickups],
-  )
-  const lostById = useMemo(
-    () => new Map((lostReports ?? []).map((r) => [r.id, r])),
-    [lostReports],
-  )
-  const foundById = useMemo(
-    () => new Map((foundItems ?? []).map((f) => [f.id, f])),
-    [foundItems],
   )
 
   const recentMatches = useMemo(() => {

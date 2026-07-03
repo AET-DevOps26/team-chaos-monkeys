@@ -29,7 +29,7 @@
         }
       },
       "targets": [
-        { "refId": "A", "expr": "up{job=\"$service\"}", "legendFormat": "{{instance}}" }
+        { "refId": "A", "expr": "up{namespace=~\"$namespace\", job=\"$service\"}", "legendFormat": "{{instance}}" }
       ]
     },
     {
@@ -43,7 +43,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job) (rate(http_server_requests_seconds_count{job=\"$service\"}[1m])) or sum by (job) (rate(http_requests_total{job=\"$service\"}[1m]))",
+          "expr": "sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[1m])) or sum by (job) (rate(http_requests_total{namespace=~\"$namespace\", job=\"$service\"}[1m]))",
           "legendFormat": "{{job}}"
         }
       ]
@@ -59,7 +59,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job) (rate(http_server_requests_seconds_count{job=\"$service\", outcome=\"SERVER_ERROR\"}[5m])) / clamp_min(sum by (job) (rate(http_server_requests_seconds_count{job=\"$service\"}[5m])), 0.001)",
+          "expr": "sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\", outcome=\"SERVER_ERROR\"}[5m])) / clamp_min(sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[5m])), 0.001)",
           "legendFormat": "{{job}}"
         }
       ]
@@ -75,7 +75,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{namespace=~\"$namespace\", job=\"$service\"}[5m])))",
           "legendFormat": "{{job}}"
         }
       ]
@@ -87,11 +87,24 @@
   "templating": {
     "list": [
       {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(up, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "selected": false, "text": "team-chaos-monkeys", "value": "team-chaos-monkeys" }
+      },
+      {
         "name": "service",
         "label": "Service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "query": "label_values(up, job)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "query": { "query": "label_values(up{namespace=~\"$namespace\"}, job)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
         "refresh": 2,
         "regex": "",
         "sort": 1,

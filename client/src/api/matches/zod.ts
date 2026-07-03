@@ -84,3 +84,16 @@ export const countMatchesQueryParams = zod.object({
   "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED']).optional(),
   "venueId": zod.uuid().optional()
 })
+
+
+export const searchBodyQueryMax = 4000;
+
+export const searchBodyKMax = 32;
+
+
+
+export const searchBody = zod.object({
+  "query": zod.string().min(1).max(searchBodyQueryMax),
+  "scope": zod.enum(['LOST', 'FOUND', 'BOTH']).optional(),
+  "k": zod.number().min(1).max(searchBodyKMax).optional()
+})

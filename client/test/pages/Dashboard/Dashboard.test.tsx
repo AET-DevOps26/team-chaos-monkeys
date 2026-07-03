@@ -54,14 +54,10 @@ describe('Dashboard', () => {
       authToken: makeFakeJwt({ sub: 'staff@foundflow.io', roles: ['STAFF'], venue_id: 'venue-1' }),
     })
 
-    expect(
-      screen.getByRole('heading', { name: 'Dashboard' }),
-    ).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('12')).toBeInTheDocument())
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('Overview for your venue.')).toBeInTheDocument()
     expect(screen.queryByText('Venue')).not.toBeInTheDocument()
   })
 
@@ -100,7 +96,6 @@ describe('Dashboard', () => {
 
     // Global totals first.
     await waitFor(() => expect(screen.getByText('100')).toBeInTheDocument())
-    expect(screen.getByText('Overview across all venues.')).toBeInTheDocument()
 
     // Select a specific venue -> by-id endpoint.
     await user.selectOptions(
@@ -108,9 +103,6 @@ describe('Dashboard', () => {
       'East Wing',
     )
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument())
-    expect(
-      screen.getByText('Overview for the selected venue.'),
-    ).toBeInTheDocument()
   })
 
   it('toggles trend granularity', async () => {

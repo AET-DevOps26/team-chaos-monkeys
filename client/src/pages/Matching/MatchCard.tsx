@@ -10,23 +10,7 @@ import calendarIcon from '@/assets/calendar.svg'
 import mailIcon from '@/assets/mail.svg'
 import locationIcon from '@/assets/location.svg'
 import clockIcon from '@/assets/clock.svg'
-
-const dateFmt = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
-
-function formatDate(value: string | undefined): string {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return dateFmt.format(d)
-}
-
-function firstLine(text: string | undefined): string | undefined {
-  return text?.split(/\r?\n/)[0]?.trim() || undefined
-}
+import { formatDate, firstLine } from '@/lib/format'
 
 function foundLabel(item: FoundItemResponse | undefined): string {
   return item?.attributes?.category?.trim() || firstLine(item?.intakeText) || 'Found item'

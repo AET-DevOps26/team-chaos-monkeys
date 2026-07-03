@@ -4,10 +4,10 @@
  * OpenAPI definition
  * OpenAPI spec version: v0
  */
+import type { GetAllMatchesStatus } from './getAllMatchesStatus';
 
-export type GetMatchHistogramParams = {
-venueId?: string;
+export type GetAllMatchesParams = {
 foundItem?: string;
 lostItem?: string;
-status?: string;
+status?: GetAllMatchesStatus;
 };

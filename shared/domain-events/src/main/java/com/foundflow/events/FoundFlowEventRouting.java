@@ -23,6 +23,7 @@ public final class FoundFlowEventRouting {
     public static final String NOTIFICATION_MATCH_INVITES_QUEUE = "notification.match-invite-requested.v1";
     public static final String NOTIFICATION_PICKUP_CONFIRMATIONS_QUEUE = "notification.pickup-confirmation-requested.v1";
     public static final String NOTIFICATION_PASSWORD_RESETS_QUEUE = "notification.password-reset-requested.v1";
+    public static final String NOTIFICATION_LOST_REPORT_CONFIRMATIONS_QUEUE = "notification.lost-report-created.v1";
     public static final String AUTH_VENUE_DELETED_QUEUE = "auth.venue-deleted.v1";
 
     private FoundFlowEventRouting() {

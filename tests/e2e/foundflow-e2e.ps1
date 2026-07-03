@@ -552,6 +552,14 @@ Assert-Status $publicLostReport 201 "Public lost-item report can be created with
 $publicLostReportBody = Read-Json $publicLostReport
 Assert-NoPhotoKey $publicLostReportBody "Public lost-item JSON create"
 
+# Submitting a lost report fires lost-report.created.v1; notification-service binds
+# its own queue to that key and emails the guest a receipt. Confirm it reached Mailpit.
+Wait-ForMailpitMessage `
+    -Client $mailpitClient `
+    -Recipient $publicLostReportRequest.contactEmail `
+    -Subject "We received your lost-item report" | Out-Null
+Write-Host "[OK] Mailpit captured the lost-report confirmation email to $($publicLostReportRequest.contactEmail)"
+
 $publicLostPhotoUpload = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/lost-items/$($publicLostReportBody.id)/photo",
     (PhotoOnlyContent)
@@ -1069,13 +1077,15 @@ if ([string]::IsNullOrWhiteSpace($publicMatchLink.token)) {
 # notification-service writes a row with the match magic link in body when it
 # consumes the MatchInviteRequested event. Poll until it appears so we can
 # verify the URL embedded in body matches the token returned by /public-link.
+# The link points the guest at the /report SPA confirm page (not the JSON API),
+# served by the edge/ingress alongside /api.
 $matchInviteNotification = Wait-ForNotification `
     -Client $opsClient `
     -Email $lostItem.contactEmail `
-    -UrlMarker "/api/matches/public/"
-$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/api/matches/public/"
-if (-not $matchInviteUrl.EndsWith("/api/matches/public/$($publicMatchLink.token)")) {
-    throw "Match-invite notification URL '$matchInviteUrl' should end with the public-link token '$($publicMatchLink.token)'."
+    -UrlMarker "/report/match/"
+$matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/report/match/"
+if (-not $matchInviteUrl.EndsWith("/report/match/$($publicMatchLink.token)")) {
+    throw "Match-invite notification URL '$matchInviteUrl' should end with '/report/match/$($publicMatchLink.token)'."
 }
 
 # Confirm the match-invite email actually reached the SMTP sink (Mailpit), proving
@@ -1130,7 +1140,7 @@ if ([string]::IsNullOrWhiteSpace($publicPickup.manageUrl)) {
 }
 
 # Same poll-then-regex pattern for the pickup-confirmation notification. The
-# extracted URL is the manage link the public client uses to update/cancel.
+# extracted URL is the manage link the guest uses to update/cancel.
 $pickupConfirmationNotification = Wait-ForNotification `
     -Client $opsClient `
     -Email $lostItem.contactEmail `
@@ -1138,7 +1148,12 @@ $pickupConfirmationNotification = Wait-ForNotification `
 $manageLink = Extract-MagicLinkUrl `
     -Body $pickupConfirmationNotification.body `
     -UrlMarker "/api/pickups/public/"
-$publicPickupUpdateResponse = $publicClient.PutAsync($manageLink, (JsonContent @{
+# The emailed link uses the public origin (PUBLIC_BASE_URL = the edge/ingress),
+# but this E2E stack starts services by name and omits the edge — so hit the
+# same endpoint through the gateway, keyed by the manage token from the email.
+$manageToken = $manageLink.TrimEnd('/').Split('/')[-1]
+$manageUrl = "$GatewayBaseUrl/api/pickups/public/$manageToken"
+$publicPickupUpdateResponse = $publicClient.PutAsync($manageUrl, (JsonContent @{
     pickupAt = $pickupSlot0930
     email = $lostItem.contactEmail
 })).Result
@@ -1151,7 +1166,7 @@ if (@($staffPickups | Where-Object { $_.id -eq $publicPickup.id }).Count -ne 1) 
     throw "Staff pickup list should include the public pickup."
 }
 
-$publicPickupDeleteResponse = $publicClient.DeleteAsync($manageLink).Result
+$publicPickupDeleteResponse = $publicClient.DeleteAsync($manageUrl).Result
 Assert-Status $publicPickupDeleteResponse 204 "Public pickup manage link can cancel pickup"
 
 $confirmedMatchResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result

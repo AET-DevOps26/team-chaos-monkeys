@@ -2,26 +2,14 @@ import type { LostReportResponse } from '@/api/lost-items/model'
 import { LostReportResponseStatus } from '@/api/lost-items/model'
 import { useGetLostReportPhotoUrl } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
-
-const dateFmt = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
-
-function formatDate(value: string | undefined, fmt: Intl.DateTimeFormat): string {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return fmt.format(d)
-}
+import { formatDate, firstLine } from '@/lib/format'
 
 function summaryLabel(report: LostReportResponse): string {
-  const firstLine = report.description?.split(/\r?\n/)[0]?.trim()
-  if (firstLine) return firstLine
-  const category = report.attributes?.category?.trim()
-  if (category) return category
-  return 'Lost report'
+  return (
+    firstLine(report.description) ||
+    report.attributes?.category?.trim() ||
+    'Lost report'
+  )
 }
 
 const statusPillCls: Record<LostReportResponseStatus, string> = {
@@ -57,6 +45,7 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
             id={report.id}
             alt={label}
             usePhotoUrl={useGetLostReportPhotoUrl}
+            category={report.attributes?.category}
           />
         </div>
       </td>
@@ -67,7 +56,7 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
       </td>
       <td className={cellCls}>{report.location || '—'}</td>
       <td className={`${cellCls} whitespace-nowrap`}>
-        {formatDate(report.lostAt, dateFmt) || '—'}
+        {formatDate(report.lostAt) || '—'}
       </td>
       <td className={`${cellCls} max-w-[16rem] truncate`} title={report.contactEmail}>
         {report.contactEmail || '—'}

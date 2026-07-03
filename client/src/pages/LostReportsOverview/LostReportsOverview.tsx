@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { GetAllLostReportsStatus } from '@/api/lost-items/model'
 import type { GetAllLostReportsStatus as Status } from '@/api/lost-items/model'
+import { filterPillClass } from '@/components/filterPill'
 import LostReportRow, { LostReportRowSkeleton } from './LostReportRow'
 
 type Filter = Status | 'ALL'
@@ -14,11 +15,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'ALL', label: 'All' },
 ]
 
-const pillBase =
-  'rounded-full px-3 py-1 text-xs font-medium transition-colors border'
-const pillActive = 'border-accent bg-accent-bg text-accent'
-const pillIdle = 'border-border text-text-h hover:border-accent'
-
 const headCellCls =
   'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-text'
 
@@ -30,8 +26,7 @@ export default function LostReportsOverview() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-medium text-text-h">Lost reports</h1>
+      <header className="flex flex-wrap items-center justify-end gap-3">
         <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-2">
           {FILTERS.map((f) => {
             const active = filter === f.value
@@ -42,7 +37,7 @@ export default function LostReportsOverview() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setFilter(f.value)}
-                className={`${pillBase} ${active ? pillActive : pillIdle}`}
+                className={filterPillClass(active)}
               >
                 {f.label}
               </button>

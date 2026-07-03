@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
 import { GetAllFoundItemsStatus } from '@/api/found-items/model'
 import type { GetAllFoundItemsStatus as Status } from '@/api/found-items/model'
+import { filterPillClass } from '@/components/filterPill'
 import FoundItemCard, { FoundItemCardSkeleton } from './FoundItemCard'
 
 type Filter = Status | 'ALL'
@@ -14,11 +15,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'ALL', label: 'All' },
 ]
 
-const pillBase =
-  'rounded-full px-3 py-1 text-xs font-medium transition-colors border'
-const pillActive = 'border-accent bg-accent-bg text-accent'
-const pillIdle = 'border-border text-text-h hover:border-accent'
-
 const gridCls =
   'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
 
@@ -30,8 +26,7 @@ export default function FoundItemsOverview() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-medium text-text-h">Found items</h1>
+      <header className="flex flex-wrap items-center justify-end gap-3">
         <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-2">
           {FILTERS.map((f) => {
             const active = filter === f.value
@@ -42,7 +37,7 @@ export default function FoundItemsOverview() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setFilter(f.value)}
-                className={`${pillBase} ${active ? pillActive : pillIdle}`}
+                className={filterPillClass(active)}
               >
                 {f.label}
               </button>

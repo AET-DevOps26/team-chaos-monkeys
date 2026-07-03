@@ -115,24 +115,6 @@ export default defineConfig({
       mode: 'single',
     },
   },
-  matching: {
-    input: './openapi/matching.json',
-    output: {
-      target: './src/api/matching/index.ts',
-      client: 'react-query',
-      mode: 'tags-split',
-      schemas: './src/api/matching/model',
-      override: apiOverride,
-    },
-  },
-  'matching-zod': {
-    input: './openapi/matching.json',
-    output: {
-      target: './src/api/matching/zod.ts',
-      client: 'zod',
-      mode: 'single',
-    },
-  },
   pickups: {
     input: './openapi/pickups.json',
     output: {

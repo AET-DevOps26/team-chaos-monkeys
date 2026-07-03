@@ -4,10 +4,11 @@
  * OpenAPI definition
  * OpenAPI spec version: v0
  */
+import type { CountMatchesStatus } from './countMatchesStatus';
 
 export type CountMatchesParams = {
-venueId?: string;
 foundItem?: string;
 lostItem?: string;
-status?: string;
+status?: CountMatchesStatus;
+venueId?: string;
 };

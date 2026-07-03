@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 class NotificationDispatcherTest {
 
     private static final String FROM_ADDRESS = "no-reply@foundflow.test";
-    private static final String MATCH_URL = "http://localhost:8080/api/matches/public/public-token";
+    private static final String MATCH_URL = "http://localhost:3000/report/match/public-token";
     private static final String MANAGE_URL = "http://localhost:8080/api/pickups/public/manage-token";
     private static final String RESET_URL = "http://localhost:8080/reset-password?token=reset-token";
 
@@ -169,6 +169,39 @@ class NotificationDispatcherTest {
         assertThat(finalState.getSubject()).isEqualTo("Reset your FoundFlow password");
         assertThat(finalState.getBody())
                 .isEqualTo("Use this link to reset your FoundFlow password: " + RESET_URL);
+        assertThat(sentAtAtEachSave).hasSize(2);
+        assertThat(sentAtAtEachSave.get(0)).isNull();
+        assertThat(sentAtAtEachSave.get(1)).isNotNull();
+    }
+
+    @Test
+    void dispatchReportConfirmation_persistsRowFirstThenSendsAndMarksSent() {
+        NotificationDispatcher dispatcher = dispatcher();
+        UUID venueId = UUID.randomUUID();
+        String recipient = "lost@example.com";
+
+        java.util.List<java.time.LocalDateTime> sentAtAtEachSave = new java.util.ArrayList<>();
+        org.mockito.Mockito.when(notificationRepository.save(any(Notification.class)))
+                .thenAnswer(invocation -> {
+                    Notification arg = invocation.getArgument(0);
+                    sentAtAtEachSave.add(arg.getSentAt());
+                    return arg;
+                });
+
+        dispatcher.dispatchReportConfirmation(recipient, venueId);
+
+        ArgumentCaptor<Notification> savedCaptor = ArgumentCaptor.forClass(Notification.class);
+        InOrder order = inOrder(notificationRepository, mailSender);
+        order.verify(notificationRepository).save(savedCaptor.capture());
+        order.verify(mailSender).send(any(SimpleMailMessage.class));
+        order.verify(notificationRepository).save(any(Notification.class));
+
+        Notification finalState = savedCaptor.getValue();
+        assertThat(finalState.getMatchId()).isNull();
+        assertThat(finalState.getVenueId()).isEqualTo(venueId);
+        assertThat(finalState.getRecipientAddress()).isEqualTo(recipient);
+        assertThat(finalState.getSubject()).isEqualTo("We received your lost-item report");
+        assertThat(finalState.getBody()).doesNotContain("http");
         assertThat(sentAtAtEachSave).hasSize(2);
         assertThat(sentAtAtEachSave.get(0)).isNull();
         assertThat(sentAtAtEachSave.get(1)).isNotNull();

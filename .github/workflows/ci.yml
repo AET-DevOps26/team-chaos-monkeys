@@ -122,7 +122,7 @@ jobs:
             > rendered-manifests/foundflow.yaml
 
       - name: Scan Dockerfiles, Terraform, compose + rendered manifests
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         # Non-blocking until the deferred findings in .trivyignore.yaml are
         # burned down (#289, #290) — then drop continue-on-error.
         continue-on-error: true

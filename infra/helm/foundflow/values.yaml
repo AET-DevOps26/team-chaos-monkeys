@@ -51,7 +51,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8080" }
 
@@ -63,7 +63,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8081" }
       - { name: SPRING_PROFILES_ACTIVE, value: "dev" }
@@ -86,7 +86,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8082" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -117,7 +117,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8083" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -144,7 +144,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -166,7 +166,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8085" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -191,7 +191,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8086" }
       # operations-service opens an AMQP connection; without a host it defaults
@@ -210,7 +210,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 448Mi }
+      limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
       # All Spring services share the AMQP autoconfig and open a broker
@@ -231,7 +231,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 250m, memory: 384Mi }
+      limits:   { cpu: 200m, memory: 256Mi }
     env:
       - { name: LOG_FORMAT, value: "json" }
       - { name: GENAI_PROVIDER, value: openai }
@@ -293,7 +293,7 @@ postgresDefaults:
   image: postgres:17
   resources:
     requests: { cpu: 50m,  memory: 96Mi }
-    limits:   { cpu: 100m, memory: 160Mi }
+    limits:   { cpu: 75m,  memory: 128Mi }
 
 # In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
 # Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
@@ -374,12 +374,20 @@ grafana:
   ingressPath: /grafana
   resources:
     requests: { cpu: 50m, memory: 96Mi }
-    limits:   { cpu: 100m, memory: 192Mi }
+    limits:   { cpu: 75m, memory: 192Mi }
 
 # Log aggregation (issue #277): Loki + Alloy, self-deployed by this chart the
 # same way Grafana is — neither Rancher Monitoring (AET) nor kube-prometheus-stack
 # (local) ships them. Config is shared verbatim with docker-compose via
 # files/loki-config.yaml (symlink to infra/loki/loki-config.yaml).
+#
+# AET quota budget (the namespace ResourceQuota binds LIMITS: 4 CPU / 6Gi).
+# Loki+Alloy (+Tempo, #279) were funded by trimming limits where `kubectl top`
+# showed real headroom (2026-07-03): genai 69Mi used of 384Mi, each Postgres
+# ~40Mi of 160Mi, Grafana 61Mi of 192Mi. Spring went 448→416Mi only — their
+# JVM heap tracks the limit (MaxRAMPercentage), so cuts there shrink heap, not
+# waste. After Loki+Alloy: 3850m/4 CPU, 5824Mi/6Gi — leaving 150m/320Mi for
+# Tempo.
 loki:
   enabled: true
   image: grafana/loki:3.4.1

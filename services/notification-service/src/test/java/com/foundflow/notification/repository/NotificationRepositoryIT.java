@@ -1,7 +1,6 @@
 package com.foundflow.notification.repository;
 
 import com.foundflow.notification.domain.Notification;
-import com.foundflow.notification.dto.MatchContactStatusResponse;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,46 +44,35 @@ class NotificationRepositoryIT {
     }
 
     @Test
-    void matchContactStatuses_reduceToLatestSendPerMatchAndScopeByVenue() {
+    void matchIdFilters_scopeByVenueAndExcludeNullMatch() {
         UUID venueId = UUID.randomUUID();
         UUID otherVenueId = UUID.randomUUID();
 
-        UUID contactedMatchId = UUID.randomUUID();
-        UUID queuedMatchId = UUID.randomUUID();
-        UUID otherVenueMatchId = UUID.randomUUID();
+        UUID matchA = UUID.randomUUID();
+        UUID matchB = UUID.randomUUID();
+        UUID otherVenueMatch = UUID.randomUUID();
 
-        LocalDateTime earlier = LocalDateTime.of(2026, 6, 30, 9, 0);
-        LocalDateTime later = LocalDateTime.of(2026, 6, 30, 11, 30);
+        LocalDateTime sentAt = LocalDateTime.of(2026, 6, 30, 11, 30);
 
-        // Same match, two notifications: one earlier-sent, one still queued (null).
-        // MAX(sentAt) must collapse them to the single latest non-null timestamp.
-        repository.save(matchNotification(venueId, contactedMatchId, earlier));
-        repository.save(matchNotification(venueId, contactedMatchId, null));
-        // A match whose only notification is still queued -> reported with null sentAt.
-        repository.save(matchNotification(venueId, queuedMatchId, null));
-        // A notification with no match (e.g. password reset) -> excluded entirely.
-        repository.save(matchNotification(venueId, null, later));
-        // Another venue -> excluded from the venue-scoped query.
-        repository.save(matchNotification(otherVenueId, otherVenueMatchId, later));
+        repository.save(matchNotification(venueId, matchA, sentAt));
+        repository.save(matchNotification(venueId, matchB, null));
+        // A notification with no match (e.g. password reset) -> excluded by both queries.
+        repository.save(matchNotification(venueId, null, sentAt));
+        // Another venue -> excluded from the venue-scoped query, included in the admin one.
+        repository.save(matchNotification(otherVenueId, otherVenueMatch, sentAt));
 
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(repository.findMatchContactStatusesByVenueId(venueId))
+        assertThat(repository.findByVenueIdAndMatchIdNotNull(venueId))
                 .hasSize(2)
-                .anySatisfy(s -> {
-                    assertThat(s.matchId()).isEqualTo(contactedMatchId);
-                    assertThat(s.sentAt()).isEqualTo(earlier);
-                })
-                .anySatisfy(s -> {
-                    assertThat(s.matchId()).isEqualTo(queuedMatchId);
-                    assertThat(s.sentAt()).isNull();
-                });
+                .extracting(Notification::getMatchId)
+                .containsExactlyInAnyOrder(matchA, matchB);
 
-        assertThat(repository.findAllMatchContactStatuses())
+        assertThat(repository.findByMatchIdNotNull())
                 .hasSize(3)
-                .extracting(MatchContactStatusResponse::matchId)
-                .containsExactlyInAnyOrder(contactedMatchId, queuedMatchId, otherVenueMatchId);
+                .extracting(Notification::getMatchId)
+                .containsExactlyInAnyOrder(matchA, matchB, otherVenueMatch);
     }
 
     private Notification matchNotification(UUID venueId, UUID matchId, LocalDateTime sentAt) {

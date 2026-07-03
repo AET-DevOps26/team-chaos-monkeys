@@ -71,35 +71,54 @@ class NotificationServiceTest {
     }
 
     @Test
-    void getMatchContactStatuses_shouldScopeToVenueForStaff() {
+    void getMatchContactStatuses_shouldScopeToVenueAndCollapsePerMatch() {
         NotificationService service = new NotificationService(notificationRepository, venueAccessService);
 
         UUID venueId = UUID.randomUUID();
-        UUID matchId = UUID.randomUUID();
-        LocalDateTime sentAt = LocalDateTime.of(2026, 6, 30, 9, 0);
-        when(notificationRepository.findMatchContactStatusesByVenueId(venueId))
-                .thenReturn(List.of(new MatchContactStatusResponse(matchId, sentAt)));
+        UUID contactedMatchId = UUID.randomUUID();
+        UUID queuedMatchId = UUID.randomUUID();
+        LocalDateTime earlier = LocalDateTime.of(2026, 6, 30, 9, 0);
+        LocalDateTime later = LocalDateTime.of(2026, 6, 30, 11, 30);
+
+        // Same match, two notifications (earlier-sent + later-sent + queued) collapse to
+        // the single latest send time; a match with only queued notifications reports null.
+        when(notificationRepository.findByVenueIdAndMatchIdNotNull(venueId))
+                .thenReturn(List.of(
+                        notification(contactedMatchId, venueId, "guest@example.com", earlier),
+                        notification(contactedMatchId, venueId, "guest@example.com", null),
+                        notification(contactedMatchId, venueId, "guest@example.com", later),
+                        notification(queuedMatchId, venueId, "guest@example.com", null)
+                ));
 
         List<MatchContactStatusResponse> statuses = service.getMatchContactStatuses(staffJwt(venueId));
 
-        assertEquals(1, statuses.size());
-        assertEquals(matchId, statuses.get(0).matchId());
-        assertEquals(sentAt, statuses.get(0).sentAt());
-        verify(notificationRepository).findMatchContactStatusesByVenueId(venueId);
-        verify(notificationRepository, never()).findAllMatchContactStatuses();
+        assertEquals(2, statuses.size());
+        MatchContactStatusResponse contacted = statuses.stream()
+                .filter(s -> s.matchId().equals(contactedMatchId)).findFirst().orElseThrow();
+        MatchContactStatusResponse queued = statuses.stream()
+                .filter(s -> s.matchId().equals(queuedMatchId)).findFirst().orElseThrow();
+        assertEquals(later, contacted.sentAt());
+        assertNull(queued.sentAt());
+        verify(notificationRepository).findByVenueIdAndMatchIdNotNull(venueId);
+        verify(notificationRepository, never()).findByMatchIdNotNull();
     }
 
     @Test
     void getMatchContactStatuses_shouldReturnAllForAdmin() {
         NotificationService service = new NotificationService(notificationRepository, venueAccessService);
 
-        when(notificationRepository.findAllMatchContactStatuses())
-                .thenReturn(List.of(new MatchContactStatusResponse(UUID.randomUUID(), null)));
+        UUID matchId = UUID.randomUUID();
+        LocalDateTime sentAt = LocalDateTime.of(2026, 6, 30, 9, 0);
+        when(notificationRepository.findByMatchIdNotNull())
+                .thenReturn(List.of(notification(matchId, UUID.randomUUID(), "guest@example.com", sentAt)));
 
         List<MatchContactStatusResponse> statuses = service.getMatchContactStatuses(adminJwt());
 
         assertEquals(1, statuses.size());
-        verify(notificationRepository).findAllMatchContactStatuses();
+        assertEquals(matchId, statuses.get(0).matchId());
+        assertEquals(sentAt, statuses.get(0).sentAt());
+        verify(notificationRepository).findByMatchIdNotNull();
+        verify(notificationRepository, never()).findByVenueIdAndMatchIdNotNull(any());
     }
 
     @Test

@@ -59,7 +59,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\", outcome=\"SERVER_ERROR\"}[5m])) / clamp_min(sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[5m])), 0.001)",
+          "expr": "(sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\", outcome=\"SERVER_ERROR\"}[5m])) or sum by (job) (0 * rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[5m]))) / clamp_min(sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[5m])), 0.001)",
           "legendFormat": "{{job}}"
         }
       ]

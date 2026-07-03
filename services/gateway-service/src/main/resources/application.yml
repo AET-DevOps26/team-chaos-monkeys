@@ -253,6 +253,11 @@ management:
     web:
       exposure:
         include: health,prometheus,info
+  metrics:
+    distribution:
+      # Export http.server.requests as a histogram so Grafana can compute p95 latency.
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   swagger-ui:

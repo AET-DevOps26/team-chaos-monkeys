@@ -1,0 +1,17 @@
+{{/*
+Loki config, shared verbatim with docker-compose: files/loki-config.yaml is a
+symlink to infra/loki/loki-config.yaml (same pattern as dashboards/).
+*/}}
+{{- if .Values.loki.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundflow-loki-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: loki
+data:
+  loki-config.yaml: |
+{{ .Files.Get "files/loki-config.yaml" | indent 4 }}
+{{- end }}

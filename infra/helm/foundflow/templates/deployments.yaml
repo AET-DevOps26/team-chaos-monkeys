@@ -80,6 +80,11 @@ spec:
             # container is not OOMKilled before Spring Boot finishes booting.
             - name: JAVA_TOOL_OPTIONS
               value: {{ default "-XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=50.0" $svc.javaToolOptions | quote }}
+            # Native Boot structured logging (issue #278): ECS JSON to stdout so
+            # Loki's `| json` parser gets fields. Only set in containers —
+            # `./gradlew bootRun` stays human-readable.
+            - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+              value: "ecs"
             {{- end }}
             {{- include "foundflow.env" (dict "ctx" $ "name" $name "svc" $svc) | nindent 12 }}
           {{- with $svc.resources }}

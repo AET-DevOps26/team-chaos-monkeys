@@ -24,6 +24,7 @@ from starlette.types import Scope
 from app.api import answer, diagnostic, embed, extract, health, verify
 from app.config import Settings
 from app.errors import register_exception_handlers
+from app.logging_config import setup_json_logging_if_configured
 from app.metrics import build_info
 from app.middleware import MaxBodySizeMiddleware
 from app.providers import build_provider
@@ -60,6 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         await app.state.llm.aclose()
 
+
+# Runs after uvicorn's own logging setup (uvicorn configures logging before
+# importing the app), so the JSON handler wins when LOG_FORMAT=json.
+setup_json_logging_if_configured()
 
 app = FastAPI(
     title="FoundFlow GenAI service",

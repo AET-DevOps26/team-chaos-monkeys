@@ -233,6 +233,7 @@ services:
       requests: { cpu: 100m, memory: 256Mi }
       limits:   { cpu: 250m, memory: 384Mi }
     env:
+      - { name: LOG_FORMAT, value: "json" }
       - { name: GENAI_PROVIDER, value: openai }
       - { name: OPENAI_CHAT_MODEL,  value: "gpt-4o-mini" }
       - { name: OPENAI_EMBED_MODEL, value: "text-embedding-3-small" }
@@ -374,6 +375,30 @@ grafana:
   resources:
     requests: { cpu: 50m, memory: 96Mi }
     limits:   { cpu: 100m, memory: 192Mi }
+
+# Log aggregation (issue #277): Loki + Alloy, self-deployed by this chart the
+# same way Grafana is — neither Rancher Monitoring (AET) nor kube-prometheus-stack
+# (local) ships them. Config is shared verbatim with docker-compose via
+# files/loki-config.yaml (symlink to infra/loki/loki-config.yaml).
+loki:
+  enabled: true
+  image: grafana/loki:3.4.1
+  # Small PVC, not emptyDir: CD Recreates every pod on each merge to main, and
+  # log history should survive a deploy. 7-day retention bounds the usage.
+  storageSize: 2Gi
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 150m, memory: 256Mi }
+
+# Log collector: single Deployment tailing our namespace's pod logs via the
+# Kubernetes API (loki.source.kubernetes) — no DaemonSet/hostPath, which we
+# can't run on the shared AET cluster.
+alloy:
+  enabled: true
+  image: grafana/alloy:v1.8.3
+  resources:
+    requests: { cpu: 25m,  memory: 64Mi }
+    limits:   { cpu: 100m, memory: 128Mi }
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

@@ -69,6 +69,16 @@ export default function Navbar() {
               Matches
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              to="/returns"
+              className={({ isActive }) =>
+                `${linkBase} ${isActive ? linkActive : linkIdle}`
+              }
+            >
+              Returns
+            </NavLink>
+          </li>
         </ul>
 
         {user && (

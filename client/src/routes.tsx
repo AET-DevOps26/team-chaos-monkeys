@@ -4,6 +4,7 @@ import FoundItemIntake from '@/pages/FoundItemIntake'
 import FoundItemsOverview from '@/pages/FoundItemsOverview'
 import LostReportsOverview from '@/pages/LostReportsOverview'
 import Matching from '@/pages/Matching'
+import Returns from '@/pages/Returns'
 import Login from '@/pages/Login'
 import RequireAuth from '@/auth/RequireAuth'
 import Layout from '@/components/Layout/Layout'
@@ -60,6 +61,16 @@ export default function AppRoutes() {
           <RequireAuth>
             <Layout>
               <Matching />
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/returns"
+        element={
+          <RequireAuth>
+            <Layout>
+              <Returns />
             </Layout>
           </RequireAuth>
         }

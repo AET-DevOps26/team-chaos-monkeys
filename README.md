@@ -220,8 +220,19 @@ If a host port clashes with something else on your machine (e.g. another project
 
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
 - **Releases:** `main` is the release branch; merging `development → main` triggers the AET deploy.
-- **CI** (`.github/workflows/ci.yml`): runs on every PR — Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
+- **CI** (`.github/workflows/ci.yml`): runs on every PR — gitleaks secret scan, Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
 - **CD** (`.github/workflows/aet-helm-deploy.yml`): on every push to `main` (and via `workflow_dispatch`) it builds and pushes images to GHCR, then runs `helm upgrade --install` against the AET (Rancher RKE2) cluster — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. `.github/workflows/azure-cycle.yml` provisions an ephemeral Azure VM, deploys, and destroys it on demand (`workflow_dispatch`). Charts live under `infra/helm/foundflow/`.
+
+### Secret scanning
+
+[gitleaks](https://github.com/gitleaks/gitleaks) guards the "no hardcoded credentials" rule at two layers: a CI job scans the full git history on every PR, and a pre-commit hook catches secrets locally before they are ever committed. Install the hook once per clone:
+
+```sh
+brew install pre-commit   # or: pipx install pre-commit
+pre-commit install
+```
+
+Known-safe placeholders (`.env.example`, frontend test fixtures) are allowlisted in [`.gitleaks.toml`](.gitleaks.toml). If the scan flags something that genuinely isn't a secret, extend the allowlist there — never commit the real thing "just for now".
 
 ## Observability
 

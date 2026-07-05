@@ -216,6 +216,9 @@ services:
       limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
+      # Seed evergreen demo pickup schedules for the fixed demo venue so the
+      # match → confirm → book-a-slot flow has bookable slots out of the box.
+      - { name: SEED_DEMO_DATA, value: "true" }
       # All Spring services share the AMQP autoconfig and open a broker
       # connection at startup; give pickup the same host + credentials.
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }

@@ -1,5 +1,7 @@
 package com.foundflow.auth.config;
 
+import java.util.UUID;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,29 +17,52 @@ import com.foundflow.auth.repository.UserRepository;
 public class DevUserInitializer {
 
     @Bean
-    public CommandLineRunner createDevAdminUser(
+    public CommandLineRunner createDevUsers(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder
     ) {
         return args -> {
-            String email = System.getenv("DEV_ADMIN_EMAIL");
-            String rawPassword = System.getenv("DEV_ADMIN_PASSWORD");
+            seedUser(userRepository, passwordEncoder,
+                    System.getenv("DEV_ADMIN_EMAIL"),
+                    System.getenv("DEV_ADMIN_PASSWORD"),
+                    Role.ADMIN,
+                    null);
 
-            if (email == null || email.isBlank()
-                    || rawPassword == null || rawPassword.isBlank()) {
-                return;
-            }
-
-            if (userRepository.findByEmail(email).isEmpty()) {
-                User admin = new User(
-                        email,
-                        Role.ADMIN,
-                        passwordEncoder.encode(rawPassword),
-                        null
-                );
-
-                userRepository.save(admin);
-            }
+            // Demo staff account from the README reviewer walkthrough; defaults match
+            // scripts/seed/seed-demo.sh so every deployment accepts the same login.
+            seedUser(userRepository, passwordEncoder,
+                    env("DEMO_STAFF_EMAIL", "staff.demo@foundflow.local"),
+                    env("DEMO_STAFF_PASSWORD", "test12345"),
+                    Role.STAFF,
+                    UUID.fromString(env("DEMO_VENUE_ID", "00000000-0000-0000-0000-000000000001")));
         };
+    }
+
+    private static void seedUser(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            String email,
+            String rawPassword,
+            Role role,
+            UUID venueId
+    ) {
+        if (email == null || email.isBlank()
+                || rawPassword == null || rawPassword.isBlank()) {
+            return;
+        }
+
+        if (userRepository.findByEmail(email).isEmpty()) {
+            userRepository.save(new User(
+                    email,
+                    role,
+                    passwordEncoder.encode(rawPassword),
+                    venueId
+            ));
+        }
+    }
+
+    private static String env(String name, String fallback) {
+        String value = System.getenv(name);
+        return (value == null || value.isBlank()) ? fallback : value;
     }
 }

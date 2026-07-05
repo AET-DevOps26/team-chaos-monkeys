@@ -194,6 +194,9 @@ services:
       limits:   { cpu: 300m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8086" }
+      # Seed the fixed demo venue so /report/grand-plaza-hotel-demo and the
+      # demo staff login work on k8s exactly as documented in the README.
+      - { name: SEED_DEMO_DATA, value: "true" }
       # operations-service opens an AMQP connection; without a host it defaults
       # to localhost. Point it at the broker with the foundflow credentials.
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }

@@ -73,6 +73,10 @@ Browser URLs:
 
 `localtest.me` resolves to `127.0.0.1`, so no hosts-file edit is needed.
 
+Log in with the same accounts as the compose stack (see the README reviewer
+walkthrough): `staff.demo@foundflow.local` / `test12345`, or the admin account
+you passed as `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+
 If database pods fail on first install with `ImagePullBackOff` because Docker
 Hub pulls time out, pre-pull the images through the host daemon and restart the
 database pods:

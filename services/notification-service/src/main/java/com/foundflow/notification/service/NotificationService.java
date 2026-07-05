@@ -2,6 +2,7 @@ package com.foundflow.notification.service;
 
 import com.foundflow.notification.domain.Notification;
 import com.foundflow.notification.dto.CreateNotificationRequest;
+import com.foundflow.notification.dto.MatchContactStatusResponse;
 import com.foundflow.notification.dto.NotificationResponse;
 import com.foundflow.notification.dto.UpdateNotificationRequest;
 import com.foundflow.notification.repository.NotificationRepository;
@@ -59,6 +60,15 @@ public class NotificationService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    public List<MatchContactStatusResponse> getMatchContactStatuses(Jwt jwt) {
+        if (venueAccessService.isAdmin(jwt)) {
+            return notificationRepository.findAllMatchContactStatuses();
+        }
+
+        UUID venueId = venueAccessService.getVenueId(jwt);
+        return notificationRepository.findMatchContactStatusesByVenueId(venueId);
     }
 
     public Optional<NotificationResponse> getNotificationById(

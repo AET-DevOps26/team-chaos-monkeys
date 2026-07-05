@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGetAllMatches } from '@/api/matches/match-controller/match-controller'
 import { GetAllMatchesStatus } from '@/api/matches/model'
 import type { GetAllMatchesStatus as Status } from '@/api/matches/model'
 import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller'
-import { useGetAllLostReports } from '@/api/lost-items/lost-report-controller/lost-report-controller'
-import { useGetAllFoundItems } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useItemMaps } from '@/lib/useItemMaps'
 import { filterPillClass } from '@/components/filterPill'
 import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
 import searchIcon from '@/assets/search-icon.svg'
@@ -32,24 +31,15 @@ export default function Matching() {
   const { data: matches, isLoading, isError, refetch, isFetching } =
     useGetAllMatches(params)
 
-  // Single fetch of pickups + the lost/found detail lists, joined to matches by
-  // id. The server already scopes every list to the staff member's venue via the
-  // JWT, so one list fetch each replaces the per-card by-id lookups.
+  // Pickups (for the per-card badge) plus the shared lost/found detail maps,
+  // joined to matches by id. The server scopes every list to the staff member's
+  // venue via the JWT, so one list fetch each replaces per-card by-id lookups.
   const { data: pickups } = useGetPickups(undefined)
-  const { data: lostReports } = useGetAllLostReports(undefined)
-  const { data: foundItems } = useGetAllFoundItems(undefined)
+  const { lostById, foundById } = useItemMaps()
 
   const pickupByMatchId = useMemo(
     () => new Map((pickups ?? []).map((p) => [p.matchId, p])),
     [pickups],
-  )
-  const lostById = useMemo(
-    () => new Map((lostReports ?? []).map((r) => [r.id, r])),
-    [lostReports],
-  )
-  const foundById = useMemo(
-    () => new Map((foundItems ?? []).map((f) => [f.id, f])),
-    [foundItems],
   )
 
   const recentMatches = useMemo(() => {
@@ -72,6 +62,15 @@ export default function Matching() {
       matchSearchText(lostById.get(m.lostReportId ?? ''), foundById.get(m.foundItemId ?? '')).includes(q),
     )
   }, [recentMatches, q, lostById, foundById])
+
+  // Deep-link support: /matches#match-<id> (e.g. from the Returns page) scrolls
+  // the target card into view once the list has rendered. The highlight itself
+  // is pure CSS via the `target:` variant on the card.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (!hash || visibleMatches.length === 0) return
+    document.getElementById(hash)?.scrollIntoView({ block: 'center' })
+  }, [visibleMatches])
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">

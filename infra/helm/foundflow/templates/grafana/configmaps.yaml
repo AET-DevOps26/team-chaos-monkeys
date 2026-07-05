@@ -25,6 +25,14 @@ data:
         url: {{ .Values.grafana.prometheusUrl | quote }}
         isDefault: true
         editable: false
+      {{- if .Values.loki.enabled }}
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        editable: false
+      {{- end }}
   dashboards.yaml: |
     apiVersion: 1
     providers:

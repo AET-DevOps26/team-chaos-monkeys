@@ -19,6 +19,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Scan for secrets (gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # full history so gitleaks scans every commit, not just the tip
+          fetch-depth: 0
+
+      # gitleaks/gitleaks-action requires a paid GITLEAKS_LICENSE for org
+      # repos, so run the pinned binary directly (same engine, no license).
+      - name: Run gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks git --no-banner --redact -v .
+
   backend-tests:
     name: Check backend services
     runs-on: ubuntu-24.04

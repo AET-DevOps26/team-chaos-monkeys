@@ -154,7 +154,10 @@ export default function MatchCard({
   const showDescription = lostDescription && lostDescription !== lostName
 
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-border bg-bg p-4 shadow-[var(--shadow)]">
+    <article
+      id={`match-${match.id}`}
+      className="flex scroll-mt-20 flex-col gap-3 rounded-lg border border-border bg-bg p-4 shadow-[var(--shadow)] target:border-accent target:ring-2 target:ring-accent/40"
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-col">
           <span className="text-xs font-medium text-text-h">Match</span>

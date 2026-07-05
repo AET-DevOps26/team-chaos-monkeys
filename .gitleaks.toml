@@ -1,0 +1,23 @@
+# Gitleaks config (issue #286): default ruleset + allowlist for known-safe
+# placeholders. Findings here fail CI and the pre-commit hook.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-safe placeholders and test fixtures"
+paths = [
+  # documented placeholder values, never real credentials
+  '''(^|/)\.env\.example$''',
+  # frontend test fixtures (fake tokens, canned API payloads)
+  '''\.test\.(ts|tsx)$''',
+  '''^client/test/''',
+  '''^public-report-client/test/''',
+]
+regexes = [
+  # GitHub org name trips generic-api-key in `gh api -F owner=...` examples
+  '''AET-DevOps26''',
+  # unsigned {"alg":"none"} JWT header used in test fixtures
+  '''eyJhbGciOiJub25lIn0''',
+  # actuator scrape targets in docs tables (`auth-service:8081/actuator/prometheus`)
+  '''\d+/actuator/prometheus''',
+]

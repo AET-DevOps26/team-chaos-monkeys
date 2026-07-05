@@ -1,0 +1,25 @@
+{{/*
+ClusterIP Service named exactly `loki` — Grafana's datasource URL and Alloy's
+push URL are both the literal http://loki:3100 in compose and k8s alike.
+*/}}
+{{- if .Values.loki.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/component: loki
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

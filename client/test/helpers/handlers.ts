@@ -3,7 +3,7 @@ import type { TokenResponse } from '@/api/auth/model'
 import type { FoundItemResponse, PhotoUrlResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
 import type { ItemSearchResponse, MatchResponse } from '@/api/matches/model'
-import type { PickupResponse } from '@/api/pickups/model'
+import type { PickupResponse, PickupScheduleResponse } from '@/api/pickups/model'
 
 export const loginSuccess = (accessToken = 'test-access-token') =>
   http.post('*/api/auth/login', () =>
@@ -105,6 +105,46 @@ export const matchesListError = () =>
 
 export const pickupsList = (items: PickupResponse[]) =>
   http.get('*/api/pickups', () => HttpResponse.json<PickupResponse[]>(items))
+
+export const pickupsListError = () =>
+  http.get('*/api/pickups', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
+
+export const schedulesList = (items: PickupScheduleResponse[]) =>
+  http.get('*/api/pickups/schedule', () =>
+    HttpResponse.json<PickupScheduleResponse[]>(items),
+  )
+
+export const schedulesListError = () =>
+  http.get('*/api/pickups/schedule', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
+
+export const scheduleCreate = (onBody?: (body: unknown) => void) =>
+  http.post('*/api/pickups/schedule', async ({ request }) => {
+    const body = await request.json()
+    onBody?.(body)
+    return HttpResponse.json<PickupScheduleResponse>(
+      { id: 'new-schedule-id', ...(body as PickupScheduleResponse) },
+      { status: 201 },
+    )
+  })
+
+export const scheduleUpdate = (onBody?: (scheduleId: string, body: unknown) => void) =>
+  http.put('*/api/pickups/schedule/:scheduleId', async ({ request, params }) => {
+    const body = await request.json()
+    onBody?.(String(params.scheduleId), body)
+    return HttpResponse.json<PickupScheduleResponse>(
+      { id: String(params.scheduleId), ...(body as PickupScheduleResponse) },
+    )
+  })
+
+export const scheduleDelete = (onDelete?: (scheduleId: string) => void) =>
+  http.delete('*/api/pickups/schedule/:scheduleId', ({ params }) => {
+    onDelete?.(String(params.scheduleId))
+    return new HttpResponse(null, { status: 204 })
+  })
 
 export const itemSearchSuccess = (response: ItemSearchResponse) =>
   http.post('*/api/matches/search', () =>

@@ -1,0 +1,44 @@
+// Grafana Alloy — docker-compose log collector.
+// Discovers containers via the Docker socket, keeps only this stack's
+// containers (all named foundflow-*), and pushes their stdout/stderr to Loki.
+// The Kubernetes equivalent lives in infra/helm/foundflow/templates/alloy/
+// (API-tail via loki.source.kubernetes — no Docker socket in the cluster).
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/foundflow-.*"
+    action        = "keep"
+  }
+
+  // Low-cardinality labels only: `service` (compose service key) and
+  // `container`. Per-request values (trace ids, user ids) must stay in the
+  // log line — every unique label value mints a new Loki stream.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

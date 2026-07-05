@@ -1,0 +1,56 @@
+{{/*
+Alloy config for Kubernetes. The docker-compose twin (infra/alloy/config.alloy)
+uses loki.source.docker; here we discover pods in our own namespace and tail
+their logs via the API server. Label set matches compose (`service`,
+`container`) plus k8s context (`namespace`, `pod`) — all low-cardinality.
+*/}}
+{{- if .Values.alloy.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundflow-alloy-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: alloy
+data:
+  config.alloy: |
+    discovery.kubernetes "pods" {
+      role = "pod"
+      namespaces {
+        own_namespace = true
+      }
+    }
+
+    discovery.relabel "pods" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+        target_label  = "service"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+    }
+
+    loki.source.kubernetes "pods" {
+      targets    = discovery.relabel.pods.output
+      forward_to = [loki.write.default.receiver]
+    }
+
+    loki.write "default" {
+      endpoint {
+        url = "http://loki:3100/loki/api/v1/push"
+      }
+    }
+{{- end }}

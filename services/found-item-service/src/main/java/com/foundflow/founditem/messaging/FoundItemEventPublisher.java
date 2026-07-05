@@ -3,6 +3,7 @@ package com.foundflow.founditem.messaging;
 import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.FoundItemCreatedEvent;
+import com.foundflow.events.FoundItemDeletedEvent;
 import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.founditem.domain.FoundItem;
@@ -31,6 +32,10 @@ public class FoundItemEventPublisher {
 
     public void publishFoundItemUpdated(FoundItem foundItem) {
         publishAfterCommit(FoundFlowEventRouting.FOUND_ITEM_UPDATED, toUpdatedEvent(foundItem));
+    }
+
+    public void publishFoundItemDeleted(FoundItem foundItem) {
+        publishAfterCommit(FoundFlowEventRouting.FOUND_ITEM_DELETED, toDeletedEvent(foundItem));
     }
 
     private FoundItemCreatedEvent toCreatedEvent(FoundItem foundItem) {
@@ -62,6 +67,15 @@ public class FoundItemEventPublisher {
                 foundItem.getStatus().name(),
                 foundItem.getReporterId(),
                 toPayload(foundItem.getAttributes())
+        );
+    }
+
+    private FoundItemDeletedEvent toDeletedEvent(FoundItem foundItem) {
+        return new FoundItemDeletedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                foundItem.getId(),
+                foundItem.getVenueId()
         );
     }
 

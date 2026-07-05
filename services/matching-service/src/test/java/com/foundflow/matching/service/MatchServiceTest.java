@@ -7,6 +7,7 @@ import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
 import com.foundflow.matching.client.LostReportContactReference;
+import com.foundflow.matching.client.RemotePhoto;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +35,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -364,7 +367,7 @@ class MatchServiceTest {
         UUID venueId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
         UUID lostReportId = UUID.randomUUID();
-        URI photoUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+        URI photoUrl = URI.create("/api/found-items/" + foundItemId + "/photo");
         Match match = match(foundItemId, lostReportId, venueId, MatchStatus.PENDING);
         PublicFoundItemResponse foundItem = new PublicFoundItemResponse(
                 foundItemId,
@@ -387,8 +390,29 @@ class MatchServiceTest {
         assertEquals(foundItemId, response.get().id());
         assertEquals("Schwarzer Rucksack", response.get().description());
         assertEquals("Bag", response.get().attributes().category());
-        assertEquals(photoUrl, response.get().photoUrl());
+        assertEquals(URI.create("/api/matches/public/public-token/found-item/photo"), response.get().photoUrl());
         verify(foundItemClient).getPublicFoundItemDetail(foundItemId, venueId);
+    }
+
+    @Test
+    void getPublicFoundItemPhoto_shouldReturnPhotoForMagicLink() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        Match match = match(foundItemId, lostReportId, venueId, MatchStatus.PENDING);
+        RemotePhoto photo = new RemotePhoto("photo-bytes".getBytes(), MediaType.IMAGE_JPEG, 11);
+
+        when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
+                .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(foundItemClient.getPublicFoundItemPhoto(foundItemId, venueId)).thenReturn(photo);
+
+        var response = matchService.getPublicFoundItemPhoto("public-token");
+
+        assertTrue(response.isPresent());
+        assertSame(photo, response.get());
     }
 
     @Test

@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
-  lostReportPhotoUrl,
   lostReportsList,
   lostReportsListError,
 } from '@test/handlers'
@@ -11,9 +10,20 @@ import LostReportsOverview from '@/pages/LostReportsOverview/LostReportsOverview
 import { LostReportResponseStatus } from '@/api/lost-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
 
+vi.mock('@/components/PhotoThumbnail/PhotoThumbnail', async () => {
+  const React = await import('react')
+  return {
+    default: ({ src, alt }: { src?: string; alt: string }) =>
+      src
+        ? React.createElement('img', { src, alt })
+        : React.createElement('div', { role: 'img', 'aria-label': alt }),
+  }
+})
+
 const REPORTS: LostReportResponse[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
+    photoUrl: '/api/lost-items/11111111-1111-1111-1111-111111111111/photo',
     description: 'Black leather wallet\nwith three cards inside',
     location: 'Main entrance',
     contactEmail: 'anna@example.com',
@@ -23,6 +33,7 @@ const REPORTS: LostReportResponse[] = [
   },
   {
     id: '22222222-2222-2222-2222-222222222222',
+    photoUrl: '/api/lost-items/22222222-2222-2222-2222-222222222222/photo',
     description: 'Blue umbrella',
     location: 'Lobby cafe',
     contactEmail: 'ben@example.com',
@@ -54,7 +65,7 @@ describe('<LostReportsOverview />', () => {
   })
 
   it('renders a thumbnail for each report inline (no expansion needed)', async () => {
-    server.use(lostReportsList(REPORTS), lostReportPhotoUrl())
+    server.use(lostReportsList(REPORTS))
     renderWithProviders(<LostReportsOverview />)
 
     // The row label is the first line of the description...

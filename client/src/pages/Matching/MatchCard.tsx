@@ -5,7 +5,6 @@ import { MatchResponseStatus as Status } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
-import { useGetFoundItemPhotoUrl } from '@/api/found-items/found-item-controller/found-item-controller'
 import { useCreatePublicMatchLink } from '@/api/matches/match-controller/match-controller'
 import { getGetMatchContactsQueryKey } from '@/api/notifications/notification-controller/notification-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
@@ -295,9 +294,8 @@ export default function MatchCard({
         <div className="flex w-32 shrink-0 flex-col gap-1 sm:w-36">
           <div className="relative aspect-square overflow-hidden rounded-md border border-border">
             <PhotoThumbnail
-              id={match.foundItemId}
+              src={foundItem?.photoUrl}
               alt={foundName}
-              usePhotoUrl={useGetFoundItemPhotoUrl}
             />
             <span className="absolute left-1.5 top-1.5 rounded bg-bg/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-h backdrop-blur">
               Found

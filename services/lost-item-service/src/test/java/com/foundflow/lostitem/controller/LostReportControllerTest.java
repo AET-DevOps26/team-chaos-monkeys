@@ -6,6 +6,7 @@ import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
 import com.foundflow.lostitem.service.LostReportService;
+import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoUrlResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -279,6 +281,28 @@ class LostReportControllerTest {
                         .with(staffPrincipal(venueId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.url").value(signedUrl.toString()));
+    }
+
+    @Test
+    void getLostReportPhoto_shouldStreamPhotoBytes() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        byte[] bytes = "photo-bytes".getBytes();
+
+        when(lostReportService.getLostReportPhoto(eq(id), any(Jwt.class)))
+                .thenReturn(Optional.of(new PhotoData(
+                        new ByteArrayInputStream(bytes),
+                        MediaType.IMAGE_JPEG_VALUE,
+                        bytes.length
+                )));
+
+        mockMvc.perform(get("/api/lost-items/{id}/photo", id)
+                        .with(staffPrincipal(venueId)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", MediaType.IMAGE_JPEG_VALUE))
+                .andExpect(header().string("Content-Length", String.valueOf(bytes.length)))
+                .andExpect(header().string("Cache-Control", "max-age=300, private"))
+                .andExpect(content().bytes(bytes));
     }
 
     private CreateLostReportRequest createRequest(UUID venueId) {

@@ -86,6 +86,11 @@ export const getPublicFoundItemParams = zod.object({
 })
 
 
+export const getPublicFoundItemPhotoParams = zod.object({
+  "token": zod.string()
+})
+
+
 export const getMatchHistogramQueryParams = zod.object({
   "foundItem": zod.uuid().optional(),
   "lostItem": zod.uuid().optional(),

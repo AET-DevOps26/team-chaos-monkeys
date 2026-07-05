@@ -31,4 +31,14 @@ class AmqpConfigTest {
         assertThat(dlq.getName())
                 .isEqualTo(FoundFlowEventRouting.deadLetterQueue(FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE));
     }
+
+    @Test
+    void foundItemDeletedQueue_shouldBeBoundAsMatchingConsumerQueue() {
+        var queue = config.foundItemDeletedQueue();
+        var dlq = config.foundItemDeletedDlq();
+
+        assertThat(queue.getName()).isEqualTo(FoundFlowEventRouting.MATCHING_FOUND_ITEM_DELETES_QUEUE);
+        assertThat(dlq.getName())
+                .isEqualTo(FoundFlowEventRouting.deadLetterQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_DELETES_QUEUE));
+    }
 }

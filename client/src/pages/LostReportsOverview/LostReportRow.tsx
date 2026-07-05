@@ -1,6 +1,5 @@
 import type { LostReportResponse } from '@/api/lost-items/model'
 import { LostReportResponseStatus } from '@/api/lost-items/model'
-import { useGetLostReportPhotoUrl } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 import { formatDate, firstLine } from '@/lib/format'
 
@@ -42,9 +41,8 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
       <td className={`${cellCls} w-12`}>
         <div className={thumbCls}>
           <PhotoThumbnail
-            id={report.id}
+            src={report.photoUrl}
             alt={label}
-            usePhotoUrl={useGetLostReportPhotoUrl}
             category={report.attributes?.category}
           />
         </div>

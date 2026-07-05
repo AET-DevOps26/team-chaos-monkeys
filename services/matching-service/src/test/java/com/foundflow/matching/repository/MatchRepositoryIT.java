@@ -130,6 +130,37 @@ class MatchRepositoryIT {
                 );
     }
 
+    @Test
+    void deleteByFoundItemId_removesOnlyMatchesForDeletedFoundItem() {
+        UUID venueId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID otherFoundItemId = UUID.randomUUID();
+
+        repository.save(match(
+                foundItemId,
+                UUID.randomUUID(),
+                venueId,
+                MatchStatus.PENDING,
+                LocalDateTime.of(2026, 5, 19, 10, 0)
+        ));
+        Match retained = repository.save(match(
+                otherFoundItemId,
+                UUID.randomUUID(),
+                venueId,
+                MatchStatus.PENDING,
+                LocalDateTime.of(2026, 5, 19, 11, 0)
+        ));
+
+        int deleted = repository.deleteByFoundItemId(foundItemId);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(repository.findAll())
+                .extracting(Match::getId)
+                .containsExactly(retained.getId());
+    }
+
     private Match match(
             UUID foundItemId,
             UUID lostReportId,

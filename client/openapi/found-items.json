@@ -464,6 +464,10 @@
           "photoKey": {
             "type": "string"
           },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
           "intakeText": {
             "type": "string"
           },

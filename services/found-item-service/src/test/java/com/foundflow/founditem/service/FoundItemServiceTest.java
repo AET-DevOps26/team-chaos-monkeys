@@ -18,6 +18,7 @@ import com.foundflow.founditem.repository.FoundItemRepository;
 import com.foundflow.founditem.security.VenueAccessService;
 import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.genai.client.ExtractionResult;
+import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoUrlResponse;
@@ -33,6 +34,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -477,6 +479,24 @@ class FoundItemServiceTest {
     }
 
     @Test
+    void deleteFoundItem_shouldDeletePhotoAndPublishDeletedEvent() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem existingItem = foundItem(venueId);
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(existingItem));
+
+        boolean deleted = service.deleteFoundItem(id, staffJwt(venueId));
+
+        assertTrue(deleted);
+        verify(foundItemRepository).delete(existingItem);
+        verify(eventPublisher).publishFoundItemDeleted(existingItem);
+        verify(photoStorage).delete("photo-123");
+    }
+
+    @Test
     void getFoundItemPhotoUrl_shouldReturnSignedUrlForStoredPhoto() {
         FoundItemService service = service();
 
@@ -513,17 +533,67 @@ class FoundItemServiceTest {
     }
 
     @Test
-    void getPublicFoundItemDetail_shouldReturnLimitedInfoAndSignedUrlForMatchingVenue() {
+    void getFoundItemPhoto_shouldRetrieveStoredPhoto() {
         FoundItemService service = service();
 
         UUID id = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        URI signedUrl = URI.create("http://localhost:9000/foundflow-found-photos/photo-123?signature=test");
+        PhotoData photo = new PhotoData(
+                new ByteArrayInputStream("photo-bytes".getBytes()),
+                MediaType.IMAGE_JPEG_VALUE,
+                11
+        );
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem(venueId)));
+        when(photoStorage.retrieve("photo-123")).thenReturn(photo);
+
+        Optional<PhotoData> response = service.getFoundItemPhoto(id, staffJwt(venueId));
+
+        assertTrue(response.isPresent());
+        assertSame(photo, response.get());
+    }
+
+    @Test
+    void getFoundItemPhoto_shouldReturnEmptyWhenItemDoesNotExist() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertTrue(service.getFoundItemPhoto(id, staffJwt(venueId)).isEmpty());
+    }
+
+    @Test
+    void getFoundItemPhoto_shouldReturnNotFoundWhenItemHasNoPhoto() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        FoundItem foundItem = foundItem(venueId);
+        foundItem.setPhotoKey(null);
+
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.getFoundItemPhoto(id, staffJwt(venueId))
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
+    }
+
+    @Test
+    void getPublicFoundItemDetail_shouldReturnLimitedInfoAndProxyPhotoUrlForMatchingVenue() {
+        FoundItemService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
         FoundItem foundItem = foundItem(venueId);
         ReflectionTestUtils.setField(foundItem, "id", id);
 
         when(foundItemRepository.findById(id)).thenReturn(Optional.of(foundItem));
-        when(photoStorage.signedUrl(eq("photo-123"), eq(Duration.ofMinutes(10)))).thenReturn(signedUrl);
 
         Optional<PublicFoundItemResponse> response = service.getPublicFoundItemDetail(id, venueId);
 
@@ -532,7 +602,7 @@ class FoundItemServiceTest {
         assertEquals("Schwarzer Rucksack", response.get().description());
         assertEquals("Neben Buehne 2", response.get().locationHint());
         assertEquals("Bag", response.get().attributes().category());
-        assertEquals(signedUrl, response.get().photoUrl());
+        assertEquals(URI.create("/api/found-items/" + id + "/photo"), response.get().photoUrl());
     }
 
     @Test

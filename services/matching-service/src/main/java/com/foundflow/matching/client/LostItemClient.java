@@ -17,10 +17,11 @@ public class LostItemClient {
     private final RestClient restClient;
 
     public LostItemClient(
+            RestClient.Builder restClientBuilder,
             @Value("${foundflow.services.lost-item.base-url:http://lost-item-service:8082}")
             String baseUrl
     ) {
-        this.restClient = RestClient.builder()
+        this.restClient = restClientBuilder
                 .baseUrl(baseUrl)
                 .build();
     }

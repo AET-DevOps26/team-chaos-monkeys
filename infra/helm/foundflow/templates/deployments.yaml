@@ -85,6 +85,16 @@ spec:
             # `./gradlew bootRun` stays human-readable.
             - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
               value: "ecs"
+            {{- if $.Values.tempo.enabled }}
+            # Distributed tracing (issue #279): export OTLP spans straight to
+            # Tempo's built-in receiver. 100% sampling — at course traffic,
+            # sampling is a cost lever we don't need. Container-only env, so
+            # bare `./gradlew bootRun` traces nothing and stays quiet.
+            - name: MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT
+              value: "http://tempo:4318/v1/traces"
+            - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+              value: "1.0"
+            {{- end }}
             {{- end }}
             {{- include "foundflow.env" (dict "ctx" $ "name" $name "svc" $svc) | nindent 12 }}
           {{- with $svc.resources }}

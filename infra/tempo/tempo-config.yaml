@@ -1,0 +1,32 @@
+# Tempo in single-binary ("monolithic") mode with filesystem storage — same
+# judgment as Loki: right-sized for course traffic. Shared by docker-compose
+# (bind mount) and Helm (ConfigMap); keep it env-agnostic.
+server:
+  http_listen_port: 3200
+
+# OTLP receiver endpoints must bind 0.0.0.0 explicitly — Tempo 2.2+ defaults
+# them to localhost, which is unreachable from other containers/pods.
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+# 7-day retention (matches Loki) keeps the volume bounded.
+compactor:
+  compaction:
+    block_retention: 168h
+
+usage_report:
+  reporting_enabled: false

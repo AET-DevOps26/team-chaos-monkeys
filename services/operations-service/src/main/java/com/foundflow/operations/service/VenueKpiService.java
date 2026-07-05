@@ -21,6 +21,7 @@ public class VenueKpiService {
 
     public VenueKpiService(
             VenueAccessService venueAccessService,
+            RestClient.Builder restClientBuilder,
             @Value("${foundflow.services.found-item.base-url:http://found-item-service:8083}")
             String foundItemBaseUrl,
             @Value("${foundflow.services.lost-item.base-url:http://lost-item-service:8082}")
@@ -29,13 +30,13 @@ public class VenueKpiService {
             String matchingBaseUrl
     ) {
         this.venueAccessService = venueAccessService;
-        this.foundItemClient = RestClient.builder()
+        this.foundItemClient = restClientBuilder.clone()
                 .baseUrl(foundItemBaseUrl)
                 .build();
-        this.lostItemClient = RestClient.builder()
+        this.lostItemClient = restClientBuilder.clone()
                 .baseUrl(lostItemBaseUrl)
                 .build();
-        this.matchingClient = RestClient.builder()
+        this.matchingClient = restClientBuilder.clone()
                 .baseUrl(matchingBaseUrl)
                 .build();
     }

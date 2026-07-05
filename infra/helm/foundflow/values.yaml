@@ -390,7 +390,8 @@ grafana:
 # ~40Mi of 160Mi, Grafana 61Mi of 192Mi. Spring went 448→416Mi only — their
 # JVM heap tracks the limit (MaxRAMPercentage), so cuts there shrink heap, not
 # waste. After Loki+Alloy: 3850m/4 CPU, 5824Mi/6Gi — leaving 150m/320Mi for
-# Tempo.
+# Tempo. Tempo (#279) now takes exactly that: the limit quota is fully
+# allocated (4000m/4 CPU, 6144Mi/6Gi) — anything new must be funded by a trim.
 loki:
   enabled: true
   image: grafana/loki:3.4.1
@@ -410,6 +411,20 @@ alloy:
   resources:
     requests: { cpu: 25m,  memory: 64Mi }
     limits:   { cpu: 100m, memory: 128Mi }
+
+# Trace store (issue #279): Tempo single-binary, config shared verbatim with
+# docker-compose via files/tempo-config.yaml (symlink to
+# infra/tempo/tempo-config.yaml). Spring services push OTLP spans straight to
+# tempo:4318 (no collector hop); Grafana queries tempo:3200.
+tempo:
+  enabled: true
+  image: grafana/tempo:2.8.1
+  # Small PVC, not emptyDir: trace history survives the Recreate-on-deploy
+  # cycle. 7-day retention (in tempo-config.yaml) bounds the usage.
+  storageSize: 2Gi
+  resources:
+    requests: { cpu: 50m,  memory: 128Mi }
+    limits:   { cpu: 150m, memory: 320Mi }
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

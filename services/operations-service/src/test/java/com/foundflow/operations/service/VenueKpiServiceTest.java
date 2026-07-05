@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -27,6 +28,7 @@ class VenueKpiServiceTest {
             String baseUrl = "http://localhost:" + server.getAddress().getPort();
             VenueKpiService service = new VenueKpiService(
                     new VenueAccessService(),
+                    RestClient.builder(),
                     baseUrl,
                     baseUrl,
                     baseUrl

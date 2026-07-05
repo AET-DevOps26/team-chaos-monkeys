@@ -33,6 +33,14 @@ data:
         url: http://loki:3100
         editable: false
       {{- end }}
+      {{- if .Values.tempo.enabled }}
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo:3200
+        editable: false
+      {{- end }}
   dashboards.yaml: |
     apiVersion: 1
     providers:

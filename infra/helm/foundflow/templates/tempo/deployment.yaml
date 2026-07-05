@@ -1,0 +1,81 @@
+{{/*
+Tempo single-binary trace store, self-deployed like Loki (Rancher Monitoring
+ships neither). Traces live on a small PVC so they survive the
+Recreate-on-every-CD-deploy cycle.
+*/}}
+{{- if .Values.tempo.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: tempo
+spec:
+  replicas: 1
+  # Recreate: single replica on an RWO volume, and no surge pod against the
+  # tight AET namespace quota (see deployments.yaml).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tempo
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "foundflow.labels" . | nindent 8 }}
+        app.kubernetes.io/name: tempo
+        app.kubernetes.io/component: tempo
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/tempo/configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        # Non-root like Loki; fsGroup makes the PVC writable.
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: tempo
+          image: {{ .Values.tempo.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - -config.file=/etc/tempo/tempo-config.yaml
+          ports:
+            - name: http
+              containerPort: 3200
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 45
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tempo
+            - name: storage
+              mountPath: /var/tempo
+          {{- with .Values.tempo.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: foundflow-tempo-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: tempo-data
+{{- end }}

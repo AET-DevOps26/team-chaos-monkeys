@@ -27,6 +27,7 @@ function renderCard(opts: {
   match?: Partial<MatchResponse>
   lostReport?: LostReportResponse
   contactedAt?: string
+  contactStatusKnown?: boolean
 } = {}) {
   const match: MatchResponse = {
     id: MATCH_ID,
@@ -44,6 +45,7 @@ function renderCard(opts: {
       foundItem={foundItem}
       pickup={undefined}
       contactedAt={opts.contactedAt}
+      contactStatusKnown={opts.contactStatusKnown ?? true}
     />,
   )
 }
@@ -56,6 +58,16 @@ describe('<MatchCard /> reach-out control', () => {
     renderCard({ match: { combinedScore: 0.7 } })
 
     expect(reachOutButton()).toBeInTheDocument()
+    expect(screen.queryByText(/guest reached out/i)).not.toBeInTheDocument()
+  })
+
+  it('hides the button until the contact status is known (loading/error)', () => {
+    server.use(foundItemPhotoUrl())
+    renderCard({ match: { combinedScore: 0.7 }, contactStatusKnown: false })
+
+    // An already-contacted match must not show a stale "Reach out" button while
+    // the contacts query is still resolving or has failed.
+    expect(reachOutButton()).not.toBeInTheDocument()
     expect(screen.queryByText(/guest reached out/i)).not.toBeInTheDocument()
   })
 
@@ -93,7 +105,7 @@ describe('<MatchCard /> reach-out control', () => {
     expect(screen.getByText(/no guest email on file/i)).toBeInTheDocument()
   })
 
-  it('reaches out with the guest email and reflects the sent state', async () => {
+  it('reaches out with the guest email and shows a queued state (not reached-out) until delivery confirms', async () => {
     const onBody = vi.fn()
     server.use(foundItemPhotoUrl(), publicMatchLinkCreate(onBody))
     const { user } = renderCard({ match: { combinedScore: 0.7 } })
@@ -101,8 +113,20 @@ describe('<MatchCard /> reach-out control', () => {
     await user.click(reachOutButton()!)
 
     await waitFor(() => expect(onBody).toHaveBeenCalledWith(MATCH_ID, { email: EMAIL }))
-    expect(await screen.findByText(/guest reached out/i)).toBeInTheDocument()
+    // The link request returning does not confirm the email was sent, so the card
+    // shows a queued state — not "Guest reached out", which awaits a real sentAt.
+    expect(await screen.findByText(/awaiting delivery/i)).toBeInTheDocument()
+    expect(screen.queryByText(/guest reached out/i)).not.toBeInTheDocument()
     expect(reachOutButton()).not.toBeInTheDocument()
+  })
+
+  it('renders "reached out" only from a confirmed sentAt', () => {
+    server.use(foundItemPhotoUrl())
+    // contactedAt present (sentAt confirmed) is the only path to the indicator.
+    renderCard({ match: { combinedScore: 0.7 }, contactedAt: '2026-06-30T09:00:00Z' })
+
+    expect(screen.getByText(/guest reached out · /i)).toBeInTheDocument()
+    expect(screen.queryByText(/awaiting delivery/i)).not.toBeInTheDocument()
   })
 
   it('surfaces a retry hint when the reach-out request fails', async () => {

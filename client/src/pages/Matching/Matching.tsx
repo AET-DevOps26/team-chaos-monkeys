@@ -36,7 +36,9 @@ export default function Matching() {
   // joined to matches by id. The server scopes every list to the staff member's
   // venue via the JWT, so one list fetch each replaces per-card by-id lookups.
   const { data: pickups } = useGetPickups(undefined)
-  const { data: contacts } = useGetMatchContacts()
+  // `isSuccess` gates the manual reach-out button: until the contact status is
+  // known, a card can't tell "not contacted" from "not loaded yet".
+  const { data: contacts, isSuccess: contactStatusKnown } = useGetMatchContacts()
   const { lostById, foundById } = useItemMaps()
 
   const pickupByMatchId = useMemo(
@@ -177,6 +179,7 @@ export default function Matching() {
               foundItem={foundById.get(match.foundItemId ?? '')}
               pickup={pickupByMatchId.get(match.id)}
               contactedAt={contactedAtByMatchId.get(match.id)}
+              contactStatusKnown={contactStatusKnown}
             />
           ))}
         </div>

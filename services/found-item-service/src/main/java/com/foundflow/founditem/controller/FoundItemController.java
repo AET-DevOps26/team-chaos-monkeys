@@ -11,6 +11,7 @@ import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoUrlResponse;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 import java.net.URI;
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/found-items")
@@ -142,6 +144,7 @@ public class FoundItemController {
 
     private ResponseEntity<InputStreamResource> photoResponse(PhotoData photo) {
         return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePrivate())
                 .contentType(MediaType.parseMediaType(photo.contentType()))
                 .contentLength(photo.sizeBytes())
                 .body(new InputStreamResource(photo.content()));

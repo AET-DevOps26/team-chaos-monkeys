@@ -189,21 +189,7 @@ public class FoundItemService {
         return foundItemRepository.findById(id)
                 .map(foundItem -> {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
-                    String photoKey = foundItem.getPhotoKey();
-                    if (photoKey == null || photoKey.isBlank()) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
-                    }
-                    try {
-                        return photoStorage.retrieve(photoKey);
-                    } catch (PhotoNotFoundException exception) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
-                    } catch (PhotoStorageException exception) {
-                        throw new ResponseStatusException(
-                                HttpStatus.BAD_GATEWAY,
-                                "Photo storage backend failure.",
-                                exception
-                        );
-                    }
+                    return retrievePhoto(foundItem.getPhotoKey());
                 });
     }
 
@@ -218,7 +204,13 @@ public class FoundItemService {
     public Optional<PublicFoundItemResponse> getPublicFoundItemDetail(UUID id, UUID venueId) {
         return foundItemRepository.findById(id)
                 .filter(foundItem -> foundItem.getVenueId() != null && foundItem.getVenueId().equals(venueId))
-                .map(foundItem -> toPublicResponse(foundItem, signedUrlFor(foundItem.getPhotoKey())));
+                .map(foundItem -> toPublicResponse(foundItem, photoUrlFor(foundItem.getId(), foundItem.getPhotoKey())));
+    }
+
+    public Optional<PhotoData> getPublicFoundItemPhoto(UUID id, UUID venueId) {
+        return foundItemRepository.findById(id)
+                .filter(foundItem -> foundItem.getVenueId() != null && foundItem.getVenueId().equals(venueId))
+                .map(foundItem -> retrievePhoto(foundItem.getPhotoKey()));
     }
 
     public boolean deleteFoundItem(UUID id, Jwt jwt) {
@@ -227,6 +219,7 @@ public class FoundItemService {
                     verifyVenueAccess(jwt, foundItem.getVenueId());
                     String photoKey = foundItem.getPhotoKey();
                     foundItemRepository.delete(foundItem);
+                    eventPublisher.publishFoundItemDeleted(foundItem);
                     safeDeletePhoto(photoKey, id);
                     return true;
                 })
@@ -489,6 +482,7 @@ public class FoundItemService {
         return new FoundItemResponse(
                 foundItem.getId(),
                 foundItem.getPhotoKey(),
+                photoUrlFor(foundItem.getId(), foundItem.getPhotoKey()),
                 foundItem.getIntakeText(),
                 foundItem.getFoundAt(),
                 foundItem.getLocation(),
@@ -497,6 +491,30 @@ public class FoundItemService {
                 foundItem.getReporterId(),
                 toItemAttributesDto(foundItem.getAttributes())
         );
+    }
+
+    private URI photoUrlFor(UUID id, String photoKey) {
+        if (photoKey == null || photoKey.isBlank()) {
+            return null;
+        }
+        return URI.create("/api/found-items/" + id + "/photo");
+    }
+
+    private PhotoData retrievePhoto(String photoKey) {
+        if (photoKey == null || photoKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Found item has no photo.");
+        }
+        try {
+            return photoStorage.retrieve(photoKey);
+        } catch (PhotoNotFoundException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found.", exception);
+        } catch (PhotoStorageException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Photo storage backend failure.",
+                    exception
+            );
+        }
     }
 
     private URI signedUrlFor(String photoKey) {

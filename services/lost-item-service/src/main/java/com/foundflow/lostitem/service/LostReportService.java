@@ -505,6 +505,7 @@ public class LostReportService {
         return new LostReportResponse(
                 lostReport.getId(),
                 lostReport.getPhotoKey(),
+                photoUrlFor(lostReport.getId(), lostReport.getPhotoKey()),
                 lostReport.getDescription(),
                 lostReport.getLostAt(),
                 lostReport.getLocation(),
@@ -513,5 +514,12 @@ public class LostReportService {
                 lostReport.getContactEmail(),
                 toItemAttributesDto(lostReport.getAttributes())
         );
+    }
+
+    private URI photoUrlFor(UUID id, String photoKey) {
+        if (photoKey == null || photoKey.isBlank()) {
+            return null;
+        }
+        return URI.create("/api/lost-items/" + id + "/photo");
     }
 }

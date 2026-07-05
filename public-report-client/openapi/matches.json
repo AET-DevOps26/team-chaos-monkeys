@@ -355,6 +355,37 @@
                 }
             }
         },
+        "/api/matches/public/{token}/found-item/photo": {
+            "get": {
+                "tags": [
+                    "match-controller"
+                ],
+                "operationId": "getPublicFoundItemPhoto",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/matches/histogram": {
             "get": {
                 "tags": [

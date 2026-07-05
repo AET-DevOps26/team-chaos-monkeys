@@ -4,7 +4,6 @@ import type { FoundItemResponse } from '@/api/found-items/model'
 import {
   getGetAllFoundItemsQueryKey,
   useDeleteFoundItem,
-  useGetFoundItemPhotoUrl,
 } from '@/api/found-items/found-item-controller/found-item-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 import { useToast } from '@/components/Toast/toast-context'
@@ -70,9 +69,8 @@ export default function FoundItemCard({ item }: { item: FoundItemResponse }) {
       >
         <div className="absolute inset-0 transition-all duration-300 ease-out group-hover:scale-[1.02] group-hover:blur-sm group-hover:brightness-75">
           <PhotoThumbnail
-            id={item.id}
+            src={item.photoUrl}
             alt={label}
-            usePhotoUrl={useGetFoundItemPhotoUrl}
           />
         </div>
         {confirming && (

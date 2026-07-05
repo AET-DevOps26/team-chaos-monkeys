@@ -1,5 +1,6 @@
 param(
     [string]$GatewayBaseUrl = "http://localhost:8080",
+    [string]$GenaiBaseUrl = "http://localhost:8000",
     [string]$MailpitBaseUrl = "http://localhost:8025",
     [string]$AdminEmail = "admin@foundflow.local",
     [string]$AdminPassword = "admin12345"
@@ -46,6 +47,88 @@ function Assert-Status {
     if ($actual -ne $Expected) {
         $body = Read-ResponseBody $Response
         throw "$Label expected HTTP $Expected but got $actual. Body: $body"
+    }
+
+    Write-Host "[OK] $Label -> HTTP $actual"
+}
+
+function Assert-JsonPostStatus {
+    param(
+        [string]$Url,
+        [object]$Body,
+        [int]$Expected,
+        [string]$Label
+    )
+
+    $requestBody = $Body | ConvertTo-Json -Depth 8
+    $actual = $null
+    $responseBody = ""
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri $Url `
+            -Method POST `
+            -ContentType "application/json" `
+            -Body $requestBody `
+            -UseBasicParsing
+        $actual = [int]$response.StatusCode
+        $responseBody = [string]$response.Content
+    } catch {
+        if ($_.Exception.Response) {
+            $actual = [int]$_.Exception.Response.StatusCode
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $responseBody = [string]$_.ErrorDetails.Message
+            }
+        } else {
+            throw "$Label expected HTTP $Expected but the request failed before an HTTP response. Error: $($_.Exception.Message)"
+        }
+    }
+
+    if ($actual -ne $Expected) {
+        throw "$Label expected HTTP $Expected but got $actual. Body: $responseBody"
+    }
+
+    Write-Host "[OK] $Label -> HTTP $actual"
+}
+
+function Assert-EmptyPostStatus {
+    param(
+        [string]$Url,
+        [string]$AccessToken,
+        [int]$Expected,
+        [string]$Label
+    )
+
+    $headers = @{}
+    if (-not [string]::IsNullOrWhiteSpace($AccessToken)) {
+        $headers.Authorization = "Bearer $AccessToken"
+    }
+
+    $actual = $null
+    $responseBody = ""
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri $Url `
+            -Method POST `
+            -Headers $headers `
+            -Body "" `
+            -UseBasicParsing
+        $actual = [int]$response.StatusCode
+        $responseBody = [string]$response.Content
+    } catch {
+        if ($_.Exception.Response) {
+            $actual = [int]$_.Exception.Response.StatusCode
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+                $responseBody = [string]$_.ErrorDetails.Message
+            }
+        } else {
+            throw "$Label expected HTTP $Expected but the request failed before an HTTP response. Error: $($_.Exception.Message)"
+        }
+    }
+
+    if ($actual -ne $Expected) {
+        throw "$Label expected HTTP $Expected but got $actual. Body: $responseBody"
     }
 
     Write-Host "[OK] $Label -> HTTP $actual"
@@ -155,13 +238,10 @@ function Assert-LoginRejected {
         [string]$Label
     )
 
-    $client = [System.Net.Http.HttpClient]::new()
-    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/login", (JsonContent @{
+    Assert-JsonPostStatus "$GatewayBaseUrl/api/auth/login" @{
         email = $Username
         password = $Password
-    })).Result
-
-    Assert-Status $response 401 $Label
+    } 401 $Label
 }
 
 function Refresh-TokenPair {
@@ -217,12 +297,9 @@ function Assert-RefreshRejected {
         [string]$Label
     )
 
-    $client = [System.Net.Http.HttpClient]::new()
-    $response = $client.PostAsync("$GatewayBaseUrl/api/auth/refresh", (JsonContent @{
+    Assert-JsonPostStatus "$GatewayBaseUrl/api/auth/refresh" @{
         refreshToken = $RefreshToken
-    })).Result
-
-    Assert-Status $response 401 $Label
+    } 401 $Label
 }
 
 function New-GatewayClient {
@@ -263,6 +340,27 @@ function Read-Json {
 
     $parsed = $body | ConvertFrom-Json
     return $parsed
+}
+
+function Get-GenaiProvider {
+    if ($env:GENAI_PROVIDER) {
+        return $env:GENAI_PROVIDER
+    }
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri "$GenaiBaseUrl/_diagnostic" `
+            -Method GET `
+            -UseBasicParsing
+        $diagnostic = $response.Content | ConvertFrom-Json
+        if (-not [string]::IsNullOrWhiteSpace($diagnostic.provider)) {
+            return $diagnostic.provider
+        }
+    } catch {
+        Write-Warning "Could not read GenAI provider from $GenaiBaseUrl/_diagnostic: $($_.Exception.Message)"
+    }
+
+    return 'fake'
 }
 
 function Decode-JwtPayload {
@@ -364,6 +462,23 @@ function Assert-SignedPhotoUrl {
     }
 }
 
+function Assert-ImageResponse {
+    param(
+        [System.Net.Http.HttpResponseMessage]$Response,
+        [string]$Label
+    )
+
+    $contentType = [string]$Response.Content.Headers.ContentType
+    if ($contentType -ne $E2E_PHOTO_MEDIA_TYPE) {
+        throw "$Label should be returned as $E2E_PHOTO_MEDIA_TYPE but got $contentType."
+    }
+
+    $bytes = $Response.Content.ReadAsByteArrayAsync().Result
+    if ($bytes.Length -eq 0) {
+        throw "$Label should return non-empty image bytes."
+    }
+}
+
 # notification-service consumes password-reset / match-invite /
 # pickup-confirmation events
 # asynchronously from RabbitMQ; the persist happens on the first attempt of
@@ -462,6 +577,47 @@ function Wait-ForUserDeleted {
     throw "$Label timed out waiting for user $UserId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
 }
 
+function Wait-ForMatchDeleted {
+    param(
+        [System.Net.Http.HttpClient]$Client,
+        [string]$MatchId,
+        [string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastStatus = $null
+    $lastBody = ""
+    $lastError = ""
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $response = $Client.GetAsync("$GatewayBaseUrl/api/matches/$MatchId").Result
+            $lastStatus = [int]$response.StatusCode
+            $lastBody = ""
+            if ($null -ne $response.Content) {
+                $lastBody = $response.Content.ReadAsStringAsync().Result
+            }
+
+            if ($lastStatus -eq 404) {
+                Write-Host "[OK] $Label -> HTTP 404"
+                return
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    $bodyPreview = $lastBody
+    if ($bodyPreview.Length -gt 500) {
+        $bodyPreview = $bodyPreview.Substring(0, 500) + "..."
+    }
+
+    throw "$Label timed out waiting for match $MatchId to be deleted. Last HTTP status: $lastStatus. Last error: $lastError. Last body: $bodyPreview"
+}
+
 # A persisted notifications row only proves the listener ran; it does NOT prove
 # the email left the service. notification-service sends to the Mailpit sink in
 # local + CI (issue #219), so query Mailpit's REST API to confirm the message
@@ -516,8 +672,11 @@ $publicClient = New-GatewayClient
 # Mailpit's REST API is unauthenticated and not behind the gateway.
 $mailpitClient = [System.Net.Http.HttpClient]::new()
 
-$health = $publicClient.GetAsync("$GatewayBaseUrl/actuator/health").Result
-Assert-Status $health 200 "Gateway health is public"
+$health = Wait-ForStatus `
+    -Url "$GatewayBaseUrl/actuator/health" `
+    -Expected 200 `
+    -Label "Gateway health is public" `
+    -TimeoutSeconds 300
 
 $swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/swagger-ui/index.html").Result
 Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
@@ -1037,6 +1196,38 @@ Assert-Status $crossVenueMatch 403 "Cross-venue match is rejected"
 $matchByIdResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/matches/$($match.id)").Result
 Assert-Status $matchByIdResponse 200 "OPS_MANAGER can load match by id"
 
+$cleanupFoundResponse = Post-Json $opsClient "$GatewayBaseUrl/api/found-items" @{
+    intakeText = "E2E found item for match cleanup"
+    foundAt = "2026-05-19T15:57:00"
+    venueId = $venueId
+    attributes = @{
+        category = "Bag"
+        brand = "Test"
+        color = "Black"
+        marks = @("E2E cleanup")
+    }
+}
+Assert-Status $cleanupFoundResponse 201 "OPS_MANAGER can create found item for match cleanup"
+$cleanupFoundItem = Read-Json $cleanupFoundResponse
+
+$cleanupMatchResponse = Post-Json $opsClient "$GatewayBaseUrl/api/matches" @{
+    foundItemId = $cleanupFoundItem.id
+    lostReportId = $lostItem.id
+    venueId = $venueId
+    attributeScore = 0.7
+    semanticScore = 0.8
+    combinedScore = 0.75
+}
+Assert-Status $cleanupMatchResponse 201 "OPS_MANAGER can create match for found-item cleanup"
+$cleanupMatch = Read-Json $cleanupMatchResponse
+
+$cleanupFoundDeleteResponse = $opsClient.DeleteAsync("$GatewayBaseUrl/api/found-items/$($cleanupFoundItem.id)").Result
+Assert-Status $cleanupFoundDeleteResponse 204 "OPS_MANAGER can delete found item for match cleanup"
+Wait-ForMatchDeleted `
+    -Client $opsClient `
+    -MatchId $cleanupMatch.id `
+    -Label "Found-item delete event removes matching rows"
+
 # Pickup slots are only generated from today onward (PickupService.weeklyDates clamps
 # the start to LocalDate.now()), so anchor the schedule on a Monday computed at run time.
 # Absolute dates rot: once "today" passes the hardcoded date the slot is no longer emitted.
@@ -1109,9 +1300,15 @@ if ($publicFoundItem.id -ne $foundItem.id) {
     throw "Public found-item response should expose the linked found item for guest confirmation."
 }
 if ([string]::IsNullOrWhiteSpace($publicFoundItem.photoUrl)) {
-    throw "Public found-item response should include a signed found-item photo URL."
+    throw "Public found-item response should include a found-item photo URL."
 }
-Assert-SignedPhotoUrl ([pscustomobject]@{ url = $publicFoundItem.photoUrl }) "Public match found-item photo URL"
+$expectedPublicPhotoUrl = "/api/matches/public/$($publicMatchLink.token)/found-item/photo"
+if ($publicFoundItem.photoUrl -ne $expectedPublicPhotoUrl) {
+    throw "Public found-item response should expose the token-scoped photo proxy URL. Expected $expectedPublicPhotoUrl but got $($publicFoundItem.photoUrl)."
+}
+$publicFoundItemPhotoResponse = $publicClient.GetAsync("$GatewayBaseUrl$($publicFoundItem.photoUrl)").Result
+Assert-Status $publicFoundItemPhotoResponse 200 "Public match link can load found-item photo"
+Assert-ImageResponse $publicFoundItemPhotoResponse "Public match found-item photo"
 
 $publicConfirmResponse = $publicClient.PutAsync(
     "$GatewayBaseUrl/api/matches/public/match-links/$($publicMatchLink.token)/confirm",
@@ -1240,8 +1437,11 @@ Assert-Status $publicBlueprintRead 401 "Public client cannot list notification b
 $blueprintsRead = $opsClient.GetAsync("$GatewayBaseUrl/api/notifications/bluePrints").Result
 Assert-Status $blueprintsRead 200 "OPS_MANAGER can list notification blueprints"
 
-$staffBlueprintWrite = $staffClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
-Assert-Status $staffBlueprintWrite 403 "STAFF cannot create notification blueprints"
+Assert-EmptyPostStatus `
+    -Url "$GatewayBaseUrl/api/notifications/bluePrints" `
+    -AccessToken $staffTokens.accessToken `
+    -Expected 403 `
+    -Label "STAFF cannot create notification blueprints"
 
 $opsBlueprintWrite = $opsClient.PostAsync("$GatewayBaseUrl/api/notifications/bluePrints", (EmptyContent)).Result
 Assert-Status $opsBlueprintWrite 202 "OPS_MANAGER can create notification blueprints"
@@ -1266,7 +1466,7 @@ if ($kpiBody.totalFoundItems -lt 1 -or $kpiBody.totalLostItems -lt 1 -or $kpiBod
 # (GENAI_PROVIDER=openai|local) the category value depends on the model,
 # so we relax to a presence check - the contract is "extraction ran and
 # populated a non-empty category", not the specific value.
-$genaiProvider = if ($env:GENAI_PROVIDER) { $env:GENAI_PROVIDER } else { 'fake' }
+$genaiProvider = Get-GenaiProvider
 $extractionLostRequest = @{
     description = "E2E lost item without attributes"
     lostAt = "2026-05-19T16:00:00"

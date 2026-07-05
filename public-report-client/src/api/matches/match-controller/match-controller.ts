@@ -673,6 +673,93 @@ export function useGetPublicFoundItem<TData = Awaited<ReturnType<typeof getPubli
 
 
 
+export const getPublicFoundItemPhoto = (
+    token: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<Blob>(
+      {url: `/api/matches/public/${token}/found-item/photo`, method: 'GET',
+        responseType: 'blob', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetPublicFoundItemPhotoQueryKey = (token?: string,) => {
+    return [
+    `/api/matches/public/${token}/found-item/photo`
+    ] as const;
+    }
+
+    
+export const getGetPublicFoundItemPhotoQueryOptions = <TData = Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError = ErrorType<unknown>>(token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicFoundItemPhotoQueryKey(token);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>> = ({ signal }) => getPublicFoundItemPhoto(token, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(token), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetPublicFoundItemPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>>
+export type GetPublicFoundItemPhotoQueryError = ErrorType<unknown>
+
+
+export function useGetPublicFoundItemPhoto<TData = Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ token: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicFoundItemPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicFoundItemPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetPublicFoundItemPhoto<TData = Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicFoundItemPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicFoundItemPhoto>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetPublicFoundItemPhoto<TData = Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+
+export function useGetPublicFoundItemPhoto<TData = Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError = ErrorType<unknown>>(
+ token: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicFoundItemPhoto>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetPublicFoundItemPhotoQueryOptions(token,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
 export const getMatchHistogram = (
     params?: GetMatchHistogramParams,
  signal?: AbortSignal

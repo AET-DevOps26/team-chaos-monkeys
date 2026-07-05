@@ -11,10 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,32 +63,12 @@ public class NotificationService {
     }
 
     public List<MatchContactStatusResponse> getMatchContactStatuses(Jwt jwt) {
-        List<Notification> notifications = venueAccessService.isAdmin(jwt)
-                ? notificationRepository.findByMatchIdNotNull()
-                : notificationRepository.findByVenueIdAndMatchIdNotNull(venueAccessService.getVenueId(jwt));
-
-        // Collapse to one row per match, keeping the latest send time. A null sentAt
-        // means every notification for that match is still queued (not yet sent).
-        // (Map.merge can't be used here: it rejects null values, and sentAt is nullable.)
-        Map<UUID, LocalDateTime> latestSentByMatch = new LinkedHashMap<>();
-        for (Notification notification : notifications) {
-            UUID matchId = notification.getMatchId();
-            latestSentByMatch.put(matchId, later(latestSentByMatch.get(matchId), notification.getSentAt()));
+        if (venueAccessService.isAdmin(jwt)) {
+            return notificationRepository.findAllMatchContactStatuses();
         }
 
-        return latestSentByMatch.entrySet().stream()
-                .map(entry -> new MatchContactStatusResponse(entry.getKey(), entry.getValue()))
-                .toList();
-    }
-
-    private static LocalDateTime later(LocalDateTime a, LocalDateTime b) {
-        if (a == null) {
-            return b;
-        }
-        if (b == null) {
-            return a;
-        }
-        return a.isAfter(b) ? a : b;
+        UUID venueId = venueAccessService.getVenueId(jwt);
+        return notificationRepository.findMatchContactStatusesByVenueId(venueId);
     }
 
     public Optional<NotificationResponse> getNotificationById(

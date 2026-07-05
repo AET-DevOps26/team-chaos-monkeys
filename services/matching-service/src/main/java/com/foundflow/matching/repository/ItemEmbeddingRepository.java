@@ -68,6 +68,14 @@ public class ItemEmbeddingRepository {
         );
     }
 
+    public int deleteByItemTypeAndItemId(ItemType itemType, UUID itemId) {
+        return jdbcTemplate.update(
+                "DELETE FROM item_embeddings WHERE item_type = ? AND item_id = ?",
+                itemType.name(),
+                itemId
+        );
+    }
+
     public List<SimilarItemEmbedding> findTopKSimilar(
             ItemType oppositeType,
             UUID venueId,

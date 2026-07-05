@@ -2,7 +2,11 @@ package com.foundflow.founditem.controller;
 
 import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.service.FoundItemService;
+import com.foundflow.photo.storage.PhotoData;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @RestController
@@ -44,9 +49,29 @@ public class InternalFoundItemController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<InputStreamResource> getPublicFoundItemPhoto(
+            @PathVariable UUID id,
+            @RequestParam UUID venueId,
+            @RequestHeader(name = "X-FoundFlow-Internal-Token", required = false) String requestToken
+    ) {
+        verifyInternalToken(requestToken);
+        return foundItemService.getPublicFoundItemPhoto(id, venueId)
+                .map(this::photoResponse)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     private void verifyInternalToken(String requestToken) {
         if (!internalToken.equals(requestToken)) {
             throw new AccessDeniedException("Invalid internal request token.");
         }
+    }
+
+    private ResponseEntity<InputStreamResource> photoResponse(PhotoData photo) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePrivate())
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .contentLength(photo.sizeBytes())
+                .body(new InputStreamResource(photo.content()));
     }
 }

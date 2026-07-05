@@ -424,6 +424,10 @@
                     "photoKey": {
                         "type": "string"
                     },
+                    "photoUrl": {
+                        "type": "string",
+                        "format": "uri"
+                    },
                     "description": {
                         "type": "string"
                     },

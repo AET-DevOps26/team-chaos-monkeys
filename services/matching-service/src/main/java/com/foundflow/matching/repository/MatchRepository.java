@@ -51,6 +51,10 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     @Modifying
     @Transactional
+    int deleteByFoundItemId(UUID foundItemId);
+
+    @Modifying
+    @Transactional
     @Query("""
         UPDATE Match m
            SET m.status = :newStatus

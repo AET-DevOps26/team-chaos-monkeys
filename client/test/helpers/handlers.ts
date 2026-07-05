@@ -55,6 +55,13 @@ export const foundItemPhotoUrl = (url = 'https://example.test/photo.jpg') =>
     HttpResponse.json<PhotoUrlResponse>({ url }),
   )
 
+export const foundItemPhoto = () =>
+  http.get('*/api/found-items/:id/photo', () =>
+    HttpResponse.text('', {
+      headers: { 'Content-Type': 'image/jpeg' },
+    }),
+  )
+
 export const foundItemDeleteSuccess = () =>
   http.delete('*/api/found-items/:id', () => new HttpResponse(null, { status: 204 }))
 
@@ -73,6 +80,13 @@ export const lostReportsListError = () =>
 export const lostReportPhotoUrl = (url = 'https://example.test/lost-photo.jpg') =>
   http.get('*/api/lost-items/:id/photo-url', () =>
     HttpResponse.json<PhotoUrlResponse>({ url }),
+  )
+
+export const lostReportPhoto = () =>
+  http.get('*/api/lost-items/:id/photo', () =>
+    HttpResponse.text('', {
+      headers: { 'Content-Type': 'image/jpeg' },
+    }),
   )
 
 export const foundItemById = (items: FoundItemResponse[]) =>

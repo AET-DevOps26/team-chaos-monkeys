@@ -6,6 +6,7 @@ import com.foundflow.matching.client.FoundItemClient;
 import com.foundflow.matching.client.ItemVenueReference;
 import com.foundflow.matching.client.LostItemClient;
 import com.foundflow.matching.client.LostReportContactReference;
+import com.foundflow.matching.client.RemotePhoto;
 import com.foundflow.matching.domain.Match;
 import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
@@ -31,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -234,7 +236,20 @@ public class MatchService {
         MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
         return matchRepository.findById(claims.matchId())
                 .filter(match -> match.getVenueId().equals(claims.venueId()))
-                .map(match -> foundItemClient.getPublicFoundItemDetail(
+                .map(match -> withPublicPhotoUrl(
+                        foundItemClient.getPublicFoundItemDetail(
+                                match.getFoundItemId(),
+                                match.getVenueId()
+                        ),
+                        token
+                ));
+    }
+
+    public Optional<RemotePhoto> getPublicFoundItemPhoto(String token) {
+        MagicLinkClaims claims = magicLinkService.verify(token, MagicLinkService.TYPE_MATCH_VIEW);
+        return matchRepository.findById(claims.matchId())
+                .filter(match -> match.getVenueId().equals(claims.venueId()))
+                .map(match -> foundItemClient.getPublicFoundItemPhoto(
                         match.getFoundItemId(),
                         match.getVenueId()
                 ));
@@ -423,6 +438,21 @@ public class MatchService {
 
     private String pickupUrl(String token) {
         return publicBaseUrl + "/api/pickups/public/" + token;
+    }
+
+    private PublicFoundItemResponse withPublicPhotoUrl(PublicFoundItemResponse response, String token) {
+        URI photoUrl = response.photoUrl() == null
+                ? null
+                : URI.create("/api/matches/public/" + token + "/found-item/photo");
+        return new PublicFoundItemResponse(
+                response.id(),
+                response.description(),
+                response.foundAt(),
+                response.locationHint(),
+                response.status(),
+                response.attributes(),
+                photoUrl
+        );
     }
 
     private UUID validateAndResolveMatchVenue(

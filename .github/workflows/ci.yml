@@ -342,7 +342,7 @@ jobs:
 
             echo "Waiting for $name at $url..."
 
-            for i in {1..30}; do
+            for i in {1..60}; do
               if curl --fail --silent --show-error "$url" > /dev/null; then
                 echo "$name is reachable."
                 return 0

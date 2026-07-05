@@ -2,7 +2,12 @@ import { http, HttpResponse } from 'msw'
 import type { TokenResponse } from '@/api/auth/model'
 import type { FoundItemResponse, PhotoUrlResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
-import type { ItemSearchResponse, MatchResponse } from '@/api/matches/model'
+import type {
+  ItemSearchResponse,
+  MatchResponse,
+  PublicMatchLinkResponse,
+} from '@/api/matches/model'
+import type { MatchContactStatusResponse } from '@/api/notifications/model'
 import type { PickupResponse, PickupScheduleResponse } from '@/api/pickups/model'
 
 export const loginSuccess = (accessToken = 'test-access-token') =>
@@ -100,6 +105,26 @@ export const matchesList = (items: MatchResponse[]) =>
 
 export const matchesListError = () =>
   http.get('*/api/matches', () =>
+    HttpResponse.json({ message: 'boom' }, { status: 500 }),
+  )
+
+export const matchContactsList = (items: MatchContactStatusResponse[] = []) =>
+  http.get('*/api/notifications/match-contacts', () =>
+    HttpResponse.json<MatchContactStatusResponse[]>(items),
+  )
+
+export const publicMatchLinkCreate = (onBody?: (id: string, body: unknown) => void) =>
+  http.post('*/api/matches/:id/public-link', async ({ request, params }) => {
+    const body = await request.json()
+    onBody?.(String(params.id), body)
+    return HttpResponse.json<PublicMatchLinkResponse>(
+      { token: 'test-token', matchUrl: 'https://example.test/report/match/test-token' },
+      { status: 201 },
+    )
+  })
+
+export const publicMatchLinkCreateError = () =>
+  http.post('*/api/matches/:id/public-link', () =>
     HttpResponse.json({ message: 'boom' }, { status: 500 }),
   )
 

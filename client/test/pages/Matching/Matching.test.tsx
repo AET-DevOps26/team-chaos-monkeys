@@ -7,6 +7,7 @@ import {
   foundItemPhotoUrl,
   lostReportsList,
   lostReportPhotoUrl,
+  matchContactsList,
   matchesList,
   matchesListError,
   pickupsList,
@@ -77,6 +78,7 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
   server.use(
     matchesList(matches),
     pickupsList(pickups),
+    matchContactsList(),
     foundItemsList(FOUND),
     lostReportsList(LOST),
     foundItemPhotoUrl(),
@@ -213,6 +215,7 @@ describe('<Matching />', () => {
     server.use(
       matchesList([]),
       pickupsList([]),
+      matchContactsList(),
       foundItemsList(FOUND),
       lostReportsList(LOST),
       foundItemPhotoUrl(),
@@ -235,7 +238,7 @@ describe('<Matching />', () => {
   })
 
   it('shows an error state with a retry button when the request fails', async () => {
-    server.use(matchesListError(), pickupsList([]))
+    server.use(matchesListError(), pickupsList([]), matchContactsList())
     renderWithProviders(<Matching />)
 
     expect(await screen.findByText(/couldn't load matches/i)).toBeInTheDocument()

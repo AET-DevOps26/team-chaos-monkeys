@@ -18,12 +18,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job, event_type) (rate(matching_candidate_search_skipped_total[5m]))",
+          "expr": "sum by (job, event_type) (rate(matching_candidate_search_skipped_total{namespace=~\"$namespace\"}[5m]))",
           "legendFormat": "{{job}} / {{event_type}}"
         },
         {
           "refId": "B",
-          "expr": "sum by (job, event_type) (rate(notifications_send_failures_total[5m]))",
+          "expr": "sum by (job, event_type) (rate(notifications_send_failures_total{namespace=~\"$namespace\"}[5m]))",
           "legendFormat": "{{job}} / {{event_type}}"
         }
       ]
@@ -39,12 +39,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job, event_type) (matching_candidate_search_skipped_total)",
+          "expr": "sum by (job, event_type) (matching_candidate_search_skipped_total{namespace=~\"$namespace\"})",
           "legendFormat": "{{job}} / {{event_type}}"
         },
         {
           "refId": "B",
-          "expr": "sum by (job, event_type) (notifications_send_failures_total)",
+          "expr": "sum by (job, event_type) (notifications_send_failures_total{namespace=~\"$namespace\"})",
           "legendFormat": "{{job}} / {{event_type}}"
         }
       ]
@@ -53,7 +53,23 @@
   "refresh": "30s",
   "schemaVersion": 39,
   "tags": ["foundflow", "consumers", "amqp"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(up, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "selected": false, "text": "team-chaos-monkeys", "value": "team-chaos-monkeys" }
+      }
+    ]
+  },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "",

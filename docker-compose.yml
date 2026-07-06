@@ -193,6 +193,7 @@ services:
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       MAGIC_LINK_SECRET: ${MAGIC_LINK_SECRET:?MAGIC_LINK_SECRET is required}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
     depends_on:
       pickup-db:
         condition: service_healthy

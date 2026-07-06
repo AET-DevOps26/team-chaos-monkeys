@@ -1,0 +1,50 @@
+# Accepted / deferred IaC findings for the iac-scan CI job (#287).
+# Every entry needs a justification and, if the finding is real but deferred,
+# a follow-up issue. Remove entries as the follow-ups land; once this file is
+# empty of deferrals, flip iac-scan to blocking (drop continue-on-error).
+misconfigurations:
+  # --- deferred: k8s pod hardening (#289) -----------------------------------
+  - id: KSV-0014 # readOnlyRootFilesystem not set
+    paths:
+      - rendered-manifests/foundflow.yaml
+    statement: >-
+      Deferred to #289. Needs per-workload emptyDir tmp mounts
+      (postgres/rabbitmq/grafana/minio) and verification against the tight
+      AET namespace quota before it can be enabled chart-wide.
+
+  - id: KSV-0118 # default (root-capable) security context
+    paths:
+      - rendered-manifests/foundflow.yaml
+    statement: >-
+      Deferred to #289. Hardened securityContext (runAsNonRoot, drop ALL,
+      seccomp) is added chart-wide there; images already run as non-root
+      since #287.
+
+  # --- deferred: nginx SPA/edge images run as root (#289) -------------------
+  - id: DS-0002 # no non-root USER in Dockerfile
+    paths:
+      - client/Dockerfile
+      - public-report-client/Dockerfile
+      - edge/Dockerfile
+    statement: >-
+      Stock nginx must start as root to bind :80. Deferred to #289: switch to
+      nginx-unprivileged (port 8080), which ripples into compose ports, helm
+      targetPorts and the edge upstreams. All Spring/genai images already run
+      as non-root.
+
+  # --- deferred: ephemeral Azure VM NSG open to world (#290) ----------------
+  - id: AZU-0047 # NSG ingress from 0.0.0.0/0
+    paths:
+      - deploy/terraform/main.tf
+    statement: >-
+      Exposure window is bounded — the VM is ephemeral (provision → deploy →
+      destroy via azure-cycle.yml, never left running) and the app ports are
+      intentionally public for the demo smoke test. #290 restricts SSH to the
+      CI runner IP and narrows this suppression.
+
+  - id: AZU-0050 # SSH open to world
+    paths:
+      - deploy/terraform/main.tf
+    statement: >-
+      Same ephemeral-VM rationale as AZU-0047; SSH is only used by the CI
+      runner during the cycle. Fixed properly in #290 (runner-IP /32).

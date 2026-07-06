@@ -5,6 +5,7 @@ import { server } from '@test/server'
 import {
   foundItemsList,
   lostReportsList,
+  matchContactsList,
   matchesList,
   matchesListError,
   pickupsList,
@@ -94,6 +95,7 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
   server.use(
     matchesList(matches),
     pickupsList(pickups),
+    matchContactsList(),
     foundItemsList(FOUND),
     lostReportsList(LOST),
   )
@@ -228,6 +230,7 @@ describe('<Matching />', () => {
     server.use(
       matchesList([]),
       pickupsList([]),
+      matchContactsList(),
       foundItemsList(FOUND),
       lostReportsList(LOST),
     )
@@ -251,6 +254,7 @@ describe('<Matching />', () => {
     server.use(
       matchesListError(),
       pickupsList([]),
+      matchContactsList(),
       foundItemsList([]),
       lostReportsList([]),
     )

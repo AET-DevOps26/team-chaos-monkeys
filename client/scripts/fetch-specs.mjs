@@ -16,6 +16,7 @@ const SPECS = [
   { prefix: 'found-items', file: 'found-items.json' },
   { prefix: 'matches', file: 'matches.json' },
   { prefix: 'pickups', file: 'pickups.json' },
+  { prefix: 'notifications', file: 'notifications.json' },
   { prefix: 'venues', file: 'operations.json' },
   { prefix: 'matches', file: 'matching.json' },
 ]

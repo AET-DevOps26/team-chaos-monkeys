@@ -1,5 +1,6 @@
 package com.foundflow.genai.client;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -25,12 +26,18 @@ public class GenaiClientAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public GenaiClient genaiClient(GenaiProperties properties) {
+    public GenaiClient genaiClient(
+            GenaiProperties properties,
+            ObjectProvider<RestClient.Builder> restClientBuilder
+    ) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(properties.connectTimeout());
         requestFactory.setReadTimeout(properties.readTimeout());
 
-        RestClient.Builder builder = RestClient.builder()
+        // Boot's auto-configured builder carries the ObservationRegistry, so
+        // outbound calls get traceparent; fall back for non-Boot test contexts.
+        RestClient.Builder builder = restClientBuilder
+                .getIfAvailable(RestClient::builder)
                 .baseUrl(properties.baseUrl())
                 .requestFactory(requestFactory)
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);

@@ -3,6 +3,7 @@ import { useGetAllMatches } from '@/api/matches/match-controller/match-controlle
 import { GetAllMatchesStatus } from '@/api/matches/model'
 import type { GetAllMatchesStatus as Status } from '@/api/matches/model'
 import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller'
+import { useGetMatchContacts } from '@/api/notifications/notification-controller/notification-controller'
 import { useItemMaps } from '@/lib/useItemMaps'
 import { filterPillClass } from '@/components/filterPill'
 import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
@@ -35,11 +36,21 @@ export default function Matching() {
   // joined to matches by id. The server scopes every list to the staff member's
   // venue via the JWT, so one list fetch each replaces per-card by-id lookups.
   const { data: pickups } = useGetPickups(undefined)
+  // `isSuccess` gates the manual reach-out button: until the contact status is
+  // known, a card can't tell "not contacted" from "not loaded yet".
+  const { data: contacts, isSuccess: contactStatusKnown } = useGetMatchContacts()
   const { lostById, foundById } = useItemMaps()
 
   const pickupByMatchId = useMemo(
     () => new Map((pickups ?? []).map((p) => [p.matchId, p])),
     [pickups],
+  )
+
+  // matchId → sentAt of the guest's invite email (undefined when never contacted
+  // or still queued). Drives the "reached out" state on each card.
+  const contactedAtByMatchId = useMemo(
+    () => new Map((contacts ?? []).map((c) => [c.matchId, c.sentAt])),
+    [contacts],
   )
 
   const recentMatches = useMemo(() => {
@@ -167,6 +178,8 @@ export default function Matching() {
               lostReport={lostById.get(match.lostReportId ?? '')}
               foundItem={foundById.get(match.foundItemId ?? '')}
               pickup={pickupByMatchId.get(match.id)}
+              contactedAt={contactedAtByMatchId.get(match.id)}
+              contactStatusKnown={contactStatusKnown}
             />
           ))}
         </div>

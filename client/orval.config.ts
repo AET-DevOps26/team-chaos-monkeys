@@ -133,6 +133,16 @@ export default defineConfig({
       mode: 'single',
     },
   },
+  notifications: {
+    input: './openapi/notifications.json',
+    output: {
+      target: './src/api/notifications/index.ts',
+      client: 'react-query',
+      mode: 'tags-split',
+      schemas: './src/api/notifications/model',
+      override: apiOverride,
+    },
+  },
   operations: {
     input: './openapi/operations.json',
     output: {

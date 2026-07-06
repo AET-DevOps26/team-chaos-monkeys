@@ -124,6 +124,38 @@ jobs:
             prom/prometheus:v2.55.1 \
             test rules /etc/prometheus/alerts_test.yml
 
+  iac-scan:
+    name: IaC security scan (trivy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Scan the chart as it actually deploys (AET values), not the raw
+      # templates — infra/helm is skip-dir'ed below so findings aren't
+      # double-reported against the unrendered templates.
+      - name: Render Helm chart with production (AET) values
+        run: |
+          mkdir -p rendered-manifests
+          helm template foundflow infra/helm/foundflow \
+            -f infra/helm/foundflow/values-aet.yaml \
+            > rendered-manifests/foundflow.yaml
+
+      - name: Scan Dockerfiles, Terraform, compose + rendered manifests
+        uses: aquasecurity/trivy-action@v0.36.0
+        # Non-blocking until the deferred findings in .trivyignore.yaml are
+        # burned down (#289, #290) — then drop continue-on-error.
+        continue-on-error: true
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          skip-dirs: infra/helm
+          trivyignores: .trivyignore.yaml
+
   client-build:
     name: Build client
     runs-on: ubuntu-24.04

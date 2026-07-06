@@ -42,6 +42,7 @@ dependencies {
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
 }
 
 tasks.named('test') {

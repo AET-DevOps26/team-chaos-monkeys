@@ -1,0 +1,34 @@
+{{/*
+ClusterIP Service named exactly `tempo` — Grafana's datasource URL
+(http://tempo:3200) and the services' OTLP export endpoint
+(http://tempo:4318/v1/traces) are the same literals in compose and k8s.
+*/}}
+{{- if .Values.tempo.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: tempo
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3200
+      targetPort: http
+      protocol: TCP
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

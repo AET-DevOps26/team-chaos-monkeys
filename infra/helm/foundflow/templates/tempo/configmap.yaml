@@ -1,0 +1,17 @@
+{{/*
+Tempo config, shared verbatim with docker-compose: files/tempo-config.yaml is a
+symlink to infra/tempo/tempo-config.yaml (same pattern as loki/dashboards).
+*/}}
+{{- if .Values.tempo.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundflow-tempo-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: tempo
+data:
+  tempo-config.yaml: |
+{{ .Files.Get "files/tempo-config.yaml" | indent 4 }}
+{{- end }}

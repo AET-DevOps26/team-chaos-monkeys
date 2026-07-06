@@ -22,6 +22,7 @@ public class FoundItemClient {
     private final String internalToken;
 
     public FoundItemClient(
+            RestClient.Builder restClientBuilder,
             @Value("${foundflow.services.found-item.base-url:http://found-item-service:8083}")
             String baseUrl,
             @Value("${foundflow.internal.token}")
@@ -30,7 +31,7 @@ public class FoundItemClient {
         if (internalToken == null || internalToken.isBlank()) {
             throw new IllegalStateException("foundflow.internal.token must be configured.");
         }
-        this.restClient = RestClient.builder()
+        this.restClient = restClientBuilder
                 .baseUrl(baseUrl)
                 .build();
         this.internalToken = internalToken;

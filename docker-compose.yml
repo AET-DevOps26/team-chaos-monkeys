@@ -9,6 +9,8 @@ services:
     environment:
       SERVER_PORT: 8080
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       - auth-service
       - lost-item-service
@@ -26,6 +28,8 @@ services:
     environment:
       SERVER_PORT: 8081
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/${AUTH_DB_NAME:?AUTH_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${AUTH_DB_USER:?AUTH_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
@@ -52,6 +56,8 @@ services:
     environment:
       SERVER_PORT: 8082
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://lost-item-db:5432/${LOST_ITEM_DB_NAME:?LOST_ITEM_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${LOST_ITEM_DB_USER:?LOST_ITEM_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${LOST_ITEM_DB_PASSWORD:?LOST_ITEM_DB_PASSWORD is required}
@@ -87,6 +93,8 @@ services:
     environment:
       SERVER_PORT: 8083
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://found-item-db:5432/${FOUND_ITEM_DB_NAME:?FOUND_ITEM_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${FOUND_ITEM_DB_USER:?FOUND_ITEM_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${FOUND_ITEM_DB_PASSWORD:?FOUND_ITEM_DB_PASSWORD is required}
@@ -120,6 +128,8 @@ services:
     environment:
       SERVER_PORT: 8084
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://matching-db:5432/${MATCHING_DB_NAME:?MATCHING_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${MATCHING_DB_USER:?MATCHING_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${MATCHING_DB_PASSWORD:?MATCHING_DB_PASSWORD is required}
@@ -148,6 +158,8 @@ services:
     environment:
       SERVER_PORT: 8085
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/${NOTIFICATION_DB_NAME:?NOTIFICATION_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${NOTIFICATION_DB_USER:?NOTIFICATION_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
@@ -184,6 +196,8 @@ services:
     environment:
       SERVER_PORT: 8087
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://pickup-db:5432/${PICKUP_DB_NAME:?PICKUP_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${PICKUP_DB_USER:?PICKUP_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${PICKUP_DB_PASSWORD:?PICKUP_DB_PASSWORD is required}
@@ -208,6 +222,8 @@ services:
     environment:
       SERVER_PORT: 8086
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:postgresql://operations-db:5432/${OPERATIONS_DB_NAME:?OPERATIONS_DB_NAME is required}
       SPRING_DATASOURCE_USERNAME: ${OPERATIONS_DB_USER:?OPERATIONS_DB_USER is required}
       SPRING_DATASOURCE_PASSWORD: ${OPERATIONS_DB_PASSWORD:?OPERATIONS_DB_PASSWORD is required}
@@ -376,6 +392,25 @@ services:
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
+    restart: unless-stopped
+
+  # Trace store (single-binary mode, filesystem storage). Internal-only: Grafana
+  # proxies queries, the Spring services push OTLP spans to tempo:4318 —
+  # nothing on the host needs it.
+  tempo:
+    image: grafana/tempo:2.8.1
+    container_name: foundflow-tempo
+    command:
+      - -config.file=/etc/tempo/tempo-config.yaml
+    volumes:
+      - ./infra/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - tempo-data:/var/tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3200/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     restart: unless-stopped
 
   # Log store (single-binary mode, filesystem storage). Internal-only: Grafana
@@ -579,3 +614,4 @@ volumes:
   prometheus-data:
   grafana-data:
   loki-data:
+  tempo-data:

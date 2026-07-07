@@ -52,9 +52,9 @@ export default function Dashboard() {
   const chartLoading = found.isLoading || lost.isLoading || matches.isLoading
 
   const series = [
-    { key: 'found', label: 'Found items', color: '#2563eb', data: found.data },
-    { key: 'lost', label: 'Lost reports', color: '#f59e0b', data: lost.data },
-    { key: 'matches', label: 'Matches', color: '#16a34a', data: matches.data },
+    { key: 'found', label: 'Found items', color: '#06b6d4', data: found.data },
+    { key: 'lost', label: 'Lost reports', color: '#ec4899', data: lost.data },
+    { key: 'matches', label: 'Matches', color: '#7d33ff', data: matches.data },
   ]
 
   return (

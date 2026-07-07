@@ -20,6 +20,12 @@ metadata:
 spec:
   route:
     receiver: team-mail
+    # Only our own rules (labeled in alerts.yml). Without this, the operator's
+    # namespace matcher also routes Rancher's built-in kube alerts here —
+    # InfoInhibitor/CPUThrottlingHigh/KubeQuota* re-mailed every 4h (#323).
+    matchers:
+      - name: source
+        value: foundflow
     groupBy: [alertname, service]
     groupWait: 30s
     groupInterval: 5m

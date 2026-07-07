@@ -7,6 +7,7 @@ groups:
         for: 1m
         labels:
           severity: critical
+          source: foundflow
         annotations:
           summary: "{{ $labels.job }} is down"
           description: "Prometheus has not been able to scrape {{ $labels.job }} for 1 minute."
@@ -20,6 +21,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "{{ $labels.job }}: server error rate > 1%"
           description: "5xx rate has exceeded 1% over the last 5 minutes."
@@ -39,6 +41,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "GenAI provider {{ $labels.provider }} failing on {{ $labels.endpoint }}"
           description: "Non-ok provider outcomes exceed 5% of calls over the last 5 minutes."
@@ -54,6 +57,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "GenAI provider {{ $labels.provider }} slow on {{ $labels.endpoint }}"
           description: "p95 provider-call latency > 5s over the last 10 minutes."
@@ -71,6 +75,7 @@ groups:
         for: 10m
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "Model output failing validation on {{ $labels.endpoint }}"
           description: "Validation failures exceed 10% of successful provider calls over the last 5 minutes."
@@ -82,6 +87,7 @@ groups:
         for: 2m
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "RabbitMQ DLQ {{ $labels.queue }} has messages"
           description: "Dead-letter queue {{ $labels.queue }} has had ready messages for at least 2 minutes."
@@ -95,6 +101,7 @@ groups:
           ) > 3
         labels:
           severity: warning
+          source: foundflow
         annotations:
           summary: "notification-service dropping {{ $labels.event_type }} sends"
           description: "More than 3 notification sends for {{ $labels.event_type }} hit the recoverer (ack-and-drop after retries) in the last 15 minutes."

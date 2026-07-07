@@ -96,6 +96,12 @@ spec:
               value: "1.0"
             {{- end }}
             {{- end }}
+            {{- if and (eq (default "spring" $svc.kind) "python") $.Values.tempo.enabled }}
+            # Distributed tracing (issue #280): same direct-to-Tempo OTLP
+            # export as the Spring services; app/tracing.py gates on this env.
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://tempo:4318/v1/traces"
+            {{- end }}
             {{- include "foundflow.env" (dict "ctx" $ "name" $name "svc" $svc) | nindent 12 }}
           {{- with $svc.resources }}
           resources:

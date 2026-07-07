@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationPredicate;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.server.reactive.observation.ServerRequestObservationContext;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -16,7 +17,7 @@ class ObservabilityConfigTest {
 
     private static ServerRequestObservationContext requestTo(String path) {
         return new ServerRequestObservationContext(
-                MockServerHttpRequest.get(path).build(), new MockServerHttpResponse(), null);
+                MockServerHttpRequest.get(path).build(), new MockServerHttpResponse(), Map.of());
     }
 
     @Test

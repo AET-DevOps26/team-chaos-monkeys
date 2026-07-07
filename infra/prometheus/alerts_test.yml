@@ -23,6 +23,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
+              source: foundflow
               job: auth-service
               instance: auth-service:8081
             exp_annotations:
@@ -53,6 +54,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               job: lost-item-service
             exp_annotations:
               summary: "lost-item-service: server error rate > 1%"
@@ -83,6 +85,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               provider: openai
               endpoint: extract-attributes
             exp_annotations:
@@ -118,6 +121,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               provider: openai
               endpoint: extract-attributes
             exp_annotations:
@@ -153,6 +157,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               endpoint: extract-attributes
             exp_annotations:
               summary: "Model output failing validation on extract-attributes"
@@ -181,6 +186,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               queue: matching.lost-report-created.v1.dlq
               vhost: /
             exp_annotations:
@@ -197,6 +203,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
+              source: foundflow
               event_type: match-invite-requested
             exp_annotations:
               summary: "notification-service dropping match-invite-requested sends"

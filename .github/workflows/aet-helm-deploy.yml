@@ -258,6 +258,10 @@ jobs:
           kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" get pods,svc,ingress
           kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/gateway-service --timeout=180s
           kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/client --timeout=180s
+          # Observability pods fail loudly here instead of only as an opaque
+          # helm --wait timeout (#311: tempo crashlooped for 17h unnoticed).
+          kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/tempo --timeout=180s
+          kubectl --context "$AET_KUBE_CONTEXT" -n "$NAMESPACE" rollout status deployment/loki --timeout=180s
 
       - name: Smoke test public ingress
         run: |

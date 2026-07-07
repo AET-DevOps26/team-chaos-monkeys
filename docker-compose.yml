@@ -395,6 +395,17 @@ services:
       - "9090:9090"
     restart: unless-stopped
 
+  # Alert delivery (issue #282): receives firing alerts from Prometheus and
+  # emails them to mailpit, where they're visible at :8025. Internal-only.
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: foundflow-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+
   # Trace store (single-binary mode, filesystem storage). Internal-only: Grafana
   # proxies queries, the Spring services push OTLP spans to tempo:4318 —
   # nothing on the host needs it.

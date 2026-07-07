@@ -434,3 +434,13 @@ tempo:
 monitoring:
   enabled: true
   prometheusReleaseLabel: kube-prometheus-stack
+
+# Alert delivery (issue #282): namespaced AlertmanagerConfig for the cluster's
+# existing Alertmanager (Rancher Monitoring on AET) — no Alertmanager pod of
+# our own. Email receiver reuses the Brevo SMTP secrets. Off by default;
+# values-aet enables it.
+alerting:
+  enabled: false
+  email:
+    # Recipient; falls back to secrets.brevoMailFromAddress when empty.
+    to: ""

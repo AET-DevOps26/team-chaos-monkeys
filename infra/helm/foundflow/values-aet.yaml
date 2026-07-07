@@ -29,3 +29,9 @@ grafana:
 
 monitoring:
   prometheusReleaseLabel: rancher-monitoring
+
+# Alert delivery (issue #282): route firing alerts through Rancher
+# Monitoring's Alertmanager via a namespaced AlertmanagerConfig, emailing
+# through Brevo with the same secrets notification-service uses.
+alerting:
+  enabled: true

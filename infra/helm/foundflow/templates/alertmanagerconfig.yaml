@@ -1,0 +1,37 @@
+{{/*
+Alert delivery on AET (issue #282): a namespaced AlertmanagerConfig picked up
+by Rancher Monitoring's Alertmanager — no Alertmanager pod of our own (the
+namespace quota is fully allocated). The operator auto-scopes this config to
+alerts carrying our namespace label, which our PrometheusRule alerts do.
+
+Guarded by Capabilities so `helm template` and clusters without the
+prometheus-operator CRDs render nothing instead of failing CD. If Rancher
+RBAC rejects the CR at apply time, set alerting.enabled=false in values-aet
+and document the limitation (the compose half still demonstrates delivery).
+*/}}
+{{- if and .Values.alerting.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1alpha1/AlertmanagerConfig") }}
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: foundflow-alerts
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "foundflow.labels" . | nindent 4 }}
+spec:
+  route:
+    receiver: team-mail
+    groupBy: [alertname, service]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+  receivers:
+    - name: team-mail
+      emailConfigs:
+        - to: {{ .Values.alerting.email.to | default .Values.secrets.brevoMailFromAddress | quote }}
+          from: {{ .Values.secrets.brevoMailFromAddress | quote }}
+          smarthost: smtp-relay.brevo.com:587
+          authUsername: {{ .Values.secrets.brevoSmtpUsername | quote }}
+          authPassword:
+            name: foundflow-app-secrets
+            key: brevoSmtpPassword
+{{- end }}

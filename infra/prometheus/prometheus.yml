@@ -6,6 +6,14 @@ global:
 rule_files:
   - /etc/prometheus/alerts.yml
 
+# Alert delivery (issue #282): compose-only Alertmanager routing to mailpit.
+# On AET the Rancher Monitoring Alertmanager takes this role instead (see the
+# AlertmanagerConfig CR in the Helm chart).
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: prometheus
     static_configs:

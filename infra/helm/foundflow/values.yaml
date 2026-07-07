@@ -236,8 +236,8 @@ services:
     healthPath: /health
     replicas: 1
     resources:
-      requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 200m, memory: 256Mi }
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { cpu: 200m, memory: 192Mi } # 88Mi live working-set (#311)
     env:
       - { name: LOG_FORMAT, value: "json" }
       - { name: GENAI_PROVIDER, value: openai }
@@ -299,7 +299,7 @@ postgresDefaults:
   image: postgres:17
   resources:
     requests: { cpu: 50m,  memory: 96Mi }
-    limits:   { cpu: 75m,  memory: 128Mi }
+    limits:   { cpu: 75m,  memory: 112Mi } # <=55Mi live working-set each (#311)
 
 # In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
 # Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
@@ -380,7 +380,7 @@ grafana:
   ingressPath: /grafana
   resources:
     requests: { cpu: 50m, memory: 96Mi }
-    limits:   { cpu: 75m, memory: 192Mi }
+    limits:   { cpu: 75m, memory: 128Mi } # 54Mi live working-set (#311)
 
 # Log aggregation (issue #277): Loki + Alloy, self-deployed by this chart the
 # same way Grafana is — neither Rancher Monitoring (AET) nor kube-prometheus-stack
@@ -393,8 +393,12 @@ grafana:
 # ~40Mi of 160Mi, Grafana 61Mi of 192Mi. Spring went 448→416Mi only — their
 # JVM heap tracks the limit (MaxRAMPercentage), so cuts there shrink heap, not
 # waste. After Loki+Alloy: 3850m/4 CPU, 5824Mi/6Gi — leaving 150m/320Mi for
-# Tempo. Tempo (#279) now takes exactly that: the limit quota is fully
-# allocated (4000m/4 CPU, 6144Mi/6Gi) — anything new must be funded by a trim.
+# Tempo.
+# 2026-07-07 (#311): Tempo's 320Mi OOM-crashlooped in production (vParquet4
+# flush spike); raised to 512Mi, funded by trims measured against live
+# working-set (genai 88Mi used, grafana 54Mi, each Postgres <=55Mi):
+# genai 256->192Mi, grafana 192->128Mi, postgresDefaults 128->112Mi.
+# Memory limits now sum to 6096Mi of 6144Mi — 48Mi headroom, nothing more.
 loki:
   enabled: true
   image: grafana/loki:3.4.1
@@ -427,10 +431,22 @@ tempo:
   storageSize: 2Gi
   resources:
     requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 150m, memory: 320Mi }
+    # 320Mi OOM-crashlooped in production on the vParquet4 flush spike (#311);
+    # paired with the ingester block-size caps in tempo-config.yaml.
+    limits:   { cpu: 150m, memory: 512Mi }
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).
 monitoring:
   enabled: true
   prometheusReleaseLabel: kube-prometheus-stack
+
+# Alert delivery (issue #282): namespaced AlertmanagerConfig for the cluster's
+# existing Alertmanager (Rancher Monitoring on AET) — no Alertmanager pod of
+# our own. Email receiver reuses the Brevo SMTP secrets. Off by default;
+# values-aet enables it.
+alerting:
+  enabled: false
+  email:
+    # Recipient; falls back to secrets.brevoMailFromAddress when empty.
+    to: ""

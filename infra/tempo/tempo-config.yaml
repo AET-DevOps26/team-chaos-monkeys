@@ -15,6 +15,13 @@ distributor:
         http:
           endpoint: 0.0.0.0:4318
 
+# Cap in-memory block size well below the 500MB/30min defaults: the vParquet4
+# flush spike OOM-killed the 320Mi AET pod every ~5 minutes (issue #311).
+# Small blocks mean small flushes; the compactor merges them afterwards.
+ingester:
+  max_block_duration: 10m
+  max_block_bytes: 52428800 # 50MB
+
 storage:
   trace:
     backend: local

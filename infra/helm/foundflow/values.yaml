@@ -54,7 +54,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8080" }
 
@@ -66,7 +66,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8081" }
       - { name: SPRING_PROFILES_ACTIVE, value: "dev" }
@@ -89,7 +89,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8082" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -120,7 +120,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8083" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -147,7 +147,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8084" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -169,7 +169,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8085" }
       - { name: SPRING_RABBITMQ_HOST, value: "rabbitmq" }
@@ -194,7 +194,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8086" }
       # Seed the fixed demo venue so /report/grand-plaza-hotel-demo and the
@@ -216,7 +216,7 @@ services:
     replicas: 1
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits:   { cpu: 300m, memory: 416Mi }
+      limits:   { cpu: 250m, memory: 416Mi }
     env:
       - { name: SERVER_PORT, value: "8087" }
       # Seed evergreen demo pickup schedules for the fixed demo venue so the
@@ -302,7 +302,9 @@ postgresDefaults:
   image: postgres:17
   resources:
     requests: { cpu: 50m,  memory: 96Mi }
-    limits:   { cpu: 75m,  memory: 112Mi } # <=55Mi live working-set each (#311)
+    # 75m CFS-throttled every DB 55-65% at idle and pre-throttled every real
+    # query (#316); memory unchanged, <=55Mi live working-set each (#311).
+    limits:   { cpu: 150m, memory: 112Mi }
 
 # In-namespace RabbitMQ broker. Service name "rabbitmq" matches docker-compose so
 # Spring services consume the same SPRING_RABBITMQ_HOST=rabbitmq value in
@@ -402,6 +404,11 @@ grafana:
 # working-set (genai 88Mi used, grafana 54Mi, each Postgres <=55Mi):
 # genai 256->192Mi, grafana 192->128Mi, postgresDefaults 128->112Mi.
 # Memory limits now sum to 6096Mi of 6144Mi — 48Mi headroom, nothing more.
+# 2026-07-07 (#316): every DB pod CFS-throttled 55-65% at idle on 75m; DB CPU
+# 75->150m, funded by Spring 300->250m (boot guarded by the new startupProbe),
+# tempo/loki 150->100m, alloy 100->50m. CPU limits sum to 3975m of 4000m.
+# Memory untouched: heap is pinned via MaxRAMPercentage=70, and the quota
+# leaves nothing to redistribute.
 loki:
   enabled: true
   image: grafana/loki:3.4.1
@@ -410,7 +417,7 @@ loki:
   storageSize: 2Gi
   resources:
     requests: { cpu: 50m,  memory: 128Mi }
-    limits:   { cpu: 150m, memory: 256Mi }
+    limits:   { cpu: 100m, memory: 256Mi }
 
 # Log collector: single Deployment tailing our namespace's pod logs via the
 # Kubernetes API (loki.source.kubernetes) — no DaemonSet/hostPath, which we
@@ -420,7 +427,7 @@ alloy:
   image: grafana/alloy:v1.8.3
   resources:
     requests: { cpu: 25m,  memory: 64Mi }
-    limits:   { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 50m,  memory: 128Mi }
 
 # Trace store (issue #279): Tempo single-binary, config shared verbatim with
 # docker-compose via files/tempo-config.yaml (symlink to
@@ -436,7 +443,7 @@ tempo:
     requests: { cpu: 50m,  memory: 128Mi }
     # 320Mi OOM-crashlooped in production on the vParquet4 flush spike (#311);
     # paired with the ingester block-size caps in tempo-config.yaml.
-    limits:   { cpu: 150m, memory: 512Mi }
+    limits:   { cpu: 100m, memory: 512Mi }
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

@@ -1,9 +1,9 @@
 import { createContext, useContext } from 'react'
 
 // Variants map to colour + icon. Kept small on purpose — these are the only
-// two feedback states the staff app needs (mirrors the inline status colours
+// feedback states the staff app needs (mirrors the inline status colours
 // already used in FoundItemIntake / MatchCard).
-export type ToastVariant = 'success' | 'error'
+export type ToastVariant = 'success' | 'error' | 'warning'
 
 export type Toast = {
   id: string

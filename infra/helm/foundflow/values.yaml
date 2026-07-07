@@ -37,7 +37,10 @@ ingress:
     enabled: true
     clusterIssuer: letsencrypt-prod
     secretName: foundflow-tls
-  annotations: {}
+  annotations:
+    # Photo uploads allow 10 MB (12 MB multipart request); nginx's default
+    # client_max_body_size of 1m would 413 them at the front door (#325).
+    nginx.ingress.kubernetes.io/proxy-body-size: "12m"
 
 # Per-app config consumed by the _app library template.
 # kind: spring | python | static — controls default probe/metrics paths.

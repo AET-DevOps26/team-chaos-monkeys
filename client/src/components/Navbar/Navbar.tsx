@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
+import logo from '@/assets/logo.svg'
 
 const linkBase =
   'rounded px-3 py-1.5 text-sm font-medium transition-colors hover:text-accent'
@@ -15,7 +16,10 @@ export default function Navbar() {
         aria-label="Primary"
         className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-6"
       >
-        <span className="text-base font-semibold text-text-h">FoundFlow</span>
+        <span className="flex items-center gap-2 text-base font-semibold text-text-h">
+          <img src={logo} alt="" className="h-4 w-auto" />
+          FoundFlow
+        </span>
 
         <ul className="flex flex-1 items-center gap-1">
           <li>

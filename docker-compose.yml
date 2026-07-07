@@ -362,6 +362,7 @@ services:
       - "8000:8000"
     environment:
       LOG_FORMAT: json
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
       GENAI_PROVIDER: ${GENAI_PROVIDER:-local}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}

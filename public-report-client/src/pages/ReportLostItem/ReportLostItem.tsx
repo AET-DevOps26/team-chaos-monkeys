@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -47,6 +47,17 @@ export default function ReportLostItem() {
 
   const photo = watch('photo')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const selectPhoto = (file: File | null) => {
+    setValue('photo', file, { shouldValidate: true })
+  }
+
+  const clearPhoto = () => {
+    selectPhoto(null)
+    // Reset the native input so re-selecting the same file fires change.
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
 
   useEffect(() => {
     if (!photo) {
@@ -63,10 +74,9 @@ export default function ReportLostItem() {
     const payload: CreateLostReportRequest = {
       description: data.description,
       contactEmail: data.contactEmail,
-      // `datetime-local` already gives ISO-8601 local time
-      // (`YYYY-MM-DDTHH:mm`); sent as-is so the user's wall-clock
-      // intent is preserved instead of collapsed to UTC.
-      lostAt: data.lostAt,
+      // The date-only field becomes UTC midnight — deterministic and
+      // matching the spec's strict UTC ISO datetime.
+      lostAt: `${data.lostAt}T00:00:00Z`,
       venueId,
     }
 
@@ -135,7 +145,7 @@ export default function ReportLostItem() {
           </label>
           <input
             id="lostAt"
-            type="datetime-local"
+            type="date"
             className="rounded border border-border bg-transparent p-3 outline-none focus:border-accent"
             {...register('lostAt')}
           />
@@ -166,21 +176,43 @@ export default function ReportLostItem() {
             Photo (optional)
           </label>
           <input
+            ref={photoInputRef}
             id="photo"
             type="file"
             accept="image/*"
-            className="text-sm"
-            onChange={(e) => {
-              const file = e.target.files?.[0] ?? null
-              setValue('photo', file, { shouldValidate: true })
-            }}
+            className="sr-only"
+            onChange={(e) => selectPhoto(e.target.files?.[0] ?? null)}
           />
+          <label
+            htmlFor="photo"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const file = e.dataTransfer.files?.[0]
+              if (file && file.type.startsWith('image/')) selectPhoto(file)
+            }}
+            className="flex cursor-pointer flex-col items-center gap-2 rounded border border-dashed border-border p-6 text-center transition-colors hover:border-accent focus-within:border-accent"
+          >
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Selected preview"
+                className="h-auto max-h-60 w-auto max-w-full rounded border border-border object-contain"
+              />
+            ) : (
+              <span className="text-sm text-text">
+                Drag a photo here or click to browse
+              </span>
+            )}
+          </label>
           {previewUrl && (
-            <img
-              src={previewUrl}
-              alt="Selected preview"
-              className="mt-2 h-auto max-h-60 w-auto max-w-full rounded border border-border object-contain"
-            />
+            <button
+              type="button"
+              onClick={clearPhoto}
+              className="self-start text-sm text-text underline hover:text-text-h"
+            >
+              Remove photo
+            </button>
           )}
         </div>
 

@@ -25,9 +25,9 @@ async function fillForm(user: ReturnType<typeof renderWithProviders>['user']) {
     screen.getByLabelText(/description/i),
     'Black leather wallet with three cards inside',
   )
-  // datetime-local doesn't play well with userEvent.type; set it directly.
+  // date inputs don't play well with userEvent.type; set it directly.
   fireEvent.change(screen.getByLabelText(/when did you lose it/i), {
-    target: { value: '2026-05-20T10:00' },
+    target: { value: '2026-05-20' },
   })
   await user.type(screen.getByLabelText(/contact email/i), 'anna@example.com')
 }
@@ -67,10 +67,12 @@ describe('<ReportLostItem />', () => {
     // multipart is what produced the 415. Assert the request goes out as JSON.
     let createMethod = ''
     let createContentType = ''
+    let createBody: Record<string, unknown> = {}
     server.use(
-      http.post('*/api/lost-items', ({ request }) => {
+      http.post('*/api/lost-items', async ({ request }) => {
         createMethod = request.method
         createContentType = request.headers.get('content-type') ?? ''
+        createBody = (await request.json()) as Record<string, unknown>
         return HttpResponse.json<LostReportResponse>(REPORT)
       }),
     )
@@ -87,6 +89,8 @@ describe('<ReportLostItem />', () => {
     expect(screen.getByText(REPORT.description!)).toBeInTheDocument()
     expect(createMethod).toBe('POST')
     expect(createContentType).toMatch(/application\/json/)
+    // The date-only picker value is sent as a strict UTC ISO datetime.
+    expect(createBody.lostAt).toBe('2026-05-20T00:00:00Z')
   })
 
   it('uploads an attached photo as a separate multipart PUT to the report id', async () => {
@@ -112,6 +116,9 @@ describe('<ReportLostItem />', () => {
     await fillForm(user)
     const file = new File(['binary'], 'wallet.png', { type: 'image/png' })
     await user.upload(screen.getByLabelText(/photo/i), file)
+
+    // Selecting via the (visually hidden) dropzone input shows the preview.
+    expect(await screen.findByAltText(/selected preview/i)).toBeInTheDocument()
 
     const submit = screen.getByRole('button', { name: /submit report/i })
     await waitFor(() => expect(submit).toBeEnabled())

@@ -253,6 +253,13 @@ management:
     web:
       exposure:
         include: health,prometheus,info
+  # The OTel starter puts micrometer-registry-otlp on the classpath, which
+  # defaults to pushing metrics to localhost:4318 and WARN-logging the failure.
+  # Metrics are Prometheus-scraped here; OTLP is traces-only (issue #281).
+  otlp:
+    metrics:
+      export:
+        enabled: false
   metrics:
     distribution:
       # Export http.server.requests as a histogram so Grafana can compute p95 latency.

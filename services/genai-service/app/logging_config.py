@@ -13,6 +13,8 @@ import logging
 import os
 from datetime import datetime, timezone
 
+from opentelemetry import trace
+
 
 class EcsJsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -22,6 +24,14 @@ class EcsJsonFormatter(logging.Formatter):
             "log.logger": record.name,
             "message": record.getMessage(),
         }
+        # Same top-level keys Spring's ECS output uses for its MDC trace
+        # context, so one Grafana derived-field regex covers every service
+        # (issue #281). No-op when tracing is off: the span is non-recording
+        # and its context invalid.
+        ctx = trace.get_current_span().get_span_context()
+        if ctx.is_valid:
+            doc["traceId"] = format(ctx.trace_id, "032x")
+            doc["spanId"] = format(ctx.span_id, "016x")
         if record.exc_info:
             doc["error.stack_trace"] = self.formatException(record.exc_info)
         return json.dumps(doc, ensure_ascii=False)

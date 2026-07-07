@@ -28,6 +28,7 @@ from app.logging_config import setup_json_logging_if_configured
 from app.metrics import build_info
 from app.middleware import MaxBodySizeMiddleware
 from app.providers import build_provider
+from app.tracing import setup_tracing_if_configured
 
 
 @asynccontextmanager
@@ -78,6 +79,10 @@ register_exception_handlers(app)
 # before Pydantic parses anything. See ADR 0001 §2/§8 for sizing and
 # `app.middleware` for the implementation.
 app.add_middleware(MaxBodySizeMiddleware)
+
+# After MaxBodySizeMiddleware so the OTel middleware sits outermost and
+# oversized-body rejections still show up as spans.
+setup_tracing_if_configured(app)
 
 
 def _instrumentator_effective_candidate_name(scope: Scope, route: object) -> str | None:

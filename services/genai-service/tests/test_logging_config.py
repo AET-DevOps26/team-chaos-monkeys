@@ -38,6 +38,23 @@ def test_formatter_includes_stack_trace_on_exception():
     assert "ValueError: boom" in doc["error.stack_trace"]
 
 
+def test_formatter_omits_trace_keys_without_active_span():
+    doc = json.loads(EcsJsonFormatter().format(_record()))
+    assert "traceId" not in doc
+    assert "spanId" not in doc
+
+
+def test_formatter_emits_trace_context_inside_span():
+    from opentelemetry.sdk.trace import TracerProvider
+
+    tracer = TracerProvider().get_tracer("test")
+    with tracer.start_as_current_span("op") as span:
+        doc = json.loads(EcsJsonFormatter().format(_record()))
+    ctx = span.get_span_context()
+    assert doc["traceId"] == format(ctx.trace_id, "032x")
+    assert doc["spanId"] == format(ctx.span_id, "016x")
+
+
 def test_setup_is_noop_without_env(monkeypatch):
     monkeypatch.delenv("LOG_FORMAT", raising=False)
     root = logging.getLogger()

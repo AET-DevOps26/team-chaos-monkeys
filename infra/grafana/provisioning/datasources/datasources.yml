@@ -14,9 +14,30 @@ datasources:
     url: http://loki:3100
     editable: false
     uid: loki
+    # logs → trace (issue #281): every service logs a top-level "traceId"
+    # JSON key (Spring MDC passthrough / genai EcsJsonFormatter); render it
+    # as a link into Tempo.
+    jsonData:
+      derivedFields:
+        - name: traceId
+          matcherRegex: '"traceId":"(\w+)"'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
   - name: Tempo
     type: tempo
     access: proxy
     url: http://tempo:3200
     editable: false
     uid: tempo
+    # trace → logs (issue #281): span's service.name resource attribute maps
+    # onto the `service` stream label Alloy attaches; the time window is
+    # padded so lines logged just outside the span still show.
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceID: true
+        tags:
+          - key: 'service.name'
+            value: 'service'

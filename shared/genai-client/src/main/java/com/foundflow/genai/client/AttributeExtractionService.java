@@ -9,6 +9,12 @@ import com.foundflow.photo.storage.PhotoStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -34,6 +40,12 @@ public class AttributeExtractionService {
     // anything outside this set is silently dropped (text-only extraction).
     private static final Set<String> GENAI_SUPPORTED_IMAGE_TYPES =
             Set.of("image/jpeg", "image/png", "image/webp");
+
+    // The GenAI service caps image.dataBase64 at 6_700_000 chars (~5 MB binary)
+    // while photo uploads allow 10 MB, so oversized photos must be downscaled
+    // before the call or genai rejects them with 400 (#307).
+    static final int MAX_IMAGE_BYTES = 6_700_000 / 4 * 3;
+    private static final int MAX_EDGE_PX = 1280;
 
     private final GenaiClient genaiClient;
     private final PhotoStorage photoStorage;
@@ -118,6 +130,19 @@ public class AttributeExtractionService {
 
         try (InputStream stream = photo.content()) {
             byte[] bytes = stream.readAllBytes();
+            if (bytes.length > MAX_IMAGE_BYTES) {
+                bytes = downscale(bytes);
+                if (bytes == null) {
+                    LOGGER.warn(
+                            "Photo {} exceeds the GenAI image limit and could not be decoded for "
+                                    + "downscaling (contentType={}) — extracting without the image",
+                            photoKey,
+                            contentType
+                    );
+                    return null;
+                }
+                contentType = "image/jpeg";
+            }
             ImageContent image = new ImageContent();
             image.setContentType(ImageContent.ContentTypeEnum.fromValue(contentType));
             image.setDataBase64(Base64.getEncoder().encodeToString(bytes));
@@ -126,6 +151,30 @@ public class AttributeExtractionService {
             LOGGER.warn("Could not read photo {} for GenAI extraction", photoKey, exception);
             return null;
         }
+    }
+
+    /**
+     * Re-encodes an oversized photo as a JPEG no larger than {@value #MAX_EDGE_PX}px
+     * on its longest edge. Returns {@code null} when the bytes cannot be decoded
+     * (e.g. WebP, which the JDK's ImageIO has no reader for).
+     */
+    private static byte[] downscale(byte[] original) throws IOException {
+        BufferedImage source = ImageIO.read(new ByteArrayInputStream(original));
+        if (source == null) {
+            return null;
+        }
+        double scale = Math.min(1.0, (double) MAX_EDGE_PX / Math.max(source.getWidth(), source.getHeight()));
+        int width = Math.max(1, (int) Math.round(source.getWidth() * scale));
+        int height = Math.max(1, (int) Math.round(source.getHeight() * scale));
+        // TYPE_INT_RGB drops any alpha channel — required for JPEG encoding.
+        BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = scaled.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        graphics.drawImage(source, 0, 0, width, height, null);
+        graphics.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(scaled, "jpg", out);
+        return out.toByteArray();
     }
 
     private static void closeQuietly(InputStream stream) {

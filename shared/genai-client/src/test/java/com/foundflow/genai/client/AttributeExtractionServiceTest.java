@@ -14,10 +14,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestClientException;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -108,6 +113,54 @@ class AttributeExtractionServiceTest {
     }
 
     @Test
+    void downscalesOversizedImage_beforeSendingToGenai() throws Exception {
+        AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
+
+        byte[] oversizedPng = noisePng(1500, 1500);
+        assertTrue(oversizedPng.length > AttributeExtractionService.MAX_IMAGE_BYTES,
+                "test image must exceed the GenAI byte limit");
+        when(photoStorage.retrieve("photo-key")).thenReturn(new PhotoData(
+                new ByteArrayInputStream(oversizedPng), "image/png", oversizedPng.length
+        ));
+        when(genaiClient.extractAttributes(any())).thenReturn(buildResponse("jacket", null, "black"));
+
+        Optional<ItemAttributes> result = service.extract(null, "photo-key");
+
+        ArgumentCaptor<ExtractAttributesRequest> captor = ArgumentCaptor.forClass(ExtractAttributesRequest.class);
+        verify(genaiClient).extractAttributes(captor.capture());
+        ImageContent image = captor.getValue().getImage();
+        assertNotNull(image);
+        assertEquals(ImageContent.ContentTypeEnum.JPEG, image.getContentType());
+        assertTrue(image.getDataBase64().length() <= 6_700_000,
+                "payload must fit the GenAI schema limit");
+        BufferedImage sent = ImageIO.read(new ByteArrayInputStream(
+                Base64.getDecoder().decode(image.getDataBase64())));
+        assertNotNull(sent);
+        assertTrue(Math.max(sent.getWidth(), sent.getHeight()) <= 1280);
+
+        assertTrue(result.isPresent());
+    }
+
+    @Test
+    void dropsOversizedImage_whenUndecodable_butStillExtractsFromText() {
+        AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
+
+        // WebP passes the content-type filter but the JDK ImageIO cannot decode it.
+        byte[] junk = new byte[AttributeExtractionService.MAX_IMAGE_BYTES + 1];
+        when(photoStorage.retrieve("photo-key")).thenReturn(new PhotoData(
+                new ByteArrayInputStream(junk), "image/webp", junk.length
+        ));
+        when(genaiClient.extractAttributes(any())).thenReturn(buildResponse("hat", null, null));
+
+        service.extract("text desc", "photo-key");
+
+        ArgumentCaptor<ExtractAttributesRequest> captor = ArgumentCaptor.forClass(ExtractAttributesRequest.class);
+        verify(genaiClient).extractAttributes(captor.capture());
+        assertNull(captor.getValue().getImage());
+        assertEquals("text desc", captor.getValue().getDescription());
+    }
+
+    @Test
     void skipsImage_whenContentTypeUnsupported() {
         AttributeExtractionService service = new AttributeExtractionService(genaiClient, photoStorage, enabled);
 
@@ -173,6 +226,20 @@ class AttributeExtractionServiceTest {
 
         assertTrue(result.isEmpty());
         verifyNoInteractions(genaiClient);
+    }
+
+    /** Random-noise PNG — incompressible, so pixel count translates directly into bytes. */
+    private static byte[] noisePng(int width, int height) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Random random = new Random(42);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                image.setRGB(x, y, random.nextInt(0xFFFFFF));
+            }
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
     }
 
     private ExtractAttributesResponse buildResponse(String category, String brand, String color) {

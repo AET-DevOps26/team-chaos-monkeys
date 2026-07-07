@@ -17,6 +17,21 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const asUuidOrPlaceholder = (value: string | null | undefined): string =>
   value && UUID_RE.test(value) ? value : PLACEHOLDER_UUID
 
+// The backend enriches the item synchronously during the photo upload; an
+// empty attributes block in the response means extraction produced nothing
+// and the item won't surface in matching until details are added (#307).
+function hasExtractedAttributes(item: FoundItemResponse): boolean {
+  const attrs = item.attributes
+  if (!attrs) return false
+  return !!(
+    attrs.category ||
+    attrs.description ||
+    attrs.brand ||
+    attrs.color ||
+    attrs.marks?.length
+  )
+}
+
 function nowForDatetimeLocal() {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -89,8 +104,8 @@ export default function FoundItemIntake() {
 
   const onSubmit = async (data: FoundItemIntakeInput) => {
     const payload: CreateFoundItemRequest = {
-      // Operators only supply free-text notes; the GenAI enrichment job derives
-      // attributes and location asynchronously after the item is created.
+      // Operators only supply free-text notes; the GenAI enrichment derives
+      // attributes and location during the subsequent photo upload.
       intakeText: data.intakeText?.trim() || undefined,
       // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
       // send it as-is so it binds to the backend LocalDateTime (no trailing Z).
@@ -114,13 +129,23 @@ export default function FoundItemIntake() {
       if (!created.id) {
         throw new Error('Failed to create found item.')
       }
-      await updateFoundItemPhoto.mutateAsync({ id: created.id, data: { photo: data.photo } })
+      const updated = await updateFoundItemPhoto.mutateAsync({
+        id: created.id,
+        data: { photo: data.photo },
+      })
       reset({
         intakeText: '',
         foundAt: nowForDatetimeLocal(),
         photo: null,
       })
-      show('Found item logged successfully.', { variant: 'success' })
+      if (hasExtractedAttributes(updated)) {
+        show('Found item logged successfully.', { variant: 'success' })
+      } else {
+        show(
+          'Item saved, but automatic attribute extraction was unavailable — add notes or attributes so it can be matched.',
+          { variant: 'warning' },
+        )
+      }
     } catch (err) {
       show(err instanceof Error ? err.message : 'Failed to log found item.', {
         variant: 'error',

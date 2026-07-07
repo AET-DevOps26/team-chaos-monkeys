@@ -8,6 +8,7 @@ const DURATION_MS = 4000
 const variantStyles: Record<ToastVariant, { accent: string; icon: string }> = {
   success: { accent: 'border-l-green-500', icon: '✓' },
   error: { accent: 'border-l-red-500', icon: '✕' },
+  warning: { accent: 'border-l-amber-500', icon: '!' },
 }
 
 function ToastItem({ toast }: { toast: Toast }) {

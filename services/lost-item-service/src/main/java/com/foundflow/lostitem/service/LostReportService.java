@@ -104,6 +104,7 @@ public class LostReportService {
         LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
         enrichIfMissingAttributes(savedLostReport, photoKey);
 
+        LOGGER.info("Lost report created lostReport={} venue={}", savedLostReport.getId(), venueId);
         eventPublisher.publishLostReportCreated(savedLostReport);
         return toResponse(savedLostReport);
     }
@@ -172,6 +173,12 @@ public class LostReportService {
                     existingReport.setAttributes(toItemAttributes(request.attributes()));
 
                     LostReport updatedReport = lostReportRepository.save(existingReport);
+                    LOGGER.info(
+                            "Lost report updated lostReport={} venue={} status={}",
+                            updatedReport.getId(),
+                            updatedReport.getVenueId(),
+                            updatedReport.getStatus()
+                    );
                     eventPublisher.publishLostReportUpdated(updatedReport);
                     return toResponse(updatedReport);
                 });
@@ -193,6 +200,11 @@ public class LostReportService {
 
                     LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
                     enrichIfMissingAttributes(updatedReport, photoKey);
+                    LOGGER.info(
+                            "Lost report photo updated lostReport={} venue={}",
+                            updatedReport.getId(),
+                            updatedReport.getVenueId()
+                    );
                     eventPublisher.publishLostReportUpdated(updatedReport);
                     safeDeletePhoto(previousPhotoKey, id);
 

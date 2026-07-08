@@ -2,6 +2,8 @@ package com.foundflow.operations.service;
 
 import com.foundflow.operations.dto.VenueKpiResponse;
 import com.foundflow.operations.security.VenueAccessService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -13,6 +15,8 @@ import java.util.UUID;
 
 @Service
 public class VenueKpiService {
+
+    private static final Logger log = LoggerFactory.getLogger(VenueKpiService.class);
 
     private final RestClient foundItemClient;
     private final RestClient lostItemClient;
@@ -61,13 +65,15 @@ public class VenueKpiService {
             effectiveVenueId = jwtVenueId;
         }
 
-        return new VenueKpiResponse(
+        VenueKpiResponse kpis = new VenueKpiResponse(
                 effectiveVenueId,
                 getCount(foundItemClient, "/api/found-items/count", effectiveVenueId, null, jwt),
                 getCount(lostItemClient, "/api/lost-items/count", effectiveVenueId, null, jwt),
                 getCount(matchingClient, "/api/matches/count", effectiveVenueId, null, jwt),
                 getCount(matchingClient, "/api/matches/count", effectiveVenueId, "PENDING", jwt)
         );
+        log.info("Venue KPIs refreshed venue={}", effectiveVenueId);
+        return kpis;
     }
 
     private long getCount(

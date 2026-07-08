@@ -8,6 +8,8 @@ import com.foundflow.operations.dto.VenueResponse;
 import com.foundflow.operations.messaging.VenueEventPublisher;
 import com.foundflow.operations.repository.VenueRepository;
 import com.foundflow.operations.security.VenueAccessService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,8 @@ import java.util.UUID;
 
 @Service
 public class VenueService {
+
+    private static final Logger log = LoggerFactory.getLogger(VenueService.class);
 
     private final VenueRepository venueRepository;
     private final VenueAccessService venueAccessService;
@@ -49,6 +53,7 @@ public class VenueService {
         );
 
         Venue savedVenue = venueRepository.save(venue);
+        log.info("Venue created venue={}", savedVenue.getId());
         return toResponse(savedVenue);
     }
 
@@ -108,6 +113,7 @@ public class VenueService {
         return venueRepository.findById(id)
                 .map(venue -> {
                     venueRepository.delete(venue);
+                    log.info("Venue deleted venue={}", id);
                     publishVenueDeletedAfterCommit(id);
                     return true;
                 })

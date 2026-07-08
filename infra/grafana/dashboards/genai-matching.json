@@ -1,0 +1,179 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "GenAI provider request rate (req/s) — by provider + endpoint + outcome",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (provider, endpoint, outcome) (rate(genai_provider_requests_total{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "{{provider}} / {{endpoint}} / {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "GenAI provider latency p95 (s) — by provider + endpoint",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (provider, endpoint, le) (rate(genai_provider_request_duration_seconds_bucket{namespace=~\"$namespace\"}[5m])))",
+          "legendFormat": "{{provider}} / {{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "GenAI validation errors (errors/s) — by endpoint + reason",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (endpoint, reason) (rate(genai_validation_errors_total{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "{{endpoint}} / {{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Match candidates per minute — by threshold decision",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "opm", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (decision) (rate(matching_candidates_found_total{namespace=~\"$namespace\"}[5m])) * 60",
+          "legendFormat": "{{decision}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Matching pipeline latency (avg s, 5m) — by stage",
+      "description": "Custom timers expose count/sum only (no percentile histogram), so this is a rolling average, not a quantile.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 }, "min": 0 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(matching_embedding_duration_seconds_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_embedding_duration_seconds_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "intake: embed (genai)"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(matching_search_duration_seconds_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_search_duration_seconds_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "intake: vector search (pgvector)"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(matching_search_embed_duration_seconds_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_search_embed_duration_seconds_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "staff search: embed query (genai)"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(matching_search_retrieval_duration_seconds_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_search_retrieval_duration_seconds_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "staff search: retrieval (pgvector)"
+        },
+        {
+          "refId": "E",
+          "expr": "sum(rate(matching_search_answer_duration_seconds_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_search_answer_duration_seconds_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "staff search: answer synthesis (genai)"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Combined match score — mean (5m) vs max, candidate threshold at 0.55",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.55 }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(matching_score_combined_sum{namespace=~\"$namespace\"}[5m])) / sum(rate(matching_score_combined_count{namespace=~\"$namespace\"}[5m]))",
+          "legendFormat": "mean score (5m)"
+        },
+        {
+          "refId": "B",
+          "expr": "max(matching_score_combined_max{namespace=~\"$namespace\"})",
+          "legendFormat": "max score (decaying window)"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["foundflow", "genai", "matching"],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(up, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "selected": false, "text": "team-chaos-monkeys", "value": "team-chaos-monkeys" }
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "GenAI & Matching Pipeline",
+  "uid": "foundflow-genai-matching",
+  "version": 1,
+  "weekStart": ""
+}

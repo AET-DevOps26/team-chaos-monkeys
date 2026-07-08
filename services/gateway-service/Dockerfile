@@ -2,6 +2,8 @@ FROM gradle:9-jdk21 AS build
 
 WORKDIR /workspace
 
+COPY gradle ./gradle
+COPY config/checkstyle ./config/checkstyle
 COPY shared/test-architecture ./shared/test-architecture
 COPY services/gateway-service ./services/gateway-service
 

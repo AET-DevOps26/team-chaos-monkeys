@@ -19,8 +19,14 @@ on first boot, so a working match is visible once the intake and matching pipeli
 has finished.
 
 **Prerequisites.** Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of
-free RAM. Drop the shared `.env` into the repo root — we shared a Google Drive link to a
-ready-to-use `.env` with all secret keys (incl. `OPENAI_API_KEY`) in the Artemis group chat.
+free RAM.
+
+> **⚠️ Required: the shared `.env` file.** The stack does **not** boot without it — the
+> default GenAI provider is OpenAI and needs `OPENAI_API_KEY`. Drop the shared `.env` into
+> the repo root; we shared a Google Drive link to a ready-to-use `.env` with all secret
+> keys (incl. `OPENAI_API_KEY`) with the tutor in the Artemis group chat. No key at hand?
+> Copy `.env.example` to `.env`, set `GENAI_PROVIDER=local`, and run the offline Ollama
+> profile instead — see [Provider switch for GenAI](#provider-switch-for-genai).
 
 **1. Start** (first boot ~10–15 min — wait until login succeeds):
 
@@ -71,7 +77,7 @@ nearest-neighbour search — GenAI drives the workflow, it is not a bolt-on.
 | Kubernetes deployment | [`docs/deployment/local-kubernetes.md`](docs/deployment/local-kubernetes.md), `infra/helm/foundflow/`; live on AET at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de` (TUM network) |
 | CI/CD on GitHub Actions | `ci.yml` on every PR; `aet-helm-deploy.yml` runs `helm upgrade` on merge to `main` |
 | Prometheus / Grafana observability | Grafana :3030, Prometheus :9090 |
-| Automated tests | Gradle (services), pytest (genai), Vitest (client), PowerShell E2E |
+| Automated tests | Gradle (services), pytest (genai), Vitest (client), PowerShell E2E — run instructions under [Development](#development) |
 | Architecture docs + UML | [`docs/architecture/`](docs/architecture/), [`docs/diagrams/`](docs/diagrams/) (`*.puml`) |
 | OpenAPI / Swagger | http://localhost:8080/swagger-ui.html |
 | No hardcoded credentials | `.env.example` (local); K8s `ConfigMap`/`Secret` from GitHub secrets |
@@ -168,6 +174,8 @@ cd client
 npm install
 npm run dev             # Vite dev server on http://localhost:3000
 npm run build           # tsc -b && vite build
+npm test                # Vitest unit/component tests (one-shot)
+npm run test:coverage   # Vitest with v8 coverage (what CI runs)
 npm run codegen         # regenerate Orval clients from the cached specs in client/openapi/
 npm run codegen:fetch   # refresh client/openapi/*.json from the running gateway, then regenerate
 ```
@@ -197,6 +205,18 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Stack: Python 3.12, FastAPI, `prometheus_client`. Ships unit tests, a provider-contract test (works against fake/openai/ollama), and a golden attribute-extraction test set (`tests/golden/`).
+
+### End-to-end tests (`tests/e2e/`)
+
+The PowerShell E2E suite runs against a running Compose stack — the same script CI executes:
+
+```powershell
+$env:GENAI_PROVIDER = "fake"   # deterministic provider, no API key needed
+docker compose up --build -d
+.\tests\e2e\foundflow-e2e.ps1
+```
+
+Parameters, covered scenarios, and triage notes: [`tests/e2e/README.md`](tests/e2e/README.md).
 
 ### Devcontainer
 

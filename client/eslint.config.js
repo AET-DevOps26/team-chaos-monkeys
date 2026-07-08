@@ -6,7 +6,13 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src/api/auth', 'src/api/lost-items', 'src/api/found-items', 'src/api/matching', 'src/api/operations']), // autogen may cause false positives
+  globalIgnores([
+    'dist',
+    'coverage',
+    'src/api/*/model/**',
+    'src/api/*/*-controller/**',
+    'src/api/*/zod.ts',
+  ]), // generated/output files may cause false positives
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -17,6 +23,13 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+    },
+  },
+  {
+    files: ['test/**/*.{ts,tsx}', '**/*.test.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])

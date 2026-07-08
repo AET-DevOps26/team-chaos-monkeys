@@ -3,6 +3,8 @@ plugins {
     id 'org.openapi.generator' version '7.10.0'
 }
 
+apply from: "${rootDir}/../../gradle/checkstyle.gradle"
+
 group = 'com.foundflow'
 version = '0.0.1-SNAPSHOT'
 

@@ -61,4 +61,29 @@ describe('<PhotoThumbnail />', () => {
     expect(document.querySelector('img')).toBeNull()
     expect(screen.getByRole('img', { name: 'Wallet' })).toBeInTheDocument()
   })
+
+  it('clears a previous failed image state after the same URL loads successfully later', async () => {
+    getPhoto.mockResolvedValue({ data: new Blob(['photo'], { type: 'image/jpeg' }) })
+
+    const { rerender } = render(
+      <PhotoThumbnail src="/api/found-items/x/photo" alt="Wallet" />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: 'Wallet' }).tagName).toBe('IMG'),
+    )
+    fireEvent.error(screen.getByRole('img', { name: 'Wallet' }))
+    expect(document.querySelector('img')).toBeNull()
+
+    rerender(<PhotoThumbnail src="/api/found-items/y/photo" alt="Wallet" />)
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: 'Wallet' }).tagName).toBe('IMG'),
+    )
+
+    rerender(<PhotoThumbnail src="/api/found-items/x/photo" alt="Wallet" />)
+
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: 'Wallet' }).tagName).toBe('IMG'),
+    )
+  })
 })

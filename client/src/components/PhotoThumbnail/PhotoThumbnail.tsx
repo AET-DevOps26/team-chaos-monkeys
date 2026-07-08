@@ -59,15 +59,12 @@ function PhotoThumbnailInner({
   category?: string
 }) {
   const [photo, setPhoto] = useState<{ src: string; url: string } | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
     let objectUrl: string | null = null
-
-    setPhoto(null)
-    setFailed(false)
 
     axiosInstance
       .get<Blob>(src, { responseType: 'blob', signal: controller.signal })
@@ -75,9 +72,10 @@ function PhotoThumbnailInner({
         if (cancelled) return
         objectUrl = URL.createObjectURL(data)
         setPhoto({ src, url: objectUrl })
+        setFailedSrc((current) => (current === src ? null : current))
       })
       .catch(() => {
-        if (!cancelled) setFailed(true)
+        if (!cancelled) setFailedSrc(src)
       })
 
     return () => {
@@ -88,6 +86,7 @@ function PhotoThumbnailInner({
   }, [src])
 
   const objectUrl = photo?.src === src ? photo.url : undefined
+  const failed = failedSrc === src
   if (failed || !objectUrl) return <PhotoPlaceholder label={alt} category={category} />
 
   return (
@@ -96,7 +95,7 @@ function PhotoThumbnailInner({
       alt={alt}
       loading="lazy"
       className="h-full w-full object-cover"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   )
 }

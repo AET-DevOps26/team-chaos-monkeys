@@ -1,0 +1,16 @@
+apply plugin: 'checkstyle'
+
+checkstyle {
+    configDirectory = file("${rootDir}/../../config/checkstyle")
+}
+
+tasks.withType(Checkstyle).configureEach {
+    exclude { element ->
+        element.file.toPath().startsWith(layout.buildDirectory.get().asFile.toPath())
+    }
+
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}

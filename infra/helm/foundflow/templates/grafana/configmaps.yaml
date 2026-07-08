@@ -85,6 +85,8 @@ metadata:
     {{- include "foundflow.labels" . | nindent 4 }}
     app.kubernetes.io/name: grafana
 data:
-  services-red.json: |
-{{ .Files.Get "dashboards/services-red.json" | indent 4 }}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
 {{- end }}

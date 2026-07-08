@@ -1,0 +1,180 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Pods not ready",
+      "description": "Pods whose Ready condition is currently false. Should be 0 in steady state; spikes during rollouts.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "count(kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"} == 0) or vector(0)", "legendFormat": "not ready" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Container restarts (window)",
+      "description": "Total container restarts across the namespace over the selected time range. Rising values mean crash-looping or OOM kills.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[$__range])) or vector(0)", "legendFormat": "restarts" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Last termination reason",
+      "description": "Why each container last exited (OOMKilled, Error, Completed). The namespace quota is tight, so OOMKilled here is the expected failure mode.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "options": { "showHeader": true },
+      "transformations": [
+        { "id": "labelsToFields", "options": { "mode": "columns", "keepLabels": ["pod", "container", "reason"] } },
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "Value": true }, "renameByName": {} } }
+      ],
+      "targets": [
+        { "refId": "A", "instant": true, "format": "table", "expr": "kube_pod_container_status_last_terminated_reason{namespace=~\"$namespace\"} == 1", "legendFormat": "" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Memory: working set / limit (per pod)",
+      "description": "Working-set memory as a fraction of the pod's memory limit. Approaching 1.0 means the pod is about to be OOMKilled. This is the early-warning panel.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.85 }, { "color": "red", "value": 0.95 }] }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", container!=\"\"}) / sum by (pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\", resource=\"memory\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU: usage / limit (per pod)",
+      "description": "CPU usage (5m rate) as a fraction of the pod's CPU limit. Sustained values near 1.0 mean the pod is CPU-throttled.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.85 }, { "color": "red", "value": 0.95 }] }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", container!=\"\"}[5m])) / sum by (pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\", resource=\"cpu\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memory working set (per pod)",
+      "description": "Absolute working-set memory per pod, for reading against the 6Gi namespace quota.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 } } },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", container!=\"\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Container restarts (cumulative, per pod)",
+      "description": "Cumulative restart count per pod; each step up is a restart. Flat lines are healthy.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 0 } } },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=~\"$namespace\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["foundflow", "resources", "use"],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(kube_pod_status_ready, namespace)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "selected": false, "text": "team-chaos-monkeys", "value": "team-chaos-monkeys" }
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Namespace — Resources & Health",
+  "uid": "foundflow-namespace-resources",
+  "version": 1,
+  "weekStart": ""
+}

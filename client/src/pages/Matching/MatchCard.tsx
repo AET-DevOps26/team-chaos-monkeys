@@ -12,15 +12,8 @@ import calendarIcon from '@/assets/calendar.svg'
 import mailIcon from '@/assets/mail.svg'
 import locationIcon from '@/assets/location.svg'
 import clockIcon from '@/assets/clock.svg'
-import { formatDate, firstLine } from '@/lib/format'
-
-function foundLabel(item: FoundItemResponse | undefined): string {
-  return item?.attributes?.category?.trim() || firstLine(item?.intakeText) || 'Found item'
-}
-
-function lostLabel(report: LostReportResponse | undefined): string {
-  return report?.attributes?.category?.trim() || firstLine(report?.description) || 'Lost report'
-}
+import { formatDate } from '@/lib/format'
+import { foundLabel, lostLabel } from './matchLabels'
 
 const statusPillCls: Record<MatchResponseStatus, string> = {
   [Status.PENDING]: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',

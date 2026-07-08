@@ -72,6 +72,7 @@ function PhotoThumbnailInner({
         if (cancelled) return
         objectUrl = URL.createObjectURL(data)
         setPhoto({ src, url: objectUrl })
+        setFailedSrc((current) => (current === src ? null : current))
       })
       .catch(() => {
         if (!cancelled) setFailedSrc(src)

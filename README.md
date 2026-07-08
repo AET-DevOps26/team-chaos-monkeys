@@ -19,8 +19,14 @@ on first boot, so a working match is visible once the intake and matching pipeli
 has finished.
 
 **Prerequisites.** Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of
-free RAM. Drop the shared `.env` into the repo root — we shared a Google Drive link to a
-ready-to-use `.env` with all secret keys (incl. `OPENAI_API_KEY`) in the Artemis group chat.
+free RAM.
+
+> **⚠️ Required: the shared `.env` file.** The stack does **not** boot without it — the
+> default GenAI provider is OpenAI and needs `OPENAI_API_KEY`. Drop the shared `.env` into
+> the repo root; we shared a Google Drive link to a ready-to-use `.env` with all secret
+> keys (incl. `OPENAI_API_KEY`) with the tutor in the Artemis group chat. No key at hand?
+> Copy `.env.example` to `.env`, set `GENAI_PROVIDER=local`, and run the offline Ollama
+> profile instead — see [Provider switch for GenAI](#provider-switch-for-genai).
 
 **1. Start** (first boot ~10–15 min — wait until login succeeds):
 

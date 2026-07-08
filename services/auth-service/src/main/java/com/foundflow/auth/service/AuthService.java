@@ -7,6 +7,8 @@ import com.foundflow.auth.dto.RefreshTokenRequest;
 import com.foundflow.auth.dto.TokenResponse;
 import com.foundflow.auth.repository.RefreshTokenRepository;
 import com.foundflow.auth.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +32,7 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String TOKEN_TYPE = "Bearer";
 
     private final UserRepository userRepository;
@@ -62,12 +65,17 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+                .orElseThrow(() -> {
+                    log.warn("Login failed: unknown email");
+                    return new BadCredentialsException("Invalid credentials");
+                });
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed: wrong password for user={} venue={}", user.getId(), user.getVenueId());
             throw new BadCredentialsException("Invalid credentials");
         }
 
+        log.info("User logged in user={} venue={}", user.getId(), user.getVenueId());
         return issueTokenPair(user);
     }
 

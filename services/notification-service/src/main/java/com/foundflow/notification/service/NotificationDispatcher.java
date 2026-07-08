@@ -157,5 +157,11 @@ public class NotificationDispatcher {
         }
         notification.setSentAt(LocalDateTime.now());
         notificationRepository.save(notification);
+        log.info(
+                "Notification sent notification={} match={} venue={}",
+                notification.getId(),
+                notification.getMatchId(),
+                notification.getVenueId()
+        );
     }
 }

@@ -18,6 +18,8 @@ import com.foundflow.pickup.messaging.PickupConfirmationEventPublisher;
 import com.foundflow.pickup.repository.PickupRepository;
 import com.foundflow.pickup.repository.PickupScheduleRepository;
 import com.foundflow.pickup.security.VenueAccessService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -40,6 +42,7 @@ import java.util.UUID;
 @Service
 public class PickupService {
 
+    private static final Logger log = LoggerFactory.getLogger(PickupService.class);
     private static final int PUBLIC_SLOT_LOOKAHEAD_DAYS = 30;
 
     private final PickupRepository pickupRepository;
@@ -93,6 +96,12 @@ public class PickupService {
                 pickup.getEmail()
         );
         String manageUrl = publicBaseUrl + "/api/pickups/public/" + manageToken;
+        log.info(
+                "Pickup scheduled pickup={} match={} venue={}; manage magic-link issued",
+                pickup.getId(),
+                pickup.getMatchId(),
+                pickup.getVenueId()
+        );
         confirmationEventPublisher.publishPickupConfirmationRequested(
                 pickup.getId(),
                 pickup.getMatchId(),
@@ -118,6 +127,12 @@ public class PickupService {
                     pickup.setPickupAt(request.pickupAt());
                     pickup.setEmail(email);
                     Pickup updated = pickupRepository.save(pickup);
+                    log.info(
+                            "Pickup rescheduled pickup={} match={} venue={}",
+                            updated.getId(),
+                            updated.getMatchId(),
+                            updated.getVenueId()
+                    );
                     return toPublicResponse(updated, publicBaseUrl + "/api/pickups/public/" + token);
                 });
     }
@@ -149,16 +164,20 @@ public class PickupService {
                     existing.setPickupAt(request.pickupAt());
                     existing.setVenueId(venueId);
                     existing.setEmail(normalizeEmail(request.email()));
-                    return pickupRepository.save(existing);
+                    Pickup updated = pickupRepository.save(existing);
+                    log.info("Pickup rescheduled pickup={} match={} venue={}", updated.getId(), matchId, venueId);
+                    return updated;
                 })
                 .orElseGet(() -> {
                     ensureSlotAvailable(venueId, request.pickupAt(), null);
-                    return pickupRepository.save(new Pickup(
+                    Pickup created = pickupRepository.save(new Pickup(
                             request.pickupAt(),
                             venueId,
                             matchId,
                             normalizeEmail(request.email())
                     ));
+                    log.info("Pickup scheduled pickup={} match={} venue={}", created.getId(), matchId, venueId);
+                    return created;
                 }))
                 .map(this::toResponse);
     }

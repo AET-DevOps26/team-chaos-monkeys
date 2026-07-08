@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +23,8 @@ import com.foundflow.auth.repository.UserRepository;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
 
@@ -45,6 +49,7 @@ public class UserService {
         );
 
         User savedUser = userRepository.save(user);
+        log.info("User created user={} role={} venue={}", savedUser.getId(), savedUser.getRole(), savedUser.getVenueId());
         return toResponse(savedUser);
     }
 

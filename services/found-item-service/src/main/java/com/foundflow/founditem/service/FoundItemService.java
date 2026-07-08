@@ -95,6 +95,7 @@ public class FoundItemService {
         );
 
         FoundItem savedFoundItem = foundItemRepository.save(foundItem);
+        LOGGER.info("Found item logged foundItem={} venue={}", savedFoundItem.getId(), venueId);
 
         return toResponse(savedFoundItem);
     }
@@ -150,6 +151,12 @@ public class FoundItemService {
                     foundItem.setAttributes(toItemAttributes(request.attributes()));
 
                     FoundItem updatedFoundItem = foundItemRepository.save(foundItem);
+                    LOGGER.info(
+                            "Found item updated foundItem={} venue={} status={}",
+                            updatedFoundItem.getId(),
+                            updatedFoundItem.getVenueId(),
+                            updatedFoundItem.getStatus()
+                    );
                     if (hasStoredPhoto(updatedFoundItem.getPhotoKey())) {
                         eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     }
@@ -174,6 +181,11 @@ public class FoundItemService {
 
                     FoundItem updatedFoundItem = saveOrCompensate(foundItem, photoKey, id);
                     enrichFromPhotoIfMissingAttributes(updatedFoundItem, photoKey);
+                    LOGGER.info(
+                            "Found item photo updated foundItem={} venue={}",
+                            updatedFoundItem.getId(),
+                            updatedFoundItem.getVenueId()
+                    );
                     if (hadPhoto) {
                         eventPublisher.publishFoundItemUpdated(updatedFoundItem);
                     } else {

@@ -19,24 +19,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dependency-review:
-    name: SCA dependency review
+  dependency-scan:
+    name: SCA dependency scan (trivy)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v5
+      - name: Scan dependency manifests
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          fail-on-severity: high
-          fail-on-scopes: runtime, development, unknown
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          trivyignores: .trivyignore.yaml
 
   secret-scan:
     name: Scan for secrets (gitleaks)

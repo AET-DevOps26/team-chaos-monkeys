@@ -30,7 +30,15 @@ function makeQueryClient() {
 function SeedAuth({ token, children }: { token: string | null; children: ReactNode }) {
   const { login, accessToken } = useAuth()
   const [seeded, setSeeded] = useState(token === null)
+
   useEffect(() => {
+    if (seeded) return
+
+    if (token && accessToken === token) {
+      setSeeded(true)
+      return
+    }
+
     if (token && accessToken !== token) {
       login({
         accessToken: token,
@@ -39,9 +47,9 @@ function SeedAuth({ token, children }: { token: string | null; children: ReactNo
         expiresIn: 3600,
       })
     }
-    if (token) setSeeded(true)
-  }, [token, accessToken, login])
-  return seeded ? <>{children}</> : null
+  }, [token, accessToken, login, seeded])
+
+  return seeded || accessToken === token ? <>{children}</> : null
 }
 
 export function renderWithProviders(

@@ -19,6 +19,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dependency-scan:
+    name: SCA dependency scan (trivy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Scan dependency manifests
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          trivyignores: .trivyignore.yaml
+
   secret-scan:
     name: Scan for secrets (gitleaks)
     runs-on: ubuntu-24.04
@@ -79,6 +99,41 @@ jobs:
       - name: Run checks for ${{ matrix.service }}
         working-directory: ./services/${{ matrix.service }}
         run: ./gradlew check
+
+  shared-backend-checks:
+    name: Check shared backend libraries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - shared/common-domain
+          - shared/domain-events
+          - shared/genai-client
+          - shared/magic-link
+          - shared/photo-storage
+          - shared/test-architecture
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./services/auth-service/gradlew
+
+      - name: Run checks for ${{ matrix.project }}
+        run: ./services/auth-service/gradlew -p ./${{ matrix.project }} check
 
   genai-tests:
     name: Check genai-service
@@ -176,6 +231,10 @@ jobs:
         working-directory: ./client
         run: npm ci
 
+      - name: Lint client
+        working-directory: ./client
+        run: npm run lint
+
       - name: Build client
         working-directory: ./client
         run: npm run build
@@ -230,6 +289,10 @@ jobs:
       - name: Install dependencies
         working-directory: ./public-report-client
         run: npm ci
+
+      - name: Lint public-report-client
+        working-directory: ./public-report-client
+        run: npm run lint
 
       - name: Build public-report-client
         working-directory: ./public-report-client

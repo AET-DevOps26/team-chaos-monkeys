@@ -2,6 +2,8 @@ plugins {
     id 'java-library'
 }
 
+apply from: "${rootDir}/../../gradle/checkstyle.gradle"
+
 group = 'com.foundflow'
 version = '0.0.1-SNAPSHOT'
 

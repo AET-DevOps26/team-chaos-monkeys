@@ -6,7 +6,8 @@ import { useGetPickups } from '@/api/pickups/pickup-controller/pickup-controller
 import { useGetMatchContacts } from '@/api/notifications/notification-controller/notification-controller'
 import { useItemMaps } from '@/lib/useItemMaps'
 import { filterPillClass } from '@/components/filterPill'
-import MatchCard, { MatchCardSkeleton, matchSearchText } from './MatchCard'
+import MatchCard, { MatchCardSkeleton } from './MatchCard'
+import { matchSearchText } from './matchSearchText'
 import searchIcon from '@/assets/search-icon.svg'
 
 type Filter = Status | 'ALL'

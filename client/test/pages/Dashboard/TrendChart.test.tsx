@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isWithinWindow } from '@/pages/Dashboard/TrendChart'
+import { isWithinWindow } from '@/pages/Dashboard/trendChartUtils'
 
 // Fixed "now" so the assertions don't drift with the wall clock.
 const NOW = Date.parse('2026-05-31T12:00:00Z')

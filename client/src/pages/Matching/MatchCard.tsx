@@ -12,36 +12,8 @@ import calendarIcon from '@/assets/calendar.svg'
 import mailIcon from '@/assets/mail.svg'
 import locationIcon from '@/assets/location.svg'
 import clockIcon from '@/assets/clock.svg'
-import { formatDate, firstLine } from '@/lib/format'
-
-function foundLabel(item: FoundItemResponse | undefined): string {
-  return item?.attributes?.category?.trim() || firstLine(item?.intakeText) || 'Found item'
-}
-
-function lostLabel(report: LostReportResponse | undefined): string {
-  return report?.attributes?.category?.trim() || firstLine(report?.description) || 'Lost report'
-}
-
-// Lower-cased searchable text for a match, kept here so the free-text filter in
-// Matching.tsx searches exactly the fields this card renders.
-export function matchSearchText(
-  lostReport: LostReportResponse | undefined,
-  foundItem: FoundItemResponse | undefined,
-): string {
-  return [
-    foundLabel(foundItem),
-    lostLabel(lostReport),
-    lostReport?.description,
-    lostReport?.contactEmail,
-    lostReport?.location,
-    lostReport?.attributes?.color,
-    lostReport?.attributes?.brand,
-    ...(lostReport?.attributes?.marks ?? []),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-}
+import { formatDate } from '@/lib/format'
+import { foundLabel, lostLabel } from './matchLabels'
 
 const statusPillCls: Record<MatchResponseStatus, string> = {
   [Status.PENDING]: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',

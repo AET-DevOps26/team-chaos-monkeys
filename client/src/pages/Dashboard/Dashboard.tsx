@@ -10,7 +10,8 @@ import { useGetLostReportHistogram } from '@/api/lost-items/lost-report-controll
 import { useGetMatchHistogram } from '@/api/matches/match-controller/match-controller'
 import { filterPillClass } from '@/components/filterPill'
 import StatCard from './StatCard'
-import TrendChart, { type Granularity } from './TrendChart'
+import TrendChart from './TrendChart'
+import type { Granularity } from './trendChartUtils'
 import VenuePicker from './VenuePicker'
 import ItemSearchPanel from './ItemSearchPanel'
 

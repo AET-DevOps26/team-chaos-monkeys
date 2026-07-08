@@ -29,7 +29,7 @@
         }
       },
       "targets": [
-        { "refId": "A", "expr": "up{namespace=~\"$namespace\", job=\"$service\"}", "legendFormat": "{{instance}}" }
+        { "refId": "A", "instant": true, "expr": "sum by (job) (up{namespace=~\"$namespace\", job=\"$service\"})", "legendFormat": "{{job}}" }
       ]
     },
     {
@@ -43,7 +43,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[1m])) or sum by (job) (rate(http_requests_total{namespace=~\"$namespace\", job=\"$service\"}[1m]))",
+          "expr": "sum by (job) (rate(http_server_requests_seconds_count{namespace=~\"$namespace\", job=\"$service\"}[1m]))",
           "legendFormat": "{{job}}"
         }
       ]
@@ -104,7 +104,7 @@
         "label": "Service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": { "query": "label_values(up{namespace=~\"$namespace\"}, job)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "query": { "query": "label_values(up{namespace=~\"$namespace\", job!=\"genai-service\"}, job)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
         "refresh": 2,
         "regex": "",
         "sort": 1,
@@ -119,6 +119,6 @@
   "timezone": "",
   "title": "Services — RED",
   "uid": "foundflow-services-red",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

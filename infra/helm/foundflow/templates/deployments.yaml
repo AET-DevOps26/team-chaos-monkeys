@@ -58,6 +58,15 @@ spec:
               containerPort: {{ $svc.port }}
               protocol: TCP
           {{- $health := include "foundflow.healthPath" (dict "svc" $svc) }}
+          # Give slow boots (JVM startup under a tight CPU limit, AMQP broker
+          # not ready yet) up to 300s before liveness takes over (#316).
+          startupProbe:
+            httpGet:
+              path: {{ $health }}
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: {{ $health }}

@@ -172,6 +172,7 @@ Optional repository secrets:
 |--------|---------|
 | `JWT_RSA_PRIVATE_KEY` | Stable JWT signing key for auth-service. |
 | `GENAI_INTERNAL_TOKEN` | Optional token sent to genai-service by Spring callers. |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana admin password. When unset, falls back to `admin`. Owning it here keeps the `foundflow-grafana` Secret from drifting: Grafana's DB lives in an `emptyDir` and re-seeds the password from this Secret on every pod restart. |
 
 To create `AET_KUBECONFIG_B64` from a working local kubeconfig:
 

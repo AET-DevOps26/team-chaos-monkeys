@@ -373,6 +373,10 @@ secrets:
   # Optional From: header override. When empty, notification-service falls back
   # to the `foundflow.notifications.from-address` default in application.properties.
   brevoMailFromAddress: ""
+  # Grafana admin password. CI injects this from the GRAFANA_ADMIN_PASSWORD repo
+  # secret so the value is owned declaratively (no drift). When empty the Secret
+  # template falls back to grafana.adminPassword, then "admin".
+  grafanaAdminPassword: ""
 
 grafana:
   enabled: true

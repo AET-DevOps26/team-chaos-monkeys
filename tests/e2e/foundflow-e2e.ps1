@@ -692,7 +692,9 @@ $authHealth = Wait-ForStatus `
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
 
-$publicVenueId = "11111111-1111-1111-1111-111111111111"
+# Must be a venue that actually exists: intake now validates venueId against
+# operations-service (#351). Use the SEED_DEMO_DATA venue seeded by operations.
+$publicVenueId = "00000000-0000-0000-0000-000000000001"
 $publicLostReportRequest = @{
     description = "E2E public lost report"
     lostAt = "2026-05-19T15:30:00"
@@ -1171,7 +1173,9 @@ $otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
     description = "E2E lost item other venue"
     lostAt = "2026-05-19T15:55:00"
     location = "Other"
-    venueId = "99999999-9999-9999-9999-999999999999"
+    # A real venue (seeded demo) that differs from $venueId, so the item lands in
+    # a different venue than $foundItem — the cross-venue match below must 403.
+    venueId = $publicVenueId
     contactEmail = "other-$suffix@example.com"
     attributes = @{
         category = "Bag"

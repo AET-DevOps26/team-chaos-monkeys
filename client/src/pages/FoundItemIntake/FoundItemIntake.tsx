@@ -2,20 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useUpdateFoundItemPhoto } from '@/api/found-items/found-item-controller/found-item-controller'
+import { useGetAllVenues } from '@/api/operations/venue-controller/venue-controller'
 import type { CreateFoundItemRequest, FoundItemResponse } from '@/api/found-items/model'
 import { customInstance } from '@/api/mutator/custom-instance'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/components/Toast/toast-context'
 import { foundItemIntakeSchema, type FoundItemIntakeInput } from './schema'
 import uploadIcon from '@/assets/upload.svg'
-
-// The create DTO still carries a venue UUID. For non-admin users the backend
-// applies the JWT venue, but this keeps the request shape valid while auth
-// state is still hydrating.
-const PLACEHOLDER_UUID = '00000000-0000-0000-0000-000000000000'
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const asUuidOrPlaceholder = (value: string | null | undefined): string =>
-  value && UUID_RE.test(value) ? value : PLACEHOLDER_UUID
 
 // The backend enriches the item synchronously during the photo upload; an
 // empty attributes block in the response means extraction produced nothing
@@ -89,6 +82,14 @@ export default function FoundItemIntake() {
   const [isCreatingItem, setIsCreatingItem] = useState(false)
 
   const { user } = useAuth()
+  const isAdmin = !!user?.roles.includes('ADMIN')
+  const [venueId, setVenueId] = useState('')
+  // Staff are bound to a venue via their JWT (the backend derives it and ignores
+  // any request venueId). Admins have no venue claim and must pick a real one —
+  // sending a placeholder lands the item in a non-existent venue that can never
+  // match (#352).
+  const venuesQuery = useGetAllVenues({ query: { enabled: isAdmin } })
+  const venues = venuesQuery.data ?? []
   const { show } = useToast()
   const updateFoundItemPhoto = useUpdateFoundItemPhoto()
 
@@ -103,6 +104,16 @@ export default function FoundItemIntake() {
   }, [photo])
 
   const onSubmit = async (data: FoundItemIntakeInput) => {
+    setSubmitError(null)
+    if (!data.photo) {
+      setSubmitError('Photo is required.')
+      return
+    }
+    const effectiveVenueId = isAdmin ? venueId : user?.venueId ?? ''
+    if (!effectiveVenueId) {
+      setSubmitError('Select a venue.')
+      return
+    }
     const payload: CreateFoundItemRequest = {
       // Operators only supply free-text notes; the GenAI enrichment derives
       // attributes and location during the subsequent photo upload.
@@ -110,15 +121,10 @@ export default function FoundItemIntake() {
       // datetime-local already yields a zone-less value (YYYY-MM-DDTHH:mm);
       // send it as-is so it binds to the backend LocalDateTime (no trailing Z).
       foundAt: data.foundAt,
-      venueId: asUuidOrPlaceholder(user?.venueId),
-      reporterId: asUuidOrPlaceholder(user?.sub),
+      venueId: effectiveVenueId,
+      reporterId: user?.sub ?? '',
     }
 
-    setSubmitError(null)
-    if (!data.photo) {
-      setSubmitError('Photo is required.')
-      return
-    }
     setIsCreatingItem(true)
     try {
       const created = await customInstance<FoundItemResponse>({
@@ -221,13 +227,32 @@ export default function FoundItemIntake() {
               )}
             </div>
 
-            <div className="flex flex-col gap-1" style={{ animationDelay: '450ms' }}>
+            {isAdmin && (
+              <div className="flex flex-col gap-1" style={{ animationDelay: '450ms' }}>
+                <label htmlFor="venueId" className={labelCls}>Venue</label>
+                <select
+                  id="venueId"
+                  className={inputCls}
+                  value={venueId}
+                  onChange={(e) => setVenueId(e.target.value)}
+                >
+                  <option value="" disabled>Select a venue…</option>
+                  {venues.map((venue) => (
+                    <option key={venue.id} value={venue.id ?? ''}>
+                      {venue.name ?? venue.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1" style={{ animationDelay: '600ms' }}>
               {submitError && (
                 <span className="text-xs text-red-500">{submitError}</span>
               )}
               <button
                 type="submit"
-                disabled={!isValid || isSubmitting}
+                disabled={!isValid || isSubmitting || (isAdmin && !venueId)}
                 className="w-full rounded bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? 'Logging…' : 'Log found item'}

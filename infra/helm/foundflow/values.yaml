@@ -414,6 +414,12 @@ grafana:
 # tempo/loki 150->100m, alloy 100->50m. CPU limits sum to 3975m of 4000m.
 # Memory untouched: heap is pinned via MaxRAMPercentage=70, and the quota
 # leaves nothing to redistribute.
+# 2026-07-11 (#363): the namespace-resources dashboard showed Spring services
+# idling at 85-98% of their 416Mi limit (matching 7Mi headroom) while JVM heap
+# ran only ~35% of its 70% cap. Trimmed the shared JAVA_TOOL_OPTIONS default to
+# MaxRAMPercentage=55 / InitialRAMPercentage=25 (templates/deployments.yaml):
+# committed heap shrinks within the same 416Mi limit, widening OOM headroom
+# ~50-70Mi where it was tightest. Limits unchanged, so quota sums hold.
 loki:
   enabled: true
   image: grafana/loki:3.4.1

@@ -87,8 +87,12 @@ spec:
             {{- if eq (default "spring" $svc.kind) "spring" }}
             # Keep the JVM heap inside the (tight) memory limit so the
             # container is not OOMKilled before Spring Boot finishes booting.
+            # MaxRAMPercentage=55 (#363): live heap runs ~35% of the old 70%
+            # cap, so the extra committed heap was pure working-set waste that
+            # left matching/lost-item at 96-98% of their 416Mi limit. 55% (~229Mi
+            # cap) is still >2x observed peak and widens OOM headroom ~50-70Mi.
             - name: JAVA_TOOL_OPTIONS
-              value: {{ default "-XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=50.0" $svc.javaToolOptions | quote }}
+              value: {{ default "-XX:MaxRAMPercentage=55.0 -XX:InitialRAMPercentage=25.0" $svc.javaToolOptions | quote }}
             # Native Boot structured logging (issue #278): ECS JSON to stdout so
             # Loki's `| json` parser gets fields. Only set in containers —
             # `./gradlew bootRun` stays human-readable.

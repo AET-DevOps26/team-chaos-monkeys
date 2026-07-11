@@ -692,7 +692,19 @@ $authHealth = Wait-ForStatus `
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
 
-$publicVenueId = "11111111-1111-1111-1111-111111111111"
+# Intake validates venueId against operations-service (#351). CI runs with
+# SEED_DEMO_DATA=false, so create a real venue as admin before the guest report
+# rather than relying on the demo-seed venue.
+$seedAdminTokens = Get-TokenPair $AdminEmail $AdminPassword
+$seedAdminClient = New-GatewayClient $seedAdminTokens.accessToken
+$guestVenueSuffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
+$guestVenueResponse = Post-Json $seedAdminClient "$GatewayBaseUrl/api/venues" @{
+    name = "E2E Guest Venue $guestVenueSuffix"
+    tone = "friendly"
+    defaultLanguage = "en"
+}
+Assert-Status $guestVenueResponse 201 "Admin can create venue for guest report"
+$publicVenueId = (Read-Json $guestVenueResponse).id
 $publicLostReportRequest = @{
     description = "E2E public lost report"
     lostAt = "2026-05-19T15:30:00"
@@ -1171,7 +1183,9 @@ $otherLostResponse = Post-Json $publicClient "$GatewayBaseUrl/api/lost-items" @{
     description = "E2E lost item other venue"
     lostAt = "2026-05-19T15:55:00"
     location = "Other"
-    venueId = "99999999-9999-9999-9999-999999999999"
+    # A real venue (seeded demo) that differs from $venueId, so the item lands in
+    # a different venue than $foundItem — the cross-venue match below must 403.
+    venueId = $publicVenueId
     contactEmail = "other-$suffix@example.com"
     attributes = @{
         category = "Bag"

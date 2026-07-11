@@ -8,6 +8,7 @@ COPY shared/common-domain ./shared/common-domain
 COPY shared/photo-storage ./shared/photo-storage
 COPY shared/domain-events ./shared/domain-events
 COPY shared/genai-client ./shared/genai-client
+COPY shared/operations-client ./shared/operations-client
 COPY api ./api
 COPY services/found-item-service ./services/found-item-service
 

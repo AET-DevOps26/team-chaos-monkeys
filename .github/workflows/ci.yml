@@ -112,6 +112,7 @@ jobs:
           - shared/common-domain
           - shared/domain-events
           - shared/genai-client
+          - shared/operations-client
           - shared/magic-link
           - shared/photo-storage
           - shared/test-architecture

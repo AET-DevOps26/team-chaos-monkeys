@@ -43,6 +43,11 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/tempo/tempo-config.yaml
+          env:
+            # Go soft memory limit — GC runs hard before the container OOMKills
+            # at limits.memory (#361). Kept < the limit in values.yaml.
+            - name: GOMEMLIMIT
+              value: {{ .Values.tempo.goMemLimit | quote }}
           ports:
             - name: http
               containerPort: 3200

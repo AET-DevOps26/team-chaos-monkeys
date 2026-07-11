@@ -9,6 +9,7 @@ import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.TimeBucketCount;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.operations.client.OperationsVenueClient;
 import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
@@ -54,6 +55,7 @@ public class LostReportService {
     private final Duration photoUrlTtl;
     private final LostReportEventPublisher eventPublisher;
     private final AttributeExtractionService attributeExtractionService;
+    private final OperationsVenueClient operationsVenueClient;
 
     public LostReportService(
             LostReportRepository lostReportRepository,
@@ -61,7 +63,8 @@ public class LostReportService {
             PhotoStorage photoStorage,
             @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
             LostReportEventPublisher eventPublisher,
-            AttributeExtractionService attributeExtractionService
+            AttributeExtractionService attributeExtractionService,
+            OperationsVenueClient operationsVenueClient
     ) {
         this.lostReportRepository = lostReportRepository;
         this.venueAccessService = venueAccessService;
@@ -69,6 +72,7 @@ public class LostReportService {
         this.photoUrlTtl = photoUrlTtl;
         this.eventPublisher = eventPublisher;
         this.attributeExtractionService = attributeExtractionService;
+        this.operationsVenueClient = operationsVenueClient;
     }
 
     @Transactional
@@ -121,6 +125,7 @@ public class LostReportService {
             );
         }
 
+        operationsVenueClient.requireExisting(request.venueId());
         return request.venueId();
     }
 
@@ -167,6 +172,7 @@ public class LostReportService {
                                     "venueId is required when updating a lost report."
                             );
                         }
+                        operationsVenueClient.requireExisting(request.venueId());
                         existingReport.setVenueId(request.venueId());
                     }
                     existingReport.setContactEmail(request.contactEmail());
@@ -367,9 +373,13 @@ public class LostReportService {
             return;
         }
 
-        attributeExtractionService.extract(lostReport.getDescription(), photoKey)
+        attributeExtractionService.extractWithLocation(lostReport.getDescription(), photoKey)
                 .ifPresent(extracted -> {
-                    lostReport.setAttributes(extracted);
+                    lostReport.setAttributes(extracted.attributes());
+                    // Only fill in a location the guest didn't type — never clobber theirs.
+                    if (extracted.location() != null && !hasText(lostReport.getLocation())) {
+                        lostReport.setLocation(extracted.location());
+                    }
                     lostReportRepository.save(lostReport);
                 });
     }

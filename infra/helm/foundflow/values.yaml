@@ -160,6 +160,7 @@ services:
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
+      - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
 
   notification-service:
     kind: spring
@@ -373,6 +374,10 @@ secrets:
   # Optional From: header override. When empty, notification-service falls back
   # to the `foundflow.notifications.from-address` default in application.properties.
   brevoMailFromAddress: ""
+  # Grafana admin password. CI injects this from the GRAFANA_ADMIN_PASSWORD repo
+  # secret so the value is owned declaratively (no drift). When empty the Secret
+  # template falls back to grafana.adminPassword, then "admin".
+  grafanaAdminPassword: ""
 
 grafana:
   enabled: true
@@ -409,6 +414,12 @@ grafana:
 # tempo/loki 150->100m, alloy 100->50m. CPU limits sum to 3975m of 4000m.
 # Memory untouched: heap is pinned via MaxRAMPercentage=70, and the quota
 # leaves nothing to redistribute.
+# 2026-07-11 (#363): the namespace-resources dashboard showed Spring services
+# idling at 85-98% of their 416Mi limit (matching 7Mi headroom) while JVM heap
+# ran only ~35% of its 70% cap. Trimmed the shared JAVA_TOOL_OPTIONS default to
+# MaxRAMPercentage=55 / InitialRAMPercentage=25 (templates/deployments.yaml):
+# committed heap shrinks within the same 416Mi limit, widening OOM headroom
+# ~50-70Mi where it was tightest. Limits unchanged, so quota sums hold.
 loki:
   enabled: true
   image: grafana/loki:3.4.1
@@ -444,6 +455,11 @@ tempo:
     # 320Mi OOM-crashlooped in production on the vParquet4 flush spike (#311);
     # paired with the ingester block-size caps in tempo-config.yaml.
     limits:   { cpu: 100m, memory: 512Mi }
+  # Go soft memory limit (#361): makes the runtime GC hard as the heap nears
+  # this ceiling, absorbing the flush/compaction spike instead of getting
+  # OOMKilled at limits.memory. Must stay below limits.memory (~88% of 512Mi)
+  # to leave room for non-heap (goroutine stacks, mmap'd blocks).
+  goMemLimit: "450MiB"
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

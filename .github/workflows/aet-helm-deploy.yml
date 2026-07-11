@@ -206,6 +206,7 @@ jobs:
           optional = {
               "DEPLOY_JWT_RSA_PRIVATE_KEY": "jwtRsaPrivateKey",
               "DEPLOY_GENAI_INTERNAL_TOKEN": "genaiInternalToken",
+              "DEPLOY_GRAFANA_ADMIN_PASSWORD": "grafanaAdminPassword",
           }
           value_keys = {
               "DEPLOY_OPENAI_API_KEY": "openaiApiKey",

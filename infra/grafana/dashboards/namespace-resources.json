@@ -8,12 +8,52 @@
   "liveNow": false,
   "panels": [
     {
+      "id": 8,
+      "type": "gauge",
+      "title": "Memory quota used (namespace)",
+      "description": "Admitted container memory *limits* as a fraction of the namespace hard quota (limits.memory; hard = 6 GiB on AET). This is the scheduler ceiling: near 1.0 means there is no room to schedule or grow anything, and the OOMKilled restarts below are the symptom. Not live working-set — see the per-pod memory panels for that.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.85 }, { "color": "red", "value": 0.95 }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "max(kube_resourcequota{namespace=~\"$namespace\", type=\"used\", resource=\"limits.memory\"}) / max(kube_resourcequota{namespace=~\"$namespace\", type=\"hard\", resource=\"limits.memory\"})", "legendFormat": "memory" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "gauge",
+      "title": "CPU quota used (namespace)",
+      "description": "Admitted container CPU *limits* as a fraction of the namespace hard quota (limits.cpu; hard = 4 cores on AET). Near 1.0 means the namespace is packed to its CPU allowance and nothing new can be scheduled. Scheduler ceiling, not live CPU usage — see the per-pod CPU panel for that.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.85 }, { "color": "red", "value": 0.95 }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": false, "showThresholdMarkers": true },
+      "targets": [
+        { "refId": "A", "instant": true, "expr": "max(kube_resourcequota{namespace=~\"$namespace\", type=\"used\", resource=\"limits.cpu\"}) / max(kube_resourcequota{namespace=~\"$namespace\", type=\"hard\", resource=\"limits.cpu\"})", "legendFormat": "cpu" }
+      ]
+    },
+    {
       "id": 1,
       "type": "stat",
       "title": "Pods not ready",
       "description": "Pods whose Ready condition is currently false. Should be 0 in steady state; spikes during rollouts.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 5 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "colorMode": "value",
@@ -35,7 +75,7 @@
       "title": "Container restarts (window)",
       "description": "Total container restarts across the namespace over the selected time range. Rising values mean crash-looping or OOM kills.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 5 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "colorMode": "value",
@@ -57,7 +97,7 @@
       "title": "Last termination reason",
       "description": "Why each container last exited (OOMKilled, Error, Completed). The namespace quota is tight, so OOMKilled here is the expected failure mode.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 5 },
       "options": { "showHeader": true },
       "transformations": [
         { "id": "labelsToFields", "options": { "mode": "columns", "keepLabels": ["pod", "container", "reason"] } },
@@ -73,7 +113,7 @@
       "title": "Memory: working set / limit (per pod)",
       "description": "Working-set memory as a fraction of the pod's memory limit. Approaching 1.0 means the pod is about to be OOMKilled. This is the early-warning panel.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -97,7 +137,7 @@
       "title": "CPU: usage / limit (per pod)",
       "description": "CPU usage (5m rate) as a fraction of the pod's CPU limit. Sustained values near 1.0 mean the pod is CPU-throttled.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -121,7 +161,7 @@
       "title": "Memory working set (per pod)",
       "description": "Absolute working-set memory per pod, for reading against the 6Gi namespace quota.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
       "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10 } } },
       "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -138,7 +178,7 @@
       "title": "Container restarts (cumulative, per pod)",
       "description": "Cumulative restart count per pod; each step up is a restart. Flat lines are healthy.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
       "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 0 } } },
       "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -175,6 +215,6 @@
   "timezone": "",
   "title": "Namespace — Resources & Health",
   "uid": "foundflow-namespace-resources",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

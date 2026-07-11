@@ -15,6 +15,7 @@ import com.foundflow.pickup.dto.StaffPickupRequest;
 import com.foundflow.pickup.dto.UpdatePickupRequest;
 import com.foundflow.pickup.dto.UpdatePickupScheduleRequest;
 import com.foundflow.pickup.messaging.PickupConfirmationEventPublisher;
+import com.foundflow.pickup.messaging.PickupScheduledEventPublisher;
 import com.foundflow.pickup.repository.PickupRepository;
 import com.foundflow.pickup.repository.PickupScheduleRepository;
 import com.foundflow.pickup.security.VenueAccessService;
@@ -50,6 +51,7 @@ public class PickupService {
     private final VenueAccessService venueAccessService;
     private final MagicLinkService magicLinkService;
     private final PickupConfirmationEventPublisher confirmationEventPublisher;
+    private final PickupScheduledEventPublisher scheduledEventPublisher;
     private final String publicBaseUrl;
 
     public PickupService(
@@ -58,6 +60,7 @@ public class PickupService {
             VenueAccessService venueAccessService,
             MagicLinkService magicLinkService,
             PickupConfirmationEventPublisher confirmationEventPublisher,
+            PickupScheduledEventPublisher scheduledEventPublisher,
             @Value("${foundflow.public.base-url}") String publicBaseUrl
     ) {
         this.pickupRepository = pickupRepository;
@@ -65,6 +68,7 @@ public class PickupService {
         this.venueAccessService = venueAccessService;
         this.magicLinkService = magicLinkService;
         this.confirmationEventPublisher = confirmationEventPublisher;
+        this.scheduledEventPublisher = scheduledEventPublisher;
         this.publicBaseUrl = publicBaseUrl;
     }
 
@@ -107,7 +111,14 @@ public class PickupService {
                 pickup.getMatchId(),
                 email,
                 pickup.getVenueId(),
-                manageUrl
+                pickup.getPickupAt()
+        );
+        // Retire the booked item from the matching pool: matching-service resolves
+        // the found item behind the match and reserves it (see issue #367).
+        scheduledEventPublisher.publishPickupScheduled(
+                pickup.getId(),
+                pickup.getMatchId(),
+                pickup.getVenueId()
         );
 
         return toPublicResponse(pickup, manageUrl);

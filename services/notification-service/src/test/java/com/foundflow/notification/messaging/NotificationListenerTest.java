@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +50,7 @@ class NotificationListenerTest {
         UUID pickupId = UUID.randomUUID();
         UUID matchId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        String manageUrl = "http://localhost:8080/api/pickups/public/manage-token";
+        LocalDateTime pickupAt = LocalDateTime.of(2026, 7, 14, 15, 0);
 
         listener.onPickupConfirmationRequested(new PickupConfirmationRequestedEvent(
                 UUID.randomUUID(),
@@ -58,10 +59,10 @@ class NotificationListenerTest {
                 matchId,
                 "lost@example.com",
                 venueId,
-                manageUrl
+                pickupAt
         ));
 
-        verify(dispatcher).dispatchPickupConfirmation(matchId, "lost@example.com", venueId, manageUrl);
+        verify(dispatcher).dispatchPickupConfirmation(matchId, "lost@example.com", venueId, pickupAt);
     }
 
     @Test

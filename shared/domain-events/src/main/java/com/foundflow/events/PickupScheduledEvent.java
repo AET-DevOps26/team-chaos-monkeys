@@ -1,16 +1,13 @@
 package com.foundflow.events;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record PickupConfirmationRequestedEvent(
+public record PickupScheduledEvent(
         UUID eventId,
         Instant occurredAt,
         UUID pickupId,
         UUID matchId,
-        String recipient,
-        UUID venueId,
-        LocalDateTime pickupAt
+        UUID venueId
 ) {
 }

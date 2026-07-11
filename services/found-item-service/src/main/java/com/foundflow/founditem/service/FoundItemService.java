@@ -173,6 +173,30 @@ public class FoundItemService {
                 });
     }
 
+    // Driven by the reservation event matching-service emits when a guest books a pickup.
+    // Idempotent: only a STORED item transitions, so redelivery or a manual reserve is a no-op.
+    // The FoundItemUpdated it publishes retires the item from the matching pool (issue #367).
+    @Transactional
+    public void reserveFoundItem(UUID id) {
+        foundItemRepository.findById(id).ifPresentOrElse(
+                foundItem -> {
+                    if (foundItem.getStatus() != ItemStatus.STORED) {
+                        LOGGER.info(
+                                "Skipping reservation of found item {} — already {}.",
+                                id,
+                                foundItem.getStatus()
+                        );
+                        return;
+                    }
+                    foundItem.setStatus(ItemStatus.RESERVED);
+                    FoundItem reserved = foundItemRepository.save(foundItem);
+                    LOGGER.info("Found item {} reserved for pickup.", reserved.getId());
+                    eventPublisher.publishFoundItemUpdated(reserved);
+                },
+                () -> LOGGER.warn("Reservation requested for unknown found item {}.", id)
+        );
+    }
+
     @Transactional
     public Optional<FoundItemResponse> updateFoundItemPhoto(
             UUID id,

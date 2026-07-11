@@ -13,6 +13,8 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -32,11 +34,9 @@ public class NotificationDispatcher {
     private static final String MATCH_INVITE_CTA_LABEL = "View match";
 
     private static final String PICKUP_CONFIRMATION_SUBJECT = "Your FoundFlow pickup is scheduled";
-    private static final String PICKUP_CONFIRMATION_BODY_PREFIX =
-            "Use this link to change or cancel your pickup: ";
-    private static final String PICKUP_CONFIRMATION_HTML_BODY =
-            "Your pickup is scheduled. You can change or cancel it at any time.";
-    private static final String PICKUP_CONFIRMATION_CTA_LABEL = "Manage pickup";
+    // "Tuesday, 14 July 2026 at 15:00"
+    private static final DateTimeFormatter PICKUP_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy 'at' HH:mm", Locale.ENGLISH);
 
     private static final String PASSWORD_RESET_SUBJECT = "Reset your FoundFlow password";
     private static final String PASSWORD_RESET_BODY_PREFIX =
@@ -79,18 +79,11 @@ public class NotificationDispatcher {
         sendAndMarkSent(notification, EmailHtml.render(MATCH_INVITE_HTML_BODY, MATCH_INVITE_CTA_LABEL, matchUrl));
     }
 
-    public void dispatchPickupConfirmation(UUID matchId, String recipient, UUID venueId, String manageUrl) {
-        Notification notification = persist(
-                matchId,
-                venueId,
-                recipient,
-                PICKUP_CONFIRMATION_SUBJECT,
-                PICKUP_CONFIRMATION_BODY_PREFIX + manageUrl
-        );
-        sendAndMarkSent(
-                notification,
-                EmailHtml.render(PICKUP_CONFIRMATION_HTML_BODY, PICKUP_CONFIRMATION_CTA_LABEL, manageUrl)
-        );
+    public void dispatchPickupConfirmation(UUID matchId, String recipient, UUID venueId, LocalDateTime pickupAt) {
+        String body = "Your pickup is scheduled for " + PICKUP_TIME_FORMAT.format(pickupAt)
+                + ". Please bring a photo ID so staff can hand over your item. See you then!";
+        Notification notification = persist(matchId, venueId, recipient, PICKUP_CONFIRMATION_SUBJECT, body);
+        sendAndMarkSent(notification, EmailHtml.render(body));
     }
 
     // Unlike the link-bearing notifications, this is a plain receipt: no magic link,

@@ -668,6 +668,44 @@ class FoundItemServiceTest {
         verify(photoStorage, never()).signedUrl(any(), any());
     }
 
+    @Test
+    void reserveFoundItem_shouldTransitionStoredToReservedAndPublishUpdate() {
+        FoundItemService service = service();
+        UUID id = UUID.randomUUID();
+        FoundItem storedItem = new FoundItem(
+                "found/photo.jpg", "Black backpack", LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Front desk", ItemStatus.STORED, UUID.randomUUID(), UUID.randomUUID(),
+                new ItemAttributes("Bag", null, null, null, List.of())
+        );
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(storedItem));
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.reserveFoundItem(id);
+
+        assertEquals(ItemStatus.RESERVED, storedItem.getStatus());
+        verify(foundItemRepository).save(storedItem);
+        verify(eventPublisher).publishFoundItemUpdated(storedItem);
+    }
+
+    @Test
+    void reserveFoundItem_shouldBeNoOpWhenNotStored() {
+        FoundItemService service = service();
+        UUID id = UUID.randomUUID();
+        FoundItem reservedItem = new FoundItem(
+                "found/photo.jpg", "Black backpack", LocalDateTime.of(2026, 5, 12, 14, 30),
+                "Front desk", ItemStatus.RESERVED, UUID.randomUUID(), UUID.randomUUID(),
+                new ItemAttributes("Bag", null, null, null, List.of())
+        );
+        when(foundItemRepository.findById(id)).thenReturn(Optional.of(reservedItem));
+
+        service.reserveFoundItem(id);
+
+        assertEquals(ItemStatus.RESERVED, reservedItem.getStatus());
+        verify(foundItemRepository, never()).save(any(FoundItem.class));
+        verifyNoInteractions(eventPublisher);
+    }
+
     private FoundItemService service() {
         return new FoundItemService(
                 foundItemRepository,

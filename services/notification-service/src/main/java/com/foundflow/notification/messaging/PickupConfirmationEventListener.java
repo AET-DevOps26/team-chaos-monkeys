@@ -21,7 +21,7 @@ public class PickupConfirmationEventListener {
                 event.matchId(),
                 event.recipient(),
                 event.venueId(),
-                event.manageUrl()
+                event.pickupAt()
         );
     }
 }

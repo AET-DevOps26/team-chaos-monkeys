@@ -116,6 +116,19 @@ public class CandidateMatchingService {
 
     @Transactional
     public void findCandidatesForFoundItemUpdate(FoundItemUpdatedEvent event) {
+        // Only STORED items are available to match. Any other status (RESERVED once a
+        // pickup is booked, RETURNED, DISPOSED) retires the item from the candidate pool;
+        // reverting to STORED re-embeds and re-matches it. See issue #367.
+        if (!"STORED".equals(event.status())) {
+            int removed = itemEmbeddingRepository.deleteByItemTypeAndItemId(ItemType.FOUND, event.foundItemId());
+            log.info(
+                    "Found item {} is {} — removed {} embedding(s) from the matching pool.",
+                    event.foundItemId(),
+                    event.status(),
+                    removed
+            );
+            return;
+        }
         processIntake(
                 ItemType.FOUND,
                 event.foundItemId(),

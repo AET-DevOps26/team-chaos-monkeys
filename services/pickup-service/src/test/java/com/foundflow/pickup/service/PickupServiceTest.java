@@ -9,6 +9,7 @@ import com.foundflow.pickup.dto.CreatePickupRequest;
 import com.foundflow.pickup.dto.CreatePickupScheduleRequest;
 import com.foundflow.pickup.dto.PickupSlotResponse;
 import com.foundflow.pickup.messaging.PickupConfirmationEventPublisher;
+import com.foundflow.pickup.messaging.PickupScheduledEventPublisher;
 import com.foundflow.pickup.repository.PickupRepository;
 import com.foundflow.pickup.repository.PickupScheduleRepository;
 import com.foundflow.pickup.security.VenueAccessService;
@@ -46,6 +47,9 @@ class PickupServiceTest {
 
     @Mock
     private PickupConfirmationEventPublisher confirmationEventPublisher;
+
+    @Mock
+    private PickupScheduledEventPublisher scheduledEventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -106,8 +110,10 @@ class PickupServiceTest {
                 matchId,
                 "lost@example.com",
                 venueId,
-                "http://localhost:8080/api/pickups/public/manage-token"
+                LocalDateTime.of(2026, 6, 1, 9, 0)
         );
+        // Retires the booked found item from matching (issue #367).
+        verify(scheduledEventPublisher).publishPickupScheduled(null, matchId, venueId);
     }
 
     @Test
@@ -171,6 +177,7 @@ class PickupServiceTest {
                 venueAccessService,
                 magicLinkService,
                 confirmationEventPublisher,
+                scheduledEventPublisher,
                 "http://localhost:8080"
         );
     }

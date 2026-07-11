@@ -101,10 +101,17 @@ function seedSuccess(matches = MATCHES, pickups = PICKUPS) {
   )
 }
 
+// The view defaults to the "Pending" filter, so only the PENDING fixture (M1 /
+// Found Wallet) renders on load. Tests that assert on the CONFIRMED fixture (M2
+// / Found Umbrella) switch to "All" first.
+const clickAll = (user: ReturnType<typeof renderWithProviders>['user']) =>
+  user.click(screen.getByRole('tab', { name: 'All' }))
+
 describe('<Matching />', () => {
   it('renders enriched lost↔found labels for each match', async () => {
     seedSuccess()
-    renderWithProviders(<Matching />)
+    const { user } = renderWithProviders(<Matching />)
+    await clickAll(user)
 
     expect(await screen.findByText('Found Wallet')).toBeInTheDocument()
     expect(screen.getByText('Lost Purse')).toBeInTheDocument()
@@ -141,7 +148,8 @@ describe('<Matching />', () => {
 
   it('shows the combined score as a percentage', async () => {
     seedSuccess()
-    renderWithProviders(<Matching />)
+    const { user } = renderWithProviders(<Matching />)
+    await clickAll(user)
 
     expect(await screen.findByText('82%')).toBeInTheDocument()
     expect(screen.getByText('61%')).toBeInTheDocument()
@@ -149,7 +157,8 @@ describe('<Matching />', () => {
 
   it('badges a scheduled pickup and flags matches without one', async () => {
     seedSuccess()
-    const { container } = renderWithProviders(<Matching />)
+    const { container, user } = renderWithProviders(<Matching />)
+    await clickAll(user)
 
     const withPickup = (await screen.findByText('Found Wallet')).closest(
       'article',
@@ -182,7 +191,8 @@ describe('<Matching />', () => {
 
   it('orders matches newest-first regardless of API order', async () => {
     seedSuccess()
-    const { container } = renderWithProviders(<Matching />)
+    const { container, user } = renderWithProviders(<Matching />)
+    await clickAll(user)
 
     await screen.findByText('Found Wallet')
     const articles = container.querySelectorAll('article')
@@ -206,6 +216,7 @@ describe('<Matching />', () => {
   it('filters cards client-side by the search query', async () => {
     seedSuccess()
     const { user } = renderWithProviders(<Matching />)
+    await clickAll(user)
 
     await screen.findByText('Found Wallet')
     await user.type(screen.getByRole('searchbox', { name: /search matches/i }), 'umbrella')
@@ -236,15 +247,17 @@ describe('<Matching />', () => {
     )
     const { user } = renderWithProviders(<Matching />)
 
-    // Default filter is "All", so empty here means no matches at all.
-    expect(await screen.findByText(/no matches yet/i)).toBeInTheDocument()
-
-    // Switch to a status filter, confirm its empty copy, then recover.
-    await user.click(screen.getByRole('tab', { name: /pending/i }))
+    // Default filter is "Pending", so empty here shows the status-specific copy.
     expect(
       await screen.findByText(/no matches with this status/i),
     ).toBeInTheDocument()
 
+    // Switching to "All" shows the generic empty copy.
+    await clickAll(user)
+    expect(await screen.findByText(/no matches yet/i)).toBeInTheDocument()
+
+    // Back on a status filter, seed data and recover via "Show all".
+    await user.click(screen.getByRole('tab', { name: /pending/i }))
     seedSuccess()
     await user.click(screen.getByRole('button', { name: /show all/i }))
     expect(await screen.findByText('Found Wallet')).toBeInTheDocument()

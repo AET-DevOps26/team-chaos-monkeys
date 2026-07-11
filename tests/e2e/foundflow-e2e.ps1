@@ -692,9 +692,19 @@ $authHealth = Wait-ForStatus `
 $protectedWithoutToken = $publicClient.GetAsync("$GatewayBaseUrl/api/venues").Result
 Assert-Status $protectedWithoutToken 401 "Protected endpoint rejects missing token"
 
-# Must be a venue that actually exists: intake now validates venueId against
-# operations-service (#351). Use the SEED_DEMO_DATA venue seeded by operations.
-$publicVenueId = "00000000-0000-0000-0000-000000000001"
+# Intake validates venueId against operations-service (#351). CI runs with
+# SEED_DEMO_DATA=false, so create a real venue as admin before the guest report
+# rather than relying on the demo-seed venue.
+$seedAdminTokens = Get-TokenPair $AdminEmail $AdminPassword
+$seedAdminClient = New-GatewayClient $seedAdminTokens.accessToken
+$guestVenueSuffix = [guid]::NewGuid().ToString("N").Substring(0, 8)
+$guestVenueResponse = Post-Json $seedAdminClient "$GatewayBaseUrl/api/venues" @{
+    name = "E2E Guest Venue $guestVenueSuffix"
+    tone = "friendly"
+    defaultLanguage = "en"
+}
+Assert-Status $guestVenueResponse 201 "Admin can create venue for guest report"
+$publicVenueId = (Read-Json $guestVenueResponse).id
 $publicLostReportRequest = @{
     description = "E2E public lost report"
     lostAt = "2026-05-19T15:30:00"

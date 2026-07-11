@@ -25,6 +25,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
+                                "/error",
                                 "/api/pickups/public/**"
                         ).permitAll()
                         .requestMatchers("/api/**")

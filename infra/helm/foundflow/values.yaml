@@ -160,6 +160,7 @@ services:
       - { name: SPRING_RABBITMQ_PASSWORD, secret: foundflow-rabbitmq, key: password }
       - { name: INTERNAL_SERVICE_TOKEN, secret: foundflow-app-secrets, key: internalServiceToken }
       - { name: GENAI_API_KEY, secret: foundflow-app-secrets, key: genaiInternalToken, optional: true }
+      - { name: MAGIC_LINK_SECRET, secret: foundflow-app-secrets, key: magicLinkSecret, optional: true }
 
   notification-service:
     kind: spring

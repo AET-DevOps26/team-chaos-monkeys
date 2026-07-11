@@ -25,7 +25,10 @@ public class SecurityConfig {
                                 "/actuator/prometheus",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                // Spring re-authorizes the ERROR dispatch: without this, a controller-thrown
+                                // 4xx on the anonymous guest report is masked as a generic 401.
+                                "/error"
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,

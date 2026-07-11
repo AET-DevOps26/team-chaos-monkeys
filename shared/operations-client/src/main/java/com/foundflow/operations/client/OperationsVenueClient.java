@@ -47,9 +47,10 @@ public class OperationsVenueClient {
                     exception
             );
         }
-        return venues != null && Arrays.stream(venues).anyMatch(venue -> venueId.equals(venue.id()));
+        return venues != null && Arrays.stream(venues).anyMatch(venue -> venueId.equals(venue.venueId()));
     }
 
-    private record PublicVenue(UUID id, String name) {
+    // Mirrors operations-service PublicVenueResponse: the JSON field is "venueId", not "id".
+    private record PublicVenue(UUID venueId, String name) {
     }
 }

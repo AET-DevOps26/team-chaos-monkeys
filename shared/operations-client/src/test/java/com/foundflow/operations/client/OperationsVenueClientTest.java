@@ -50,7 +50,7 @@ class OperationsVenueClientTest {
 
     private void stubPublicVenues() {
         wm.stubFor(get(urlEqualTo("/api/venues/public")).willReturn(
-                okJson("[{\"id\":\"" + KNOWN_VENUE + "\",\"name\":\"Grand Plaza\"}]")));
+                okJson("[{\"venueId\":\"" + KNOWN_VENUE + "\",\"name\":\"Grand Plaza\"}]")));
     }
 
     @Test

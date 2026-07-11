@@ -1154,14 +1154,17 @@ if (@($foundReporterHistogramBody.perDay).Count -lt 1) {
     throw "Found-item reporter histogram should contain at least one daily bucket."
 }
 
-$lostCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/count?status=OPEN").Result
+# Don't filter by status here: with the fake genai provider the report auto-matches
+# a same-category found item, and reach-out (#372) then flips it OPEN -> MATCHED
+# asynchronously — so its status at this point is racy. Count all statuses instead.
+$lostCountResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/count").Result
 Assert-Status $lostCountResponse 200 "OPS_MANAGER can read lost-item count"
 $lostCountBody = Read-Json $lostCountResponse
 if ($lostCountBody.count -lt 1) {
     throw "Lost-item count should include the created report."
 }
 
-$lostHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/histogram?status=OPEN").Result
+$lostHistogramResponse = $opsClient.GetAsync("$GatewayBaseUrl/api/lost-items/histogram").Result
 Assert-Status $lostHistogramResponse 200 "OPS_MANAGER can read lost-item histogram"
 $lostHistogramBody = Read-Json $lostHistogramResponse
 if (@($lostHistogramBody.perDay).Count -lt 1) {

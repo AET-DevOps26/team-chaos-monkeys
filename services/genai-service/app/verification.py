@@ -66,6 +66,13 @@ SYSTEM_PROMPT = (
     "side is generic, is NOT shared evidence. Ignore one-sided details in "
     "step 2; if the both-sides details alone do not single out one "
     'specific object, the verdict is "uncertain".\n'
+    "- A brand or model on one side is NOT contradicted by a generic "
+    "material, type, or descriptor on the other side for the SAME kind of "
+    'item. "Converse sneaker" vs "canvas sneaker", "Levi\'s jeans" vs '
+    '"denim jeans", or "iPhone" vs "black smartphone" are the same kind of '
+    "thing described at different levels of detail — not a contradiction. "
+    'Treat the brand as a one-sided detail (step 2), giving "uncertain", '
+    'never "no_match".\n'
     '- Being consistent is NOT enough for "match". Sharing only the item '
     "type or common attributes (a plain colour, a generic material, a "
     'generic category) is "uncertain", not "match" — those describe many '
@@ -83,7 +90,11 @@ SYSTEM_PROMPT = (
     "the brand and model are on one side only).\n"
     '- lost "white sneakers" / found "white Nike running shoes" -> '
     '"uncertain" (consistent and similar, but plain white sneakers are '
-    "very common and the brand is on one side only).\n\n"
+    "very common and the brand is on one side only).\n"
+    '- lost "purple Converse sneaker" / found "purple canvas sneakers with '
+    'white laces" -> "uncertain" (both are purple sneakers; "Converse" is a '
+    'brand on one side and "canvas" a material — the same kind of item, not '
+    "a contradiction, but no identifying detail is shared on both sides).\n\n"
     "Confidence must reflect the strength of the evidence: roughly 0.85-1.0 "
     "for a clear-cut verdict, 0.6-0.85 when likely but imperfect, and "
     '0.3-0.6 for an "uncertain" verdict. Never pair "uncertain" with high '

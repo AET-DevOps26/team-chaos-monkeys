@@ -16,6 +16,7 @@ import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
 import com.foundflow.genai.client.AttributeExtractionService;
+import com.foundflow.genai.client.ExtractionResult;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
@@ -139,19 +140,51 @@ class LostReportServiceTest {
 
         when(lostReportRepository.save(any(LostReport.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extract(eq("purple shirt"), isNull()))
-                .thenReturn(Optional.of(extracted));
+        when(attributeExtractionService.extractWithLocation(eq("purple shirt"), isNull()))
+                .thenReturn(Optional.of(new ExtractionResult(extracted, "the bar")));
 
         service.createLostReport(request, null);
 
         // Text-only report (no photo) still triggers extraction with a null photoKey.
-        verify(attributeExtractionService).extract("purple shirt", null);
+        verify(attributeExtractionService).extractWithLocation("purple shirt", null);
 
         ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
         verify(lostReportRepository, times(2)).save(captor.capture());
         // The generated description is persisted so it rides the created event.
         assertEquals("CLOTHING", captor.getValue().getAttributes().getCategory());
         assertEquals("purple cotton shirt", captor.getValue().getAttributes().getDescription());
+        // The guest typed a location, so the extracted one must not overwrite it.
+        assertEquals("near the cloakroom", captor.getValue().getLocation());
+        verify(eventPublisher).publishLostReportCreated(captor.getValue());
+    }
+
+    @Test
+    void createLostReport_shouldPersistExtractedLocationWhenGuestSuppliedNone() {
+        LostReportService service = service();
+
+        UUID venueId = UUID.randomUUID();
+        CreateLostReportRequest request = new CreateLostReportRequest(
+                "left my purple sunglasses at the bar",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                null,
+                venueId,
+                "person@example.com",
+                new ItemAttributesDto(null, null, null, null, List.of())
+        );
+        ItemAttributes extracted = new ItemAttributes(
+                "ACCESSORIES", "purple sunglasses", null, "purple", List.of());
+
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(attributeExtractionService.extractWithLocation(any(), isNull()))
+                .thenReturn(Optional.of(new ExtractionResult(extracted, "bar")));
+
+        service.createLostReport(request, null);
+
+        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
+        verify(lostReportRepository, times(2)).save(captor.capture());
+        // No user-supplied location -> the GenAI-recovered location is persisted.
+        assertEquals("bar", captor.getValue().getLocation());
         verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
@@ -291,7 +324,8 @@ class LostReportServiceTest {
         when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
         when(lostReportRepository.save(any(LostReport.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extract(any(), any())).thenReturn(Optional.of(extractedAttributes));
+        when(attributeExtractionService.extractWithLocation(any(), any()))
+                .thenReturn(Optional.of(new ExtractionResult(extractedAttributes, null)));
 
         Optional<LostReportResponse> response = service.updateLostReportPhoto(id, photo, null);
 

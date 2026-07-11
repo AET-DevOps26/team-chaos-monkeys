@@ -367,9 +367,13 @@ public class LostReportService {
             return;
         }
 
-        attributeExtractionService.extract(lostReport.getDescription(), photoKey)
+        attributeExtractionService.extractWithLocation(lostReport.getDescription(), photoKey)
                 .ifPresent(extracted -> {
-                    lostReport.setAttributes(extracted);
+                    lostReport.setAttributes(extracted.attributes());
+                    // Only fill in a location the guest didn't type — never clobber theirs.
+                    if (extracted.location() != null && !hasText(lostReport.getLocation())) {
+                        lostReport.setLocation(extracted.location());
+                    }
                     lostReportRepository.save(lostReport);
                 });
     }

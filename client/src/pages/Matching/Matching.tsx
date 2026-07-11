@@ -26,7 +26,7 @@ const RECENT_LIMIT = 50
 const gridCls = 'grid grid-cols-1 gap-5 lg:grid-cols-2'
 
 export default function Matching() {
-  const [filter, setFilter] = useState<Filter>('ALL')
+  const [filter, setFilter] = useState<Filter>(GetAllMatchesStatus.PENDING)
   const [query, setQuery] = useState('')
 
   const params = filter === 'ALL' ? undefined : { status: filter }

@@ -190,6 +190,34 @@ public class LostReportService {
                 });
     }
 
+    // Driven by matching-service as a report's match situation changes (issue #372).
+    // OPEN<->MATCHED only; a manual CLOSED/COLLECTED is left untouched. Idempotent, so a
+    // redelivered event or a no-op transition is harmless. No LostReportUpdated is published —
+    // this is a status projection, not a re-intake, so matching must not re-run.
+    @Transactional
+    public void applyMatchStatusChange(UUID lostReportId, String status) {
+        ReportStatus target;
+        try {
+            target = ReportStatus.valueOf(status);
+        } catch (IllegalArgumentException exception) {
+            LOGGER.warn("Ignoring match-status change for lostReport={} with unknown status {}.", lostReportId, status);
+            return;
+        }
+        lostReportRepository.findById(lostReportId).ifPresentOrElse(
+                report -> {
+                    boolean toMatched = target == ReportStatus.MATCHED && report.getStatus() == ReportStatus.OPEN;
+                    boolean toOpen = target == ReportStatus.OPEN && report.getStatus() == ReportStatus.MATCHED;
+                    if (!toMatched && !toOpen) {
+                        return;
+                    }
+                    report.setStatus(target);
+                    lostReportRepository.save(report);
+                    LOGGER.info("Lost report {} status -> {} from match activity.", lostReportId, target);
+                },
+                () -> LOGGER.warn("Match-status change for unknown lostReport={}.", lostReportId)
+        );
+    }
+
     @Transactional
     public Optional<LostReportResponse> updateLostReportPhoto(
             UUID id,

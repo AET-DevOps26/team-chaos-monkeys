@@ -49,6 +49,10 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
 
+    // True while the report still has an active (non-rejected) match, so a single rejection
+    // doesn't reopen a report that other candidates are still pursuing.
+    boolean existsByLostReportIdAndStatusNot(UUID lostReportId, MatchStatus status);
+
     @Modifying
     @Transactional
     int deleteByFoundItemId(UUID foundItemId);

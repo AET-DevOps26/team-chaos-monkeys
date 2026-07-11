@@ -526,6 +526,52 @@ class LostReportServiceTest {
         assertEquals(501, exception.getStatusCode().value());
     }
 
+    @Test
+    void applyMatchStatusChange_shouldMoveOpenToMatchedWithoutRepublishing() {
+        LostReportService service = service();
+        UUID id = UUID.randomUUID();
+        LostReport report = lostReport(UUID.randomUUID()); // OPEN
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(report));
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.applyMatchStatusChange(id, "MATCHED");
+
+        assertEquals(ReportStatus.MATCHED, report.getStatus());
+        verify(lostReportRepository).save(report);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void applyMatchStatusChange_shouldReopenMatchedReport() {
+        LostReportService service = service();
+        UUID id = UUID.randomUUID();
+        LostReport report = lostReport(UUID.randomUUID());
+        report.setStatus(ReportStatus.MATCHED);
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(report));
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.applyMatchStatusChange(id, "OPEN");
+
+        assertEquals(ReportStatus.OPEN, report.getStatus());
+        verify(lostReportRepository).save(report);
+    }
+
+    @Test
+    void applyMatchStatusChange_shouldLeaveTerminalStatusUntouched() {
+        LostReportService service = service();
+        UUID id = UUID.randomUUID();
+        LostReport report = lostReport(UUID.randomUUID());
+        report.setStatus(ReportStatus.COLLECTED);
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(report));
+
+        service.applyMatchStatusChange(id, "MATCHED");
+
+        assertEquals(ReportStatus.COLLECTED, report.getStatus());
+        verify(lostReportRepository, never()).save(any());
+    }
+
     private LostReportService service() {
         return new LostReportService(
                 lostReportRepository,

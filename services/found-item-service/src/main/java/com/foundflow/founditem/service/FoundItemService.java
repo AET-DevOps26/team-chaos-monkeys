@@ -10,6 +10,7 @@ import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.dto.TimeBucketCount;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.operations.client.OperationsVenueClient;
 import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
@@ -55,6 +56,7 @@ public class FoundItemService {
     private final Duration photoUrlTtl;
     private final FoundItemEventPublisher eventPublisher;
     private final AttributeExtractionService attributeExtractionService;
+    private final OperationsVenueClient operationsVenueClient;
 
     public FoundItemService(
             FoundItemRepository foundItemRepository,
@@ -62,7 +64,8 @@ public class FoundItemService {
             PhotoStorage photoStorage,
             @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
             FoundItemEventPublisher eventPublisher,
-            AttributeExtractionService attributeExtractionService
+            AttributeExtractionService attributeExtractionService,
+            OperationsVenueClient operationsVenueClient
     ) {
         this.foundItemRepository = foundItemRepository;
         this.venueAccessService = venueAccessService;
@@ -70,6 +73,7 @@ public class FoundItemService {
         this.photoUrlTtl = photoUrlTtl;
         this.eventPublisher = eventPublisher;
         this.attributeExtractionService = attributeExtractionService;
+        this.operationsVenueClient = operationsVenueClient;
     }
 
     @Transactional
@@ -77,9 +81,13 @@ public class FoundItemService {
             CreateFoundItemRequest request,
             Jwt jwt
     ) {
-        UUID venueId = venueAccessService.isAdmin(jwt)
-                ? request.venueId()
-                : venueAccessService.getVenueId(jwt);
+        UUID venueId;
+        if (venueAccessService.isAdmin(jwt)) {
+            venueId = request.venueId();
+            operationsVenueClient.requireExisting(venueId);
+        } else {
+            venueId = venueAccessService.getVenueId(jwt);
+        }
         UUID reporterId = resolveCreateReporterId(request, jwt);
         ItemAttributes attributes = toItemAttributes(request.attributes());
 
@@ -143,6 +151,7 @@ public class FoundItemService {
                                     "venueId is required when updating a found item."
                             );
                         }
+                        operationsVenueClient.requireExisting(request.venueId());
                         foundItem.setVenueId(request.venueId());
                     }
                     if (venueAccessService.isAdmin(jwt) && request.reporterId() != null) {

@@ -11,6 +11,7 @@ import com.foundflow.lostitem.dto.CreateLostReportRequest;
 import com.foundflow.lostitem.dto.ItemAttributesDto;
 import com.foundflow.lostitem.dto.LostReportResponse;
 import com.foundflow.lostitem.dto.UpdateLostReportRequest;
+import com.foundflow.operations.client.OperationsVenueClient;
 import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
@@ -26,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
@@ -57,6 +59,9 @@ class LostReportServiceTest {
 
     @Mock
     private AttributeExtractionService attributeExtractionService;
+
+    @Mock
+    private OperationsVenueClient operationsVenueClient;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -100,6 +105,38 @@ class LostReportServiceTest {
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
         verify(eventPublisher).publishLostReportCreated(captor.getValue());
+        verify(operationsVenueClient).requireExisting(venueId);
+    }
+
+    @Test
+    void createLostReport_shouldRejectUnknownVenueForPublicReport() {
+        LostReportService service = service();
+
+        UUID bogusVenueId = UUID.randomUUID();
+        CreateLostReportRequest request = createRequest(bogusVenueId);
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Venue does not exist."))
+                .when(operationsVenueClient).requireExisting(bogusVenueId);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.createLostReport(request, null)
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        verify(lostReportRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void createLostReport_shouldNotValidateVenueForStaff() {
+        LostReportService service = service();
+
+        when(lostReportRepository.save(any(LostReport.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.createLostReport(createRequest(UUID.randomUUID()), staffJwt(UUID.randomUUID()));
+
+        verify(operationsVenueClient, never()).requireExisting(any());
     }
 
     @Test
@@ -462,7 +499,8 @@ class LostReportServiceTest {
                 photoStorage,
                 Duration.ofMinutes(10),
                 eventPublisher,
-                attributeExtractionService
+                attributeExtractionService,
+                operationsVenueClient
         );
     }
 

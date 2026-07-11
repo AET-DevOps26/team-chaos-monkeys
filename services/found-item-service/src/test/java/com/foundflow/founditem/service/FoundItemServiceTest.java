@@ -12,6 +12,7 @@ import com.foundflow.founditem.dto.FoundItemResponse;
 import com.foundflow.founditem.dto.ItemAttributesDto;
 import com.foundflow.founditem.dto.PublicFoundItemResponse;
 import com.foundflow.founditem.dto.UpdateFoundItemRequest;
+import com.foundflow.operations.client.OperationsVenueClient;
 import com.foundflow.founditem.messaging.FoundItemEventPublisher;
 import com.foundflow.founditem.repository.BucketCountView;
 import com.foundflow.founditem.repository.FoundItemRepository;
@@ -59,6 +60,9 @@ class FoundItemServiceTest {
 
     @Mock
     private AttributeExtractionService attributeExtractionService;
+
+    @Mock
+    private OperationsVenueClient operationsVenueClient;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -180,6 +184,51 @@ class FoundItemServiceTest {
         assertEquals(requestVenueId, captor.getValue().getVenueId());
         assertEquals(requestReporterId, captor.getValue().getReporterId());
         assertEquals(requestReporterId, response.reporterId());
+        verify(operationsVenueClient).requireExisting(requestVenueId);
+    }
+
+    @Test
+    void createFoundItem_shouldRejectUnknownVenueForAdmin() {
+        FoundItemService service = service();
+
+        UUID bogusVenueId = UUID.randomUUID();
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                bogusVenueId,
+                UUID.randomUUID(),
+                null
+        );
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Venue does not exist."))
+                .when(operationsVenueClient).requireExisting(bogusVenueId);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.createFoundItem(request, adminJwt(UUID.randomUUID()))
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        verify(foundItemRepository, never()).save(any());
+    }
+
+    @Test
+    void createFoundItem_shouldNotValidateVenueForStaff() {
+        FoundItemService service = service();
+
+        when(foundItemRepository.save(any(FoundItem.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateFoundItemRequest request = new CreateFoundItemRequest(
+                "Schwarzer Rucksack",
+                LocalDateTime.of(2026, 5, 12, 14, 30),
+                UUID.randomUUID(),
+                null,
+                null
+        );
+
+        service.createFoundItem(request, staffJwt(UUID.randomUUID(), UUID.randomUUID()));
+
+        verify(operationsVenueClient, never()).requireExisting(any());
     }
 
     @Test
@@ -626,7 +675,8 @@ class FoundItemServiceTest {
                 photoStorage,
                 Duration.ofMinutes(10),
                 eventPublisher,
-                attributeExtractionService
+                attributeExtractionService,
+                operationsVenueClient
         );
     }
 

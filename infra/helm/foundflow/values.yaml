@@ -449,6 +449,11 @@ tempo:
     # 320Mi OOM-crashlooped in production on the vParquet4 flush spike (#311);
     # paired with the ingester block-size caps in tempo-config.yaml.
     limits:   { cpu: 100m, memory: 512Mi }
+  # Go soft memory limit (#361): makes the runtime GC hard as the heap nears
+  # this ceiling, absorbing the flush/compaction spike instead of getting
+  # OOMKilled at limits.memory. Must stay below limits.memory (~88% of 512Mi)
+  # to leave room for non-heap (goroutine stacks, mmap'd blocks).
+  goMemLimit: "450MiB"
 
 # Toggles cluster-namespaced Prometheus Operator resources (ServiceMonitor / PrometheusRule).
 # Disable if the cluster lacks the operator (vanilla minikube without it installed).

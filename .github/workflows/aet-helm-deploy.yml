@@ -184,7 +184,6 @@ jobs:
           DEPLOY_JWT_RSA_PRIVATE_KEY: ${{ secrets.JWT_RSA_PRIVATE_KEY }}
           DEPLOY_GENAI_INTERNAL_TOKEN: ${{ secrets.GENAI_INTERNAL_TOKEN }}
           DEPLOY_GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-          DEPLOY_GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
         run: |
           set -euo pipefail
 

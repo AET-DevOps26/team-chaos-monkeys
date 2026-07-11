@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
@@ -108,6 +108,10 @@ const clickAll = (user: ReturnType<typeof renderWithProviders>['user']) =>
   user.click(screen.getByRole('tab', { name: 'All' }))
 
 describe('<Matching />', () => {
+  afterEach(() => {
+    window.location.hash = ''
+  })
+
   it('renders enriched lost↔found labels for each match', async () => {
     seedSuccess()
     const { user } = renderWithProviders(<Matching />)
@@ -211,6 +215,17 @@ describe('<Matching />', () => {
     // Server filters to CONFIRMED (M2) only; the PENDING match drops out.
     expect(await screen.findByText('Found Umbrella')).toBeInTheDocument()
     expect(screen.queryByText('Found Wallet')).not.toBeInTheDocument()
+  })
+
+  it('starts on "All" when arriving via a #match- deep link so a confirmed match loads', async () => {
+    // Returns links here as /matches#match-<confirmed id>; the default Pending
+    // filter would otherwise filter that match out of the fetch entirely.
+    HTMLElement.prototype.scrollIntoView = vi.fn() // jsdom has no scrollIntoView
+    window.location.hash = `#match-${M2}`
+    seedSuccess()
+    renderWithProviders(<Matching />)
+
+    expect(await screen.findByText('Found Umbrella')).toBeInTheDocument()
   })
 
   it('filters cards client-side by the search query', async () => {

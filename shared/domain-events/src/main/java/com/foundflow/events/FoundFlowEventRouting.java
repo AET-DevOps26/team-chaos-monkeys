@@ -13,6 +13,9 @@ public final class FoundFlowEventRouting {
     public static final String MATCH_CANDIDATE_CREATED = "match-candidate.created.v1";
     public static final String MATCH_INVITE_REQUESTED = "match-invite.requested.v1";
     public static final String PICKUP_CONFIRMATION_REQUESTED = "pickup-confirmation.requested.v1";
+    public static final String PICKUP_SCHEDULED = "pickup.scheduled.v1";
+    public static final String FOUND_ITEM_RESERVATION_REQUESTED = "found-item.reservation-requested.v1";
+    public static final String LOST_REPORT_STATUS_CHANGE_REQUESTED = "lost-report.status-change-requested.v1";
     public static final String PASSWORD_RESET_REQUESTED = "password-reset.requested.v1";
     public static final String VENUE_DELETED = "venue.deleted.v1";
 
@@ -22,6 +25,9 @@ public final class FoundFlowEventRouting {
     public static final String MATCHING_FOUND_ITEM_UPDATES_QUEUE = "matching.found-item-updated.v1";
     public static final String MATCHING_FOUND_ITEM_DELETES_QUEUE = "matching.found-item-deleted.v1";
     public static final String MATCHING_MATCH_CANDIDATES_QUEUE = "matching.match-candidate-created.v1";
+    public static final String MATCHING_PICKUP_SCHEDULED_QUEUE = "matching.pickup-scheduled.v1";
+    public static final String FOUND_ITEM_RESERVATION_REQUESTS_QUEUE = "found-items.reservation-requested.v1";
+    public static final String LOST_ITEM_STATUS_CHANGE_QUEUE = "lost-items.status-change-requested.v1";
     public static final String NOTIFICATION_MATCH_INVITES_QUEUE = "notification.match-invite-requested.v1";
     public static final String NOTIFICATION_PICKUP_CONFIRMATIONS_QUEUE = "notification.pickup-confirmation-requested.v1";
     public static final String NOTIFICATION_PASSWORD_RESETS_QUEUE = "notification.password-reset-requested.v1";

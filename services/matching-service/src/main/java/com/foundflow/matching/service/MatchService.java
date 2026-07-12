@@ -17,6 +17,7 @@ import com.foundflow.matching.dto.PublicFoundItemResponse;
 import com.foundflow.matching.dto.PublicMatchLinkResponse;
 import com.foundflow.matching.dto.TimeBucketCount;
 import com.foundflow.matching.dto.UpdateMatchRequest;
+import com.foundflow.matching.messaging.LostReportStatusEventPublisher;
 import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.BucketCountView;
 import com.foundflow.matching.repository.MatchRepository;
@@ -51,6 +52,7 @@ public class MatchService {
     private final LostItemClient lostItemClient;
     private final MagicLinkService magicLinkService;
     private final MatchInviteEventPublisher matchInviteEventPublisher;
+    private final LostReportStatusEventPublisher lostReportStatusEventPublisher;
     private final String publicBaseUrl;
 
     public MatchService(
@@ -60,6 +62,7 @@ public class MatchService {
             LostItemClient lostItemClient,
             MagicLinkService magicLinkService,
             MatchInviteEventPublisher matchInviteEventPublisher,
+            LostReportStatusEventPublisher lostReportStatusEventPublisher,
             @Value("${foundflow.public.base-url}") String publicBaseUrl
     ) {
         this.matchRepository = matchRepository;
@@ -68,6 +71,7 @@ public class MatchService {
         this.lostItemClient = lostItemClient;
         this.magicLinkService = magicLinkService;
         this.matchInviteEventPublisher = matchInviteEventPublisher;
+        this.lostReportStatusEventPublisher = lostReportStatusEventPublisher;
         this.publicBaseUrl = publicBaseUrl;
     }
 
@@ -319,6 +323,13 @@ public class MatchService {
                             MatchStatus.PENDING,
                             status
                     );
+                    // A rejection reopens the report only once no other active match is pursuing it.
+                    if (status == MatchStatus.REJECTED
+                            && !matchRepository.existsByLostReportIdAndStatusNot(
+                                    savedMatch.getLostReportId(), MatchStatus.REJECTED)) {
+                        lostReportStatusEventPublisher.publishReopened(
+                                savedMatch.getLostReportId(), savedMatch.getVenueId());
+                    }
                     return toResponse(savedMatch);
                 });
     }
@@ -416,6 +427,8 @@ public class MatchService {
                 match.getVenueId(),
                 matchUrl
         );
+        // Reaching out (auto or manual) is what marks the report as being actively matched.
+        lostReportStatusEventPublisher.publishMatched(match.getLostReportId(), match.getVenueId());
         return new PublicMatchLinkResponse(
                 token,
                 matchUrl,

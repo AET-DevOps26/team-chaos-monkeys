@@ -13,4 +13,5 @@ export const GetAllMatchesStatus = {
   PENDING: 'PENDING',
   CONFIRMED: 'CONFIRMED',
   REJECTED: 'REJECTED',
+  COMPLETED: 'COMPLETED',
 } as const;

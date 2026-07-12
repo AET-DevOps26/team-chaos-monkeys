@@ -1,35 +1,32 @@
 package com.foundflow.pickup.messaging;
 
 import com.foundflow.events.FoundFlowEventRouting;
-import com.foundflow.events.PickupConfirmationRequestedEvent;
+import com.foundflow.events.PickupScheduledEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Component
-public class PickupConfirmationEventPublisher {
+public class PickupScheduledEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public PickupConfirmationEventPublisher(RabbitTemplate rabbitTemplate) {
+    public PickupScheduledEventPublisher(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void publishPickupConfirmationRequested(UUID pickupId, UUID matchId, String recipient, UUID venueId, LocalDateTime pickupAt) {
+    public void publishPickupScheduled(UUID pickupId, UUID matchId, UUID venueId) {
         rabbitTemplate.convertAndSend(
                 FoundFlowEventRouting.EXCHANGE,
-                FoundFlowEventRouting.PICKUP_CONFIRMATION_REQUESTED,
-                new PickupConfirmationRequestedEvent(
+                FoundFlowEventRouting.PICKUP_SCHEDULED,
+                new PickupScheduledEvent(
                         UUID.randomUUID(),
                         Instant.now(),
                         pickupId,
                         matchId,
-                        recipient,
-                        venueId,
-                        pickupAt
+                        venueId
                 )
         );
     }

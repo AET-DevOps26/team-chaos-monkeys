@@ -26,7 +26,12 @@ const RECENT_LIMIT = 50
 const gridCls = 'grid grid-cols-1 gap-5 lg:grid-cols-2'
 
 export default function Matching() {
-  const [filter, setFilter] = useState<Filter>(GetAllMatchesStatus.PENDING)
+  // A `#match-<id>` deep link (e.g. from Returns) points at an already-confirmed
+  // match, so start on "All" rather than the default Pending filter — otherwise
+  // the target card is filtered out of the fetch and the anchor never resolves.
+  const [filter, setFilter] = useState<Filter>(
+    window.location.hash.startsWith('#match-') ? 'ALL' : GetAllMatchesStatus.PENDING,
+  )
   const [query, setQuery] = useState('')
 
   const params = filter === 'ALL' ? undefined : { status: filter }

@@ -13,6 +13,7 @@ import com.foundflow.matching.domain.MatchStatus;
 import com.foundflow.matching.dto.CreateMatchRequest;
 import com.foundflow.matching.dto.CreatePublicMatchLinkRequest;
 import com.foundflow.matching.dto.PublicFoundItemResponse;
+import com.foundflow.matching.messaging.LostReportStatusEventPublisher;
 import com.foundflow.matching.messaging.MatchInviteEventPublisher;
 import com.foundflow.matching.repository.MatchRepository;
 import com.foundflow.matching.security.VenueAccessService;
@@ -62,6 +63,9 @@ class MatchServiceTest {
 
     @Mock
     private MatchInviteEventPublisher matchInviteEventPublisher;
+
+    @Mock
+    private LostReportStatusEventPublisher lostReportStatusEventPublisher;
 
     private final VenueAccessService venueAccessService = new VenueAccessService();
 
@@ -200,6 +204,7 @@ class MatchServiceTest {
                 venueId,
                 "http://localhost:8080/report/match/public-token"
         );
+        verify(lostReportStatusEventPublisher).publishMatched(match.getLostReportId(), venueId);
     }
 
     @Test
@@ -227,7 +232,7 @@ class MatchServiceTest {
         assertEquals("http://localhost:8080/report/match/existing-token", response.get().matchUrl());
         assertEquals("http://localhost:8080/api/pickups/public/existing-token", response.get().pickupUrl());
         verify(matchRepository, never()).save(any(Match.class));
-        verifyNoInteractions(magicLinkService, matchInviteEventPublisher);
+        verifyNoInteractions(magicLinkService, matchInviteEventPublisher, lostReportStatusEventPublisher);
     }
 
     @Test
@@ -442,6 +447,46 @@ class MatchServiceTest {
         );
     }
 
+    @Test
+    void rejectPublicMatch_shouldReopenReport_whenNoOtherActiveMatchRemains() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), lostReportId, venueId, MatchStatus.PENDING);
+
+        when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
+                .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchRepository.save(match)).thenReturn(match);
+        when(matchRepository.existsByLostReportIdAndStatusNot(lostReportId, MatchStatus.REJECTED))
+                .thenReturn(false);
+
+        matchService.rejectPublicMatch("public-token");
+
+        verify(lostReportStatusEventPublisher).publishReopened(lostReportId, venueId);
+    }
+
+    @Test
+    void rejectPublicMatch_shouldNotReopenReport_whenAnotherActiveMatchRemains() {
+        MatchService matchService = matchService();
+        UUID matchId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
+        Match match = match(UUID.randomUUID(), lostReportId, venueId, MatchStatus.PENDING);
+
+        when(magicLinkService.verify("public-token", MagicLinkService.TYPE_MATCH_VIEW))
+                .thenReturn(new MagicLinkClaims("match_view", matchId, null, venueId, "lost@example.com", 1L));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(matchRepository.save(match)).thenReturn(match);
+        when(matchRepository.existsByLostReportIdAndStatusNot(lostReportId, MatchStatus.REJECTED))
+                .thenReturn(true);
+
+        matchService.rejectPublicMatch("public-token");
+
+        verify(lostReportStatusEventPublisher, never()).publishReopened(any(), any());
+    }
+
     private MatchService matchService() {
         return new MatchService(
                 matchRepository,
@@ -450,6 +495,7 @@ class MatchServiceTest {
                 lostItemClient,
                 magicLinkService,
                 matchInviteEventPublisher,
+                lostReportStatusEventPublisher,
                 "http://localhost:8080"
         );
     }

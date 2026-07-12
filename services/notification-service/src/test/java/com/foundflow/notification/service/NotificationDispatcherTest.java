@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.time.LocalDateTime;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -32,7 +33,6 @@ class NotificationDispatcherTest {
 
     private static final String FROM_ADDRESS = "no-reply@foundflow.test";
     private static final String MATCH_URL = "http://localhost:3000/report/match/public-token";
-    private static final String MANAGE_URL = "http://localhost:8080/api/pickups/public/manage-token";
     private static final String RESET_URL = "http://localhost:8080/reset-password?token=reset-token";
 
     @Mock
@@ -155,7 +155,8 @@ class NotificationDispatcherTest {
                     return arg;
                 });
 
-        dispatcher.dispatchPickupConfirmation(matchId, recipient, venueId, MANAGE_URL);
+        LocalDateTime pickupAt = LocalDateTime.of(2026, 7, 14, 15, 0);
+        dispatcher.dispatchPickupConfirmation(matchId, recipient, venueId, pickupAt);
 
         ArgumentCaptor<Notification> savedCaptor = ArgumentCaptor.forClass(Notification.class);
         InOrder order = inOrder(notificationRepository, mailSender);
@@ -169,7 +170,8 @@ class NotificationDispatcherTest {
         assertThat(finalState.getRecipientAddress()).isEqualTo(recipient);
         assertThat(finalState.getSubject()).isEqualTo("Your FoundFlow pickup is scheduled");
         assertThat(finalState.getBody())
-                .isEqualTo("Use this link to change or cancel your pickup: " + MANAGE_URL);
+                .contains("Tuesday, 14 July 2026 at 15:00")
+                .contains("See you then");
         assertThat(sentAtAtEachSave).hasSize(2);
         assertThat(sentAtAtEachSave.get(0)).isNull();
         assertThat(sentAtAtEachSave.get(1)).isNotNull();
@@ -177,8 +179,10 @@ class NotificationDispatcherTest {
         MimeMessage sent = sentMessage();
         assertThat(plainTextPart(sent)).isEqualTo(finalState.getBody());
         String html = htmlPart(sent);
-        assertThat(html).contains("href=\"" + MANAGE_URL + "\"");
-        assertThat(html).contains("Manage pickup");
+        assertThat(html).contains("Tuesday, 14 July 2026 at 15:00");
+        assertThat(html)
+                .as("pickup confirmation no longer links to the raw manage API")
+                .doesNotContain("href=");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.foundflow.matching.service;
 
 import com.foundflow.events.FoundItemCreatedEvent;
+import com.foundflow.events.FoundItemUpdatedEvent;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
@@ -354,6 +355,50 @@ class CandidateMatchingServiceTest {
         assertThat(captor.getValue().getLostReportId()).isEqualTo(lostReportId);
         assertThat(captor.getValue().getFoundItemId()).isEqualTo(foundItemId);
         assertThat(captor.getValue().getRecipientEmail()).isEqualTo("guest@example.com");
+    }
+
+    @Test
+    void foundItemUpdatedToReserved_retiresEmbeddingWithoutRematching() {
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        service.findCandidatesForFoundItemUpdate(new FoundItemUpdatedEvent(
+                UUID.randomUUID(), Instant.now(),
+                foundItemId, venueId,
+                "found/photo.jpg", "Black backpack",
+                Instant.now(), "Front desk", "RESERVED",
+                UUID.randomUUID(),
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
+        ));
+
+        verify(itemEmbeddingRepository).deleteByItemTypeAndItemId(ItemType.FOUND, foundItemId);
+        verify(itemEmbeddingRepository, never()).upsert(any(ItemEmbedding.class));
+        verifyNoInteractions(genaiClient);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void foundItemUpdatedToStored_reembedsAndMatches() {
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(ItemType.FOUND, foundItemId))
+                .thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        when(itemEmbeddingRepository.findTopKSimilar(eq(ItemType.LOST), eq(venueId), any(), eq(TOP_K)))
+                .thenReturn(List.of());
+
+        service.findCandidatesForFoundItemUpdate(new FoundItemUpdatedEvent(
+                UUID.randomUUID(), Instant.now(),
+                foundItemId, venueId,
+                "found/photo.jpg", "Black backpack",
+                Instant.now(), "Front desk", "STORED",
+                UUID.randomUUID(),
+                new ItemAttributesPayload("Bag", null, null, null, List.of())
+        ));
+
+        verify(itemEmbeddingRepository).upsert(any(ItemEmbedding.class));
+        verify(itemEmbeddingRepository, never()).deleteByItemTypeAndItemId(any(), any());
     }
 
     @Test

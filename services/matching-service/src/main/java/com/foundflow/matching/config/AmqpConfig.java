@@ -62,6 +62,11 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue pickupScheduledQueue() {
+        return consumerQueue(FoundFlowEventRouting.MATCHING_PICKUP_SCHEDULED_QUEUE);
+    }
+
+    @Bean
     public Queue lostReportCreatedDlq() {
         return deadLetterQueue(FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE);
     }
@@ -89,6 +94,11 @@ public class AmqpConfig {
     @Bean
     public Queue matchCandidateCreatedDlq() {
         return deadLetterQueue(FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
+    }
+
+    @Bean
+    public Queue pickupScheduledDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_PICKUP_SCHEDULED_QUEUE);
     }
 
     @Bean
@@ -152,6 +162,16 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Binding pickupScheduledBinding(
+            Queue pickupScheduledQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(pickupScheduledQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.PICKUP_SCHEDULED);
+    }
+
+    @Bean
     public Binding lostReportCreatedDlqBinding(TopicExchange deadLetterExchange) {
         return deadLetterBinding(lostReportCreatedDlq(), deadLetterExchange,
                 FoundFlowEventRouting.MATCHING_LOST_REPORTS_QUEUE);
@@ -185,6 +205,12 @@ public class AmqpConfig {
     public Binding matchCandidateCreatedDlqBinding(TopicExchange deadLetterExchange) {
         return deadLetterBinding(matchCandidateCreatedDlq(), deadLetterExchange,
                 FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
+    }
+
+    @Bean
+    public Binding pickupScheduledDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(pickupScheduledDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_PICKUP_SCHEDULED_QUEUE);
     }
 
     @Bean

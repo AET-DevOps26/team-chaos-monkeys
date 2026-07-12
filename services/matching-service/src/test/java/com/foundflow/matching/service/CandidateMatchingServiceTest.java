@@ -70,7 +70,6 @@ class CandidateMatchingServiceTest {
                 meters,
                 TOP_K,
                 THRESHOLD,
-                0.85f,
                 0.01f,
                 EMBEDDING_DIM
         );
@@ -149,7 +148,7 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryMismatch_withStrongSemantic_stillMatches() {
+    void differentKnownCategories_areVetoed_regardlessOfSemantic() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -157,11 +156,31 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
-        // Categories differ ("Bag" vs "Wallet") but semantic similarity is high
-        // (distance 0.1 -> 0.9). Soft gate: combined = 0.85 * 0.9 >= 0.55, so the
-        // strong embedding match is no longer vetoed by the category disagreement.
+        // Categories differ ("Bag" vs "Wallet"); even with a very strong embedding match
+        // (distance 0.1 -> 0.9) the hard category veto drops it before scoring (issue #374).
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
                 .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.1f)));
+
+        service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
+
+        verify(matchRepository, never()).save(any(Match.class));
+        verifyNoInteractions(eventPublisher);
+        assertThat(meters.counter("matching.candidates.vetoed_total", "reason", "category").count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void sameCategory_scoresOnSemanticAlone() {
+        UUID lostReportId = UUID.randomUUID();
+        UUID foundItemId = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+
+        when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
+                .thenReturn(Optional.empty());
+        when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
+        // Same category ("Bag"): no category factor, combined == semantic (distance 0.1 -> 0.9).
+        when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Bag", null, "test text source", 0.1f)));
         when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
                 .thenReturn(Optional.empty());
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -171,14 +190,14 @@ class CandidateMatchingServiceTest {
         ArgumentCaptor<Match> captor = ArgumentCaptor.forClass(Match.class);
         verify(matchRepository).save(captor.capture());
         Match persisted = captor.getValue();
-        assertThat(persisted.getAttributeScore()).isEqualTo(0.85f);
+        assertThat(persisted.getAttributeScore()).isEqualTo(1.0f);
         assertThat(persisted.getSemanticScore()).isEqualTo(0.9f);
-        assertThat(persisted.getCombinedScore()).isEqualTo(0.85f * 0.9f);
+        assertThat(persisted.getCombinedScore()).isEqualTo(0.9f);
         verify(eventPublisher).publishMatchCandidateCreated(persisted);
     }
 
     @Test
-    void categoryMismatch_withWeakSemantic_staysBelowThreshold() {
+    void missingCategory_isNotVetoed_scoresOnSemantic() {
         UUID lostReportId = UUID.randomUUID();
         UUID foundItemId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
@@ -186,15 +205,18 @@ class CandidateMatchingServiceTest {
         when(itemEmbeddingRepository.findTextSource(ItemType.LOST, lostReportId))
                 .thenReturn(Optional.empty());
         when(genaiClient.embed(any())).thenReturn(embedResponse(1.0f, 0.0f));
-        // Categories differ and semantic is modest (distance 0.5 -> 0.5):
-        // combined = 0.85 * 0.5 = 0.425 < 0.55 threshold -> no match.
+        // Candidate has no category -> can't compare, so not vetoed; scored on semantic (0.9 >= 0.55).
         when(itemEmbeddingRepository.findTopKSimilar(any(), any(), any(), eq(TOP_K)))
-                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, "Wallet", null, "test text source", 0.5f)));
+                .thenReturn(List.of(new SimilarItemEmbedding(foundItemId, null, null, "test text source", 0.1f)));
+        when(matchRepository.findFirstByLostReportIdAndFoundItemId(any(), any()))
+                .thenReturn(Optional.empty());
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.findCandidatesForLostReport(lostReportEvent(lostReportId, venueId, "Bag", "Black backpack"));
 
-        verify(matchRepository, never()).save(any(Match.class));
-        verifyNoInteractions(eventPublisher);
+        verify(matchRepository).save(any(Match.class));
+        assertThat(meters.counter("matching.candidates.vetoed_total", "reason", "category").count())
+                .isEqualTo(0.0);
     }
 
     @Test
@@ -463,18 +485,18 @@ class CandidateMatchingServiceTest {
     }
 
     @Test
-    void categoryGate_isSoftPriorNotVeto() {
-        float f = 0.85f;
-        // Exact agreement (incl. both-unknown) → full weight.
-        assertThat(CandidateMatchingService.categoryGate("BAGS", "BAGS", f)).isEqualTo(1.0f);
-        assertThat(CandidateMatchingService.categoryGate(null, null, f)).isEqualTo(1.0f);
+    void categoriesCompatible_isHardVetoOnlyForDifferingKnownCategories() {
+        // Exact agreement (incl. both-unknown) → compatible.
+        assertThat(CandidateMatchingService.categoriesCompatible("BAGS", "BAGS")).isTrue();
+        assertThat(CandidateMatchingService.categoriesCompatible(null, null)).isTrue();
         // Case/whitespace-insensitive agreement.
-        assertThat(CandidateMatchingService.categoryGate("bags", "  BAGS ", f)).isEqualTo(1.0f);
-        // Different categories → mild penalty, not a 0.0 veto.
-        assertThat(CandidateMatchingService.categoryGate("BAGS", "ACCESSORIES", f)).isEqualTo(f);
-        // Only one side categorised → same mild penalty.
-        assertThat(CandidateMatchingService.categoryGate("BAGS", null, f)).isEqualTo(f);
-        assertThat(CandidateMatchingService.categoryGate(null, "BAGS", f)).isEqualTo(f);
+        assertThat(CandidateMatchingService.categoriesCompatible("bags", "  BAGS ")).isTrue();
+        // Both known and differ → vetoed (incompatible).
+        assertThat(CandidateMatchingService.categoriesCompatible("BAGS", "ACCESSORIES")).isFalse();
+        // One side unknown/blank → can't compare, stays compatible (falls through to semantic).
+        assertThat(CandidateMatchingService.categoriesCompatible("BAGS", null)).isTrue();
+        assertThat(CandidateMatchingService.categoriesCompatible(null, "BAGS")).isTrue();
+        assertThat(CandidateMatchingService.categoriesCompatible("BAGS", "   ")).isTrue();
     }
 
     @Test

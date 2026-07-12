@@ -71,57 +71,69 @@ class MatchVerificationServiceTest {
     }
 
     @Test
-    void noMatchVerdict_autoRejectsPendingMatch() {
+    void noMatchVerdict_dropsUninvitedPendingMatch() {
         when(client.verifyMatch(any())).thenReturn(okResponse("no_match"));
-        when(repo.autoRejectIfPending(matchId)).thenReturn(1);
+        when(repo.deleteIfPendingAndUninvited(matchId)).thenReturn(1);
 
         svc.verifyAsync(matchId, "purple tshirt", "purple puffer jacket");
 
         verify(repo).applyVerification(eq(matchId), any());
-        verify(repo).autoRejectIfPending(matchId);
-        assertThat(meters.counter("matching.verify.auto_reject_total").count()).isEqualTo(1.0);
+        verify(repo).deleteIfPendingAndUninvited(matchId);
+        assertThat(meters.counter("matching.verify.dropped_total").count()).isEqualTo(1.0);
     }
 
     @Test
-    void matchVerdict_doesNotAutoReject() {
+    void noMatchVerdict_onInvitedMatch_leavesItForTheGuest() {
+        when(client.verifyMatch(any())).thenReturn(okResponse("no_match"));
+        // The guarded delete matches no rows because the match already has a public link.
+        when(repo.deleteIfPendingAndUninvited(matchId)).thenReturn(0);
+
+        svc.verifyAsync(matchId, "l", "f");
+
+        verify(repo).deleteIfPendingAndUninvited(matchId);
+        assertThat(meters.counter("matching.verify.dropped_total").count()).isEqualTo(0.0);
+    }
+
+    @Test
+    void matchVerdict_doesNotDrop() {
         when(client.verifyMatch(any())).thenReturn(okResponse("match"));
 
         svc.verifyAsync(matchId, "l", "f");
 
         verify(repo).applyVerification(eq(matchId), any());
-        verify(repo, never()).autoRejectIfPending(any());
+        verify(repo, never()).deleteIfPendingAndUninvited(any());
     }
 
     @Test
-    void uncertainVerdict_doesNotAutoReject() {
+    void uncertainVerdict_doesNotDrop() {
         when(client.verifyMatch(any())).thenReturn(okResponse("uncertain"));
 
         svc.verifyAsync(matchId, "l", "f");
 
-        verify(repo, never()).autoRejectIfPending(any());
+        verify(repo, never()).deleteIfPendingAndUninvited(any());
     }
 
     @Test
-    void lowConfidenceNoMatch_doesNotAutoReject() {
+    void lowConfidenceNoMatch_doesNotDrop() {
         VerifyMatchResponse r = okResponse("no_match");
-        r.setConfidence(0.5f); // below the auto-reject confidence floor
+        r.setConfidence(0.5f); // below the drop confidence floor
         when(client.verifyMatch(any())).thenReturn(r);
 
         svc.verifyAsync(matchId, "l", "f");
 
         verify(repo).applyVerification(eq(matchId), any());
-        verify(repo, never()).autoRejectIfPending(any());
+        verify(repo, never()).deleteIfPendingAndUninvited(any());
     }
 
     @Test
-    void autoRejectDisabled_keepsNoMatchPending() {
-        props.setAutoRejectOnNoMatch(false);
+    void dropDisabled_keepsNoMatchPending() {
+        props.setDropOnNoMatch(false);
         when(client.verifyMatch(any())).thenReturn(okResponse("no_match"));
 
         svc.verifyAsync(matchId, "l", "f");
 
         verify(repo).applyVerification(eq(matchId), any());
-        verify(repo, never()).autoRejectIfPending(any());
+        verify(repo, never()).deleteIfPendingAndUninvited(any());
     }
 
     @Test

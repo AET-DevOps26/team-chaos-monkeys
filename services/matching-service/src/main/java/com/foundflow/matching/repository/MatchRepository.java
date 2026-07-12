@@ -32,20 +32,21 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     int applyVerification(@Param("matchId") UUID matchId, @Param("v") MatchVerification v);
 
     /**
-     * Transition a candidate to REJECTED when verify-match confidently rules it
-     * out. Guarded on PENDING so it never overrides a status a guest has already
-     * set (CONFIRMED/REJECTED). Returns the number of rows updated (0 if the
-     * match had already left PENDING).
+     * Drop a candidate when verify-match confidently rules it out (issue #374): the machine
+     * verdict deletes the row so it never clutters the inbox, rather than marking it REJECTED —
+     * REJECTED is reserved for an explicit human rejection. Guarded on PENDING and an un-issued
+     * public link, so it never yanks a match a guest has already been invited to or acted on.
+     * Returns the number of rows deleted (0 if the match had left PENDING or was already invited).
      */
     @Modifying
     @Transactional
     @Query("""
-        UPDATE Match m
-           SET m.status = com.foundflow.matching.domain.MatchStatus.REJECTED
+        DELETE FROM Match m
          WHERE m.id = :matchId
            AND m.status = com.foundflow.matching.domain.MatchStatus.PENDING
+           AND m.publicLinkToken IS NULL
         """)
-    int autoRejectIfPending(@Param("matchId") UUID matchId);
+    int deleteIfPendingAndUninvited(@Param("matchId") UUID matchId);
 
     Optional<Match> findFirstByLostReportIdAndFoundItemId(UUID lostReportId, UUID foundItemId);
 

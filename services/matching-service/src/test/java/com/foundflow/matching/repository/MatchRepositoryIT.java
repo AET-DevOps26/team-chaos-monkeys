@@ -161,6 +161,35 @@ class MatchRepositoryIT {
                 .containsExactly(retained.getId());
     }
 
+    @Test
+    void deleteIfPendingAndUninvited_dropsOnlyUninvitedPendingMatches() {
+        UUID venueId = UUID.randomUUID();
+        Match uninvited = repository.save(match(
+                UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING,
+                LocalDateTime.of(2026, 5, 19, 10, 0)));
+        Match invited = repository.save(match(
+                UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.PENDING,
+                LocalDateTime.of(2026, 5, 19, 11, 0)));
+        invited.setPublicLinkToken("guest-token");
+        repository.save(invited);
+        Match confirmed = repository.save(match(
+                UUID.randomUUID(), UUID.randomUUID(), venueId, MatchStatus.CONFIRMED,
+                LocalDateTime.of(2026, 5, 19, 12, 0)));
+        entityManager.flush();
+        entityManager.clear();
+
+        // Only the uninvited PENDING match is droppable.
+        assertThat(repository.deleteIfPendingAndUninvited(uninvited.getId())).isEqualTo(1);
+        assertThat(repository.deleteIfPendingAndUninvited(invited.getId())).isEqualTo(0);
+        assertThat(repository.deleteIfPendingAndUninvited(confirmed.getId())).isEqualTo(0);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(repository.findAll())
+                .extracting(Match::getId)
+                .containsExactlyInAnyOrder(invited.getId(), confirmed.getId());
+    }
+
     private Match match(
             UUID foundItemId,
             UUID lostReportId,

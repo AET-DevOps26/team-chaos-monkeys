@@ -48,7 +48,6 @@ public class CandidateMatchingService {
 
     private final int topK;
     private final float threshold;
-    private final float categoryMismatchFactor;
     private final float republishScoreDelta;
     private final int embeddingDim;
 
@@ -61,7 +60,6 @@ public class CandidateMatchingService {
             MeterRegistry meterRegistry,
             @Value("${foundflow.matching.top-k:20}") int topK,
             @Value("${foundflow.matching.threshold:0.55}") float threshold,
-            @Value("${foundflow.matching.category-mismatch-factor:0.85}") float categoryMismatchFactor,
             @Value("${foundflow.matching.republish-score-delta:0.01}") float republishScoreDelta,
             @Value("${foundflow.matching.embedding-dim}") int embeddingDim
     ) {
@@ -73,7 +71,6 @@ public class CandidateMatchingService {
         this.meterRegistry = meterRegistry;
         this.topK = topK;
         this.threshold = threshold;
-        this.categoryMismatchFactor = categoryMismatchFactor;
         this.republishScoreDelta = republishScoreDelta;
         this.embeddingDim = embeddingDim;
     }
@@ -212,7 +209,15 @@ public class CandidateMatchingService {
                 .register(meterRegistry);
 
         for (SimilarItemEmbedding candidate : candidates) {
-            float attributeScore = categoryGate(ownCategory, candidate.category(), categoryMismatchFactor);
+            // Category is a hard veto: two items whose categories are both known and differ are
+            // never the same lost item, so they don't become a match at all (issue #374). When a
+            // category is missing we can't compare, so we fall through to semantic scoring.
+            if (!categoriesCompatible(ownCategory, candidate.category())) {
+                meterRegistry.counter("matching.candidates.vetoed_total", "reason", "category").increment();
+                continue;
+            }
+
+            float attributeScore = 1.0f;
             float semanticScore = 1.0f - candidate.cosineDistance();
             float combinedScore = attributeScore * semanticScore;
             scoreHistogram.record(combinedScore);
@@ -312,22 +317,26 @@ public class CandidateMatchingService {
     }
 
     /**
-     * Category is a soft prior, not a veto. Exact agreement (case/whitespace
-     * insensitive, including both-unknown) gives full weight; any other case —
-     * different categories, or only one side categorised — applies a mild
-     * {@code mismatchFactor} penalty rather than zeroing the score, so a strong
-     * embedding match can still surface despite a category misclassification.
-     * The async verify-match step backstops residual false positives.
+     * Category is a hard veto: two items are match-eligible unless both are categorised and the
+     * categories differ (case/whitespace insensitive). A missing category on either side can't be
+     * compared, so it stays eligible and is judged on semantic similarity alone. This kills the
+     * cross-category clutter (a found glove vs a lost umbrella) at the source; the async
+     * verify-match step handles residual same-category false positives.
      */
-    static float categoryGate(String own, String candidate, float mismatchFactor) {
-        if (Objects.equals(normalizeCategory(own), normalizeCategory(candidate))) {
-            return 1.0f;
+    static boolean categoriesCompatible(String own, String candidate) {
+        String a = normalizeCategory(own);
+        String b = normalizeCategory(candidate);
+        if (a == null || b == null) {
+            return true;
         }
-        return mismatchFactor;
+        return a.equals(b);
     }
 
     private static String normalizeCategory(String category) {
-        return category == null ? null : category.trim().toLowerCase(Locale.ROOT);
+        if (category == null || category.isBlank()) {
+            return null;
+        }
+        return category.trim().toLowerCase(Locale.ROOT);
     }
 
     static String buildEmbeddingText(String freeText, ItemAttributesPayload attributes) {

@@ -39,7 +39,8 @@ async def provider() -> AsyncIterator[LLMProvider]:
         await llm.aclose()
 
 
-# (lost description, found description, expected verdict or None for "do not assert")
+# (lost description, found description, allowed verdicts or None for "do not assert").
+# A set means "any of these"; a bare string is shorthand for a one-element set.
 _CASES = [
     (
         "black North Face puffer jacket with a small Berlin enamel pin, lost near the cloakroom",
@@ -56,12 +57,19 @@ _CASES = [
         "black wireless earbuds in a charging case",
         None,
     ),
+    # #368: a one-sided brand ("Converse") vs a material descriptor ("canvas")
+    # of the same item kind must NOT be read as a contradiction.
+    (
+        "purple Converse sneaker",
+        "purple canvas sneakers with white laces",
+        {"match", "uncertain"},
+    ),
 ]
 
 
 @pytest.mark.parametrize(("lost", "found", "expected"), _CASES)
 async def test_verify_match_real_provider(
-    provider: LLMProvider, lost: str, found: str, expected: str | None
+    provider: LLMProvider, lost: str, found: str, expected: str | set[str] | None
 ) -> None:
     # verify_match raises ModelOutputError if the model's output does not parse
     # into VerificationOutput — a clean return already proves the prompt yields
@@ -75,4 +83,5 @@ async def test_verify_match_real_provider(
     assert 0.0 <= result.confidence <= 1.0
     assert result.rationale.strip()
     if expected is not None:
-        assert result.verdict == expected
+        allowed = {expected} if isinstance(expected, str) else expected
+        assert result.verdict in allowed

@@ -13,4 +13,5 @@ export const GetMatchHistogramStatus = {
   PENDING: 'PENDING',
   CONFIRMED: 'CONFIRMED',
   REJECTED: 'REJECTED',
+  COMPLETED: 'COMPLETED',
 } as const;

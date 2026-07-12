@@ -175,7 +175,8 @@
               "enum": [
                 "PENDING",
                 "CONFIRMED",
-                "REJECTED"
+                "REJECTED",
+                "COMPLETED"
               ]
             }
           }
@@ -330,7 +331,8 @@
               "enum": [
                 "PENDING",
                 "CONFIRMED",
-                "REJECTED"
+                "REJECTED",
+                "COMPLETED"
               ]
             }
           },
@@ -392,7 +394,8 @@
               "enum": [
                 "PENDING",
                 "CONFIRMED",
-                "REJECTED"
+                "REJECTED",
+                "COMPLETED"
               ]
             }
           },
@@ -473,7 +476,8 @@
             "enum": [
               "PENDING",
               "CONFIRMED",
-              "REJECTED"
+              "REJECTED",
+              "COMPLETED"
             ]
           },
           "attributeScore": {
@@ -522,7 +526,8 @@
             "enum": [
               "PENDING",
               "CONFIRMED",
-              "REJECTED"
+              "REJECTED",
+              "COMPLETED"
             ]
           },
           "attributeScore": {

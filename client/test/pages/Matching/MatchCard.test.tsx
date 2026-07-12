@@ -195,10 +195,20 @@ describe('<MatchCard /> handover control', () => {
   })
 
   it('does nothing when the confirm dialog is dismissed', async () => {
+    const foundBody = vi.fn()
+    const lostBody = vi.fn()
     const matchBody = vi.fn()
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     server.use(
       foundItemPhotoUrl(),
+      http.put('*/api/found-items/:id', async () => {
+        foundBody()
+        return HttpResponse.json({})
+      }),
+      http.put('*/api/lost-items/:id', async () => {
+        lostBody()
+        return HttpResponse.json({})
+      }),
       http.put('*/api/matches/:id', async () => {
         matchBody()
         return HttpResponse.json({})
@@ -208,6 +218,8 @@ describe('<MatchCard /> handover control', () => {
 
     await user.click(returnedButton()!)
 
+    expect(foundBody).not.toHaveBeenCalled()
+    expect(lostBody).not.toHaveBeenCalled()
     expect(matchBody).not.toHaveBeenCalled()
   })
 })

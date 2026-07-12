@@ -71,7 +71,7 @@ public class MatchVerificationService {
                         matchId, resp.getModelInfo() != null ? resp.getModelInfo().getProvider() : "?");
             }
 
-            maybeAutoReject(matchId, verdict, resp.getConfidence());
+            maybeDropNonMatch(matchId, verdict, resp.getConfidence());
         } catch (Exception e) {
             String reason = GenaiClientSupport.classify(e);
             meters.counter("matching.verify.requests_total",
@@ -89,20 +89,21 @@ public class MatchVerificationService {
     }
 
     /**
-     * Enforce the verify-match backstop: a confident {@code no_match} retires the
-     * candidate from PENDING to REJECTED so it stops surfacing as a match. A
-     * low-confidence {@code no_match} or an {@code uncertain} verdict is left for
-     * a human to judge. The PENDING guard lives in the repository update.
+     * Enforce the verify-match backstop: a confident {@code no_match} deletes the candidate
+     * (issue #374) so it disappears from the inbox instead of lingering as REJECTED — REJECTED is
+     * reserved for a human rejection. A low-confidence {@code no_match} or an {@code uncertain}
+     * verdict is left for a human to judge. The PENDING + not-yet-invited guard lives in the
+     * repository delete, so a match a guest has already been emailed is never yanked.
      */
-    private void maybeAutoReject(UUID matchId, String verdict, Float confidence) {
-        if (!props.isAutoRejectOnNoMatch() || !"no_match".equals(verdict)) {
+    private void maybeDropNonMatch(UUID matchId, String verdict, Float confidence) {
+        if (!props.isDropOnNoMatch() || !"no_match".equals(verdict)) {
             return;
         }
-        if (confidence == null || confidence < props.getAutoRejectMinConfidence()) {
+        if (confidence == null || confidence < props.getDropMinConfidence()) {
             return;
         }
-        if (repo.autoRejectIfPending(matchId) > 0) {
-            meters.counter("matching.verify.auto_reject_total").increment();
+        if (repo.deleteIfPendingAndUninvited(matchId) > 0) {
+            meters.counter("matching.verify.dropped_total").increment();
         }
     }
 }

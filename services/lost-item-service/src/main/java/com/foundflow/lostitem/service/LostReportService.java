@@ -197,6 +197,7 @@ public class LostReportService {
                     verifyVenueAccess(jwt, lostReport.getVenueId());
                     String photoKey = lostReport.getPhotoKey();
                     lostReportRepository.delete(lostReport);
+                    LOGGER.info("Lost report deleted lostReport={} venue={}", id, lostReport.getVenueId());
                     eventPublisher.publishLostReportDeleted(lostReport);
                     safeDeletePhoto(photoKey, id);
                     return true;

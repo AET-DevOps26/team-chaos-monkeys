@@ -7,24 +7,23 @@ public class GenaiVerifyProperties {
 
     private boolean enabled = true;
 
-    // When verify-match returns a confident no_match verdict, transition the
-    // candidate from PENDING to REJECTED so it stops surfacing as a match.
-    // This is the enforcement of the verify-match backstop: candidate
-    // generation is deliberately lenient (semantic score gate only), and
-    // verify is what culls the plausible-but-wrong pairs.
-    private boolean autoRejectOnNoMatch = true;
-    private double autoRejectMinConfidence = 0.7;
+    // When verify-match returns a confident no_match verdict, DELETE the candidate
+    // (issue #374) so it never clutters the inbox — REJECTED is reserved for a human
+    // rejection. This enforces the verify backstop: candidate generation is lenient
+    // (category veto + semantic gate) and verify culls the plausible-but-wrong pairs.
+    private boolean dropOnNoMatch = true;
+    private double dropMinConfidence = 0.7;
 
     private Executor executor = new Executor();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public boolean isAutoRejectOnNoMatch() { return autoRejectOnNoMatch; }
-    public void setAutoRejectOnNoMatch(boolean v) { this.autoRejectOnNoMatch = v; }
+    public boolean isDropOnNoMatch() { return dropOnNoMatch; }
+    public void setDropOnNoMatch(boolean v) { this.dropOnNoMatch = v; }
 
-    public double getAutoRejectMinConfidence() { return autoRejectMinConfidence; }
-    public void setAutoRejectMinConfidence(double v) { this.autoRejectMinConfidence = v; }
+    public double getDropMinConfidence() { return dropMinConfidence; }
+    public void setDropMinConfidence(double v) { this.dropMinConfidence = v; }
 
     public Executor getExecutor() { return executor; }
     public void setExecutor(Executor executor) { this.executor = executor; }

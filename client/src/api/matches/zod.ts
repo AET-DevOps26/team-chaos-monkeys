@@ -19,7 +19,7 @@ export const updateMatchBody = zod.object({
   "foundItemId": zod.uuid(),
   "lostReportId": zod.uuid(),
   "venueId": zod.uuid().optional(),
-  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED']),
+  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'COMPLETED']),
   "attributeScore": zod.number(),
   "semanticScore": zod.number(),
   "combinedScore": zod.number()
@@ -39,7 +39,7 @@ export const confirmPublicMatchParams = zod.object({
 export const getAllMatchesQueryParams = zod.object({
   "foundItem": zod.uuid().optional(),
   "lostItem": zod.uuid().optional(),
-  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED']).optional()
+  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'COMPLETED']).optional()
 })
 
 
@@ -73,7 +73,7 @@ export const getPublicMatchParams = zod.object({
 export const getMatchHistogramQueryParams = zod.object({
   "foundItem": zod.uuid().optional(),
   "lostItem": zod.uuid().optional(),
-  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED']).optional(),
+  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'COMPLETED']).optional(),
   "venueId": zod.uuid().optional()
 })
 
@@ -81,7 +81,7 @@ export const getMatchHistogramQueryParams = zod.object({
 export const countMatchesQueryParams = zod.object({
   "foundItem": zod.uuid().optional(),
   "lostItem": zod.uuid().optional(),
-  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED']).optional(),
+  "status": zod.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'COMPLETED']).optional(),
   "venueId": zod.uuid().optional()
 })
 

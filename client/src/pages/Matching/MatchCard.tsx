@@ -1,11 +1,25 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { MatchResponse, MatchResponseStatus } from '@/api/matches/model'
-import { MatchResponseStatus as Status } from '@/api/matches/model'
+import { MatchResponseStatus as Status, UpdateMatchRequestStatus } from '@/api/matches/model'
 import type { PickupResponse } from '@/api/pickups/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
+import { UpdateLostReportRequestStatus } from '@/api/lost-items/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
-import { useCreatePublicMatchLink } from '@/api/matches/match-controller/match-controller'
+import { UpdateFoundItemRequestStatus } from '@/api/found-items/model'
+import {
+  getGetAllMatchesQueryKey,
+  useCreatePublicMatchLink,
+  useUpdateMatch,
+} from '@/api/matches/match-controller/match-controller'
+import {
+  getGetAllFoundItemsQueryKey,
+  useUpdateFoundItem,
+} from '@/api/found-items/found-item-controller/found-item-controller'
+import {
+  getGetAllLostReportsQueryKey,
+  useUpdateLostReport,
+} from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import { getGetMatchContactsQueryKey } from '@/api/notifications/notification-controller/notification-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 import calendarIcon from '@/assets/calendar.svg'
@@ -19,6 +33,7 @@ const statusPillCls: Record<MatchResponseStatus, string> = {
   [Status.PENDING]: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   [Status.CONFIRMED]: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   [Status.REJECTED]: 'bg-red-500/15 text-red-700 dark:text-red-300',
+  [Status.COMPLETED]: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
 }
 
 function StatusPill({ status }: { status: MatchResponseStatus | undefined }) {
@@ -216,6 +231,115 @@ function ReachOutControl({
   )
 }
 
+// The handover close-out. Once the guest has physically collected the item, a
+// staff member confirms it here: the found item goes RETURNED, the lost report
+// COLLECTED, and the match COMPLETED — the only path that reaches those terminal
+// states. Available on any CONFIRMED match (walk-ins don't require a booked
+// pickup). All three are whole-object PUTs built from data the card already holds.
+function ConfirmHandoverControl({
+  match,
+  lostReport,
+  foundItem,
+}: {
+  match: MatchResponse
+  lostReport: LostReportResponse | undefined
+  foundItem: FoundItemResponse | undefined
+}) {
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  const { mutateAsync: updateFound } = useUpdateFoundItem()
+  const { mutateAsync: updateLost } = useUpdateLostReport()
+  const { mutateAsync: updateMatch } = useUpdateMatch()
+
+  if (match.status !== Status.CONFIRMED) return null
+
+  const ready = !!(match.id && foundItem?.id && lostReport?.id)
+
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: getGetAllMatchesQueryKey() })
+    queryClient.invalidateQueries({ queryKey: getGetAllFoundItemsQueryKey() })
+    queryClient.invalidateQueries({ queryKey: getGetAllLostReportsQueryKey() })
+  }
+
+  const confirm = async () => {
+    if (!ready || pending) return
+    if (
+      !window.confirm(
+        'Confirm the guest collected this item? This marks the item returned and closes the match.',
+      )
+    )
+      return
+    setPending(true)
+    setFailed(false)
+    try {
+      await updateFound({
+        id: foundItem!.id!,
+        data: {
+          status: UpdateFoundItemRequestStatus.RETURNED,
+          foundAt: foundItem!.foundAt ?? new Date().toISOString(),
+          venueId: foundItem!.venueId ?? '',
+          reporterId: foundItem!.reporterId ?? '',
+          intakeText: foundItem!.intakeText,
+          location: foundItem!.location,
+          attributes: foundItem!.attributes,
+        },
+      })
+      await updateLost({
+        id: lostReport!.id!,
+        data: {
+          status: UpdateLostReportRequestStatus.COLLECTED,
+          description: lostReport!.description ?? '',
+          lostAt: lostReport!.lostAt ?? new Date().toISOString(),
+          contactEmail: lostReport!.contactEmail ?? '',
+          location: lostReport!.location,
+          venueId: lostReport!.venueId,
+          attributes: lostReport!.attributes,
+        },
+      })
+      await updateMatch({
+        id: match.id!,
+        data: {
+          status: UpdateMatchRequestStatus.COMPLETED,
+          foundItemId: match.foundItemId ?? '',
+          lostReportId: match.lostReportId ?? '',
+          venueId: match.venueId,
+          attributeScore: match.attributeScore ?? 0,
+          semanticScore: match.semanticScore ?? 0,
+          combinedScore: match.combinedScore ?? 0,
+        },
+      })
+    } catch {
+      // ponytail: three non-atomic writes. On partial failure the earlier ones
+      // stick; refresh so the card shows what actually applied and let the admin
+      // retry — the completed steps are no-ops on a second run.
+      setFailed(true)
+    } finally {
+      setPending(false)
+      refreshAll()
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={confirm}
+        disabled={!ready || pending}
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+      >
+        {pending ? 'Marking…' : 'Mark as returned'}
+      </button>
+      {failed && (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          Couldn't complete. Some steps may have applied — try again.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function MatchCard({
   match,
   lostReport,
@@ -339,6 +463,8 @@ export default function MatchCard({
       />
 
       <PickupBanner pickup={pickup} />
+
+      <ConfirmHandoverControl match={match} lostReport={lostReport} foundItem={foundItem} />
     </article>
   )
 }

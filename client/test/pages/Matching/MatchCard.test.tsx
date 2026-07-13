@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { http, HttpResponse } from 'msw'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
@@ -137,5 +138,88 @@ describe('<MatchCard /> reach-out control', () => {
 
     expect(await screen.findByText(/couldn't send/i)).toBeInTheDocument()
     expect(reachOutButton()).toBeInTheDocument()
+  })
+})
+
+const returnedButton = () => screen.queryByRole('button', { name: /mark as returned/i })
+
+describe('<MatchCard /> handover control', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('offers "mark as returned" only on a confirmed match', () => {
+    server.use(foundItemPhotoUrl())
+    const { rerender } = renderCard({ match: { status: MatchResponseStatus.PENDING } })
+    expect(returnedButton()).not.toBeInTheDocument()
+
+    rerender(
+      <MatchCard
+        match={{ id: MATCH_ID, foundItemId: 'fi-1', lostReportId: 'lr-1', status: MatchResponseStatus.CONFIRMED }}
+        lostReport={lostReport}
+        foundItem={foundItem}
+        pickup={undefined}
+        contactedAt={undefined}
+        contactStatusKnown
+      />,
+    )
+    expect(returnedButton()).toBeInTheDocument()
+  })
+
+  it('drives found→RETURNED, lost→COLLECTED, match→COMPLETED on confirm', async () => {
+    const foundBody = vi.fn()
+    const lostBody = vi.fn()
+    const matchBody = vi.fn()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    server.use(
+      foundItemPhotoUrl(),
+      http.put('*/api/found-items/:id', async ({ request, params }) => {
+        foundBody(params.id, await request.json())
+        return HttpResponse.json({})
+      }),
+      http.put('*/api/lost-items/:id', async ({ request, params }) => {
+        lostBody(params.id, await request.json())
+        return HttpResponse.json({})
+      }),
+      http.put('*/api/matches/:id', async ({ request, params }) => {
+        matchBody(params.id, await request.json())
+        return HttpResponse.json({})
+      }),
+    )
+    const { user } = renderCard({ match: { status: MatchResponseStatus.CONFIRMED } })
+
+    await user.click(returnedButton()!)
+
+    await waitFor(() => expect(matchBody).toHaveBeenCalled())
+    expect(foundBody).toHaveBeenCalledWith('fi-1', expect.objectContaining({ status: 'RETURNED' }))
+    expect(lostBody).toHaveBeenCalledWith('lr-1', expect.objectContaining({ status: 'COLLECTED' }))
+    expect(matchBody).toHaveBeenCalledWith(MATCH_ID, expect.objectContaining({ status: 'COMPLETED' }))
+  })
+
+  it('does nothing when the confirm dialog is dismissed', async () => {
+    const foundBody = vi.fn()
+    const lostBody = vi.fn()
+    const matchBody = vi.fn()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    server.use(
+      foundItemPhotoUrl(),
+      http.put('*/api/found-items/:id', async () => {
+        foundBody()
+        return HttpResponse.json({})
+      }),
+      http.put('*/api/lost-items/:id', async () => {
+        lostBody()
+        return HttpResponse.json({})
+      }),
+      http.put('*/api/matches/:id', async () => {
+        matchBody()
+        return HttpResponse.json({})
+      }),
+    )
+    const { user } = renderCard({ match: { status: MatchResponseStatus.CONFIRMED } })
+
+    await user.click(returnedButton()!)
+
+    expect(foundBody).not.toHaveBeenCalled()
+    expect(lostBody).not.toHaveBeenCalled()
+    expect(matchBody).not.toHaveBeenCalled()
   })
 })

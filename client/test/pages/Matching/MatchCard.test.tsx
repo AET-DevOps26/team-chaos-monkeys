@@ -142,6 +142,7 @@ describe('<MatchCard /> reach-out control', () => {
 })
 
 const returnedButton = () => screen.queryByRole('button', { name: /mark as returned/i })
+const confirmButton = () => screen.queryByRole('button', { name: /yes, returned/i })
 
 describe('<MatchCard /> handover control', () => {
   afterEach(() => vi.restoreAllMocks())
@@ -168,7 +169,6 @@ describe('<MatchCard /> handover control', () => {
     const foundBody = vi.fn()
     const lostBody = vi.fn()
     const matchBody = vi.fn()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     server.use(
       foundItemPhotoUrl(),
       http.put('*/api/found-items/:id', async ({ request, params }) => {
@@ -187,6 +187,7 @@ describe('<MatchCard /> handover control', () => {
     const { user } = renderCard({ match: { status: MatchResponseStatus.CONFIRMED } })
 
     await user.click(returnedButton()!)
+    await user.click(confirmButton()!)
 
     await waitFor(() => expect(matchBody).toHaveBeenCalled())
     expect(foundBody).toHaveBeenCalledWith('fi-1', expect.objectContaining({ status: 'RETURNED' }))
@@ -194,11 +195,10 @@ describe('<MatchCard /> handover control', () => {
     expect(matchBody).toHaveBeenCalledWith(MATCH_ID, expect.objectContaining({ status: 'COMPLETED' }))
   })
 
-  it('does nothing when the confirm dialog is dismissed', async () => {
+  it('does nothing when the confirm step is cancelled', async () => {
     const foundBody = vi.fn()
     const lostBody = vi.fn()
     const matchBody = vi.fn()
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     server.use(
       foundItemPhotoUrl(),
       http.put('*/api/found-items/:id', async () => {
@@ -217,6 +217,7 @@ describe('<MatchCard /> handover control', () => {
     const { user } = renderCard({ match: { status: MatchResponseStatus.CONFIRMED } })
 
     await user.click(returnedButton()!)
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(foundBody).not.toHaveBeenCalled()
     expect(lostBody).not.toHaveBeenCalled()

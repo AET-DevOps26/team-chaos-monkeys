@@ -10,6 +10,7 @@ import {
   getGetSchedulesQueryKey,
 } from '@/api/pickups/pickup-controller/pickup-controller'
 import { useGetAllMatches } from '@/api/matches/match-controller/match-controller'
+import { MatchResponseStatus } from '@/api/matches/model'
 import { useItemMaps } from '@/lib/useItemMaps'
 import type { PickupScheduleResponse } from '@/api/pickups/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
@@ -113,8 +114,11 @@ export default function Returns() {
         const match = p.matchId ? matchById.get(p.matchId) : undefined
         const found = match?.foundItemId ? foundById.get(match.foundItemId) : undefined
         const lost = match?.lostReportId ? lostById.get(match.lostReportId) : undefined
-        return { pickup: p, label: itemLabel(found, lost) }
+        return { pickup: p, match, label: itemLabel(found, lost) }
       })
+      // Once the handover is confirmed the match is COMPLETED — the item's collected,
+      // so drop it from the staff prep queue.
+      .filter(({ match }) => match?.status !== MatchResponseStatus.COMPLETED)
   }, [pickups, matchById, foundById, lostById])
 
   const resetForm = () => {

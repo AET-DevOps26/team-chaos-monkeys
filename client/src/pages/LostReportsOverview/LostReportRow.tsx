@@ -8,9 +8,26 @@ import {
 } from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
 import { useToast } from '@/components/Toast/toast-context'
-import deleteIcon from '@/assets/delete.svg'
-import closeIcon from '@/assets/close.svg'
 import { formatDate, firstLine } from '@/lib/format'
+
+// Inlined so the glyph inherits the button's text color (currentColor). The shared
+// delete.svg/close.svg assets bake in a near-white fill for use on dark backdrops,
+// which is invisible on the light table background when loaded via <img>.
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+    </svg>
+  )
+}
 
 function summaryLabel(report: LostReportResponse): string {
   return (
@@ -79,7 +96,7 @@ function DeleteControl({ report, label }: { report: LostReportResponse; label: s
           title="Cancel"
           className="rounded p-1 text-text transition-colors hover:text-text-h disabled:opacity-50"
         >
-          <img src={closeIcon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+          <CloseIcon className="h-3.5 w-3.5" />
         </button>
       </div>
     )
@@ -94,7 +111,7 @@ function DeleteControl({ report, label }: { report: LostReportResponse; label: s
         title="Delete"
         className="rounded p-1.5 text-text transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
       >
-        <img src={deleteIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+        <TrashIcon className="h-4 w-4" />
       </button>
     </div>
   )

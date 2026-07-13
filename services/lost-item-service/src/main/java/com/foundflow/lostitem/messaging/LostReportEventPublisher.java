@@ -4,6 +4,7 @@ import com.foundflow.common.domain.ItemAttributes;
 import com.foundflow.events.FoundFlowEventRouting;
 import com.foundflow.events.ItemAttributesPayload;
 import com.foundflow.events.LostReportCreatedEvent;
+import com.foundflow.events.LostReportDeletedEvent;
 import com.foundflow.events.LostReportUpdatedEvent;
 import com.foundflow.lostitem.domain.LostReport;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -31,6 +32,18 @@ public class LostReportEventPublisher {
 
     public void publishLostReportUpdated(LostReport lostReport) {
         publishAfterCommit(FoundFlowEventRouting.LOST_REPORT_UPDATED, toUpdatedEvent(lostReport));
+    }
+
+    public void publishLostReportDeleted(LostReport lostReport) {
+        publishAfterCommit(
+                FoundFlowEventRouting.LOST_REPORT_DELETED,
+                new LostReportDeletedEvent(
+                        UUID.randomUUID(),
+                        Instant.now(),
+                        lostReport.getId(),
+                        lostReport.getVenueId()
+                )
+        );
     }
 
     private LostReportCreatedEvent toEvent(LostReport lostReport) {

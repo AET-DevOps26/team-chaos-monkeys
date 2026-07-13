@@ -190,6 +190,20 @@ public class LostReportService {
                 });
     }
 
+    @Transactional
+    public boolean deleteLostReport(UUID id, Jwt jwt) {
+        return lostReportRepository.findById(id)
+                .map(lostReport -> {
+                    verifyVenueAccess(jwt, lostReport.getVenueId());
+                    String photoKey = lostReport.getPhotoKey();
+                    lostReportRepository.delete(lostReport);
+                    eventPublisher.publishLostReportDeleted(lostReport);
+                    safeDeletePhoto(photoKey, id);
+                    return true;
+                })
+                .orElse(false);
+    }
+
     // Driven by matching-service as a report's match situation changes (issue #372).
     // OPEN<->MATCHED only; a manual CLOSED/COLLECTED is left untouched. Idempotent, so a
     // redelivered event or a no-op transition is harmless. No LostReportUpdated is published —

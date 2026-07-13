@@ -305,6 +305,37 @@ class LostReportServiceTest {
     }
 
     @Test
+    void deleteLostReport_shouldDeletePhotoAndPublishDeletedEvent() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        UUID venueId = UUID.randomUUID();
+        LostReport existingReport = lostReport(venueId);
+
+        when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
+
+        boolean deleted = service.deleteLostReport(id, staffJwt(venueId));
+
+        assertTrue(deleted);
+        verify(lostReportRepository).delete(existingReport);
+        verify(eventPublisher).publishLostReportDeleted(existingReport);
+        verify(photoStorage).delete("photo-123");
+    }
+
+    @Test
+    void deleteLostReport_shouldReturnFalseWhenReportMissing() {
+        LostReportService service = service();
+
+        UUID id = UUID.randomUUID();
+        when(lostReportRepository.findById(id)).thenReturn(Optional.empty());
+
+        boolean deleted = service.deleteLostReport(id, staffJwt(UUID.randomUUID()));
+
+        assertFalse(deleted);
+        verify(eventPublisher, never()).publishLostReportDeleted(any());
+    }
+
+    @Test
     void updateLostReportPhoto_shouldStorePhotoAndSaveGeneratedKey() {
         LostReportService service = service();
 

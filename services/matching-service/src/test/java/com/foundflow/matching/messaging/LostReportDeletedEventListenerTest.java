@@ -1,6 +1,6 @@
 package com.foundflow.matching.messaging;
 
-import com.foundflow.events.FoundItemDeletedEvent;
+import com.foundflow.events.LostReportDeletedEvent;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.repository.ItemEmbeddingRepository;
 import com.foundflow.matching.repository.MatchRepository;
@@ -14,34 +14,32 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class FoundItemDeletedEventListenerTest {
+class LostReportDeletedEventListenerTest {
 
     @Test
-    void onFoundItemDeleted_shouldDeleteMatchesEmbeddingAndAnnounceEachRemovedMatch() {
+    void onLostReportDeleted_shouldDeleteMatchesEmbeddingAndAnnounceEachRemovedMatch() {
         MatchRepository matchRepository = mock(MatchRepository.class);
         ItemEmbeddingRepository itemEmbeddingRepository = mock(ItemEmbeddingRepository.class);
         MatchDeletedEventPublisher matchDeletedEventPublisher = mock(MatchDeletedEventPublisher.class);
-        FoundItemDeletedEventListener listener = new FoundItemDeletedEventListener(
+        LostReportDeletedEventListener listener = new LostReportDeletedEventListener(
                 matchRepository,
                 itemEmbeddingRepository,
                 matchDeletedEventPublisher
         );
-        UUID foundItemId = UUID.randomUUID();
+        UUID lostReportId = UUID.randomUUID();
         UUID venueId = UUID.randomUUID();
-        UUID match1 = UUID.randomUUID();
-        UUID match2 = UUID.randomUUID();
-        when(matchRepository.findIdsByFoundItemId(foundItemId)).thenReturn(List.of(match1, match2));
+        UUID matchId = UUID.randomUUID();
+        when(matchRepository.findIdsByLostReportId(lostReportId)).thenReturn(List.of(matchId));
 
-        listener.onFoundItemDeleted(new FoundItemDeletedEvent(
+        listener.onLostReportDeleted(new LostReportDeletedEvent(
                 UUID.randomUUID(),
                 Instant.now(),
-                foundItemId,
+                lostReportId,
                 venueId
         ));
 
-        verify(matchRepository).deleteByFoundItemId(foundItemId);
-        verify(itemEmbeddingRepository).deleteByItemTypeAndItemId(ItemType.FOUND, foundItemId);
-        verify(matchDeletedEventPublisher).publishMatchDeleted(match1, venueId);
-        verify(matchDeletedEventPublisher).publishMatchDeleted(match2, venueId);
+        verify(matchRepository).deleteByLostReportId(lostReportId);
+        verify(itemEmbeddingRepository).deleteByItemTypeAndItemId(ItemType.LOST, lostReportId);
+        verify(matchDeletedEventPublisher).publishMatchDeleted(matchId, venueId);
     }
 }

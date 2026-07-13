@@ -83,6 +83,9 @@ export default function LostReportsOverview() {
                 <th scope="col" className={headCellCls}>Lost on</th>
                 <th scope="col" className={headCellCls}>Reporter</th>
                 <th scope="col" className={headCellCls}>Status</th>
+                <th scope="col" className={headCellCls}>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

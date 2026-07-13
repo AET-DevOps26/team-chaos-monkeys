@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 import { axiosInstance } from '@/api/mutator/custom-instance'
 import electronicsIcon from '@/assets/category/electronics.svg'
@@ -58,40 +59,43 @@ function PhotoThumbnailInner({
   alt: string
   category?: string
 }) {
-  const [photo, setPhoto] = useState<{ src: string; url: string } | null>(null)
+  // Cache the blob in React Query so leaving/returning to the page reuses the
+  // downloaded bytes instead of re-fetching on every remount.
+  const { data: blob, isError } = useQuery({
+    queryKey: ['photo-blob', src],
+    queryFn: ({ signal }) =>
+      axiosInstance
+        .get<Blob>(src, { responseType: 'blob', signal })
+        .then(({ data }) => data),
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  // Object URLs can't be shared across mounts (revoking one invalidates it
+  // everywhere), so mint a fresh one per mount from the cached blob. This is
+  // external-resource sync that needs the effect lifecycle for revocation —
+  // the useMemo alternative leaks a URL under StrictMode's double-invoke.
+  const [objectUrl, setObjectUrl] = useState<{ src: string; url: string } | null>(null)
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
-
   useEffect(() => {
-    let cancelled = false
-    const controller = new AbortController()
-    let objectUrl: string | null = null
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setObjectUrl({ src, url })
+    setFailedSrc((current) => (current === src ? null : current))
+    /* eslint-enable react-hooks/set-state-in-effect */
+    return () => URL.revokeObjectURL(url)
+  }, [blob, src])
 
-    axiosInstance
-      .get<Blob>(src, { responseType: 'blob', signal: controller.signal })
-      .then(({ data }) => {
-        if (cancelled) return
-        objectUrl = URL.createObjectURL(data)
-        setPhoto({ src, url: objectUrl })
-        setFailedSrc((current) => (current === src ? null : current))
-      })
-      .catch(() => {
-        if (!cancelled) setFailedSrc(src)
-      })
-
-    return () => {
-      cancelled = true
-      controller.abort()
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [src])
-
-  const objectUrl = photo?.src === src ? photo.url : undefined
+  const url = objectUrl?.src === src ? objectUrl.url : undefined
   const failed = failedSrc === src
-  if (failed || !objectUrl) return <PhotoPlaceholder label={alt} category={category} />
+
+  if (isError || failed || !url)
+    return <PhotoPlaceholder label={alt} category={category} />
 
   return (
     <img
-      src={objectUrl}
+      src={url}
       alt={alt}
       loading="lazy"
       className="h-full w-full object-cover"

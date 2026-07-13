@@ -57,6 +57,11 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Queue lostReportDeletedQueue() {
+        return consumerQueue(FoundFlowEventRouting.MATCHING_LOST_REPORT_DELETES_QUEUE);
+    }
+
+    @Bean
     public Queue matchCandidateCreatedQueue() {
         return consumerQueue(FoundFlowEventRouting.MATCHING_MATCH_CANDIDATES_QUEUE);
     }
@@ -89,6 +94,11 @@ public class AmqpConfig {
     @Bean
     public Queue foundItemDeletedDlq() {
         return deadLetterQueue(FoundFlowEventRouting.MATCHING_FOUND_ITEM_DELETES_QUEUE);
+    }
+
+    @Bean
+    public Queue lostReportDeletedDlq() {
+        return deadLetterQueue(FoundFlowEventRouting.MATCHING_LOST_REPORT_DELETES_QUEUE);
     }
 
     @Bean
@@ -152,6 +162,16 @@ public class AmqpConfig {
     }
 
     @Bean
+    public Binding lostReportDeletedBinding(
+            Queue lostReportDeletedQueue,
+            TopicExchange domainEventsExchange
+    ) {
+        return BindingBuilder.bind(lostReportDeletedQueue)
+                .to(domainEventsExchange)
+                .with(FoundFlowEventRouting.LOST_REPORT_DELETED);
+    }
+
+    @Bean
     public Binding matchCandidateCreatedBinding(
             Queue matchCandidateCreatedQueue,
             TopicExchange domainEventsExchange
@@ -199,6 +219,12 @@ public class AmqpConfig {
     public Binding foundItemDeletedDlqBinding(TopicExchange deadLetterExchange) {
         return deadLetterBinding(foundItemDeletedDlq(), deadLetterExchange,
                 FoundFlowEventRouting.MATCHING_FOUND_ITEM_DELETES_QUEUE);
+    }
+
+    @Bean
+    public Binding lostReportDeletedDlqBinding(TopicExchange deadLetterExchange) {
+        return deadLetterBinding(lostReportDeletedDlq(), deadLetterExchange,
+                FoundFlowEventRouting.MATCHING_LOST_REPORT_DELETES_QUEUE);
     }
 
     @Bean

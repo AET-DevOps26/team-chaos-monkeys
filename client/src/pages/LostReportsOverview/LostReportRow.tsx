@@ -1,6 +1,15 @@
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { LostReportResponse } from '@/api/lost-items/model'
 import { LostReportResponseStatus } from '@/api/lost-items/model'
+import {
+  getGetAllLostReportsQueryKey,
+  useDeleteLostReport,
+} from '@/api/lost-items/lost-report-controller/lost-report-controller'
 import PhotoThumbnail from '@/components/PhotoThumbnail/PhotoThumbnail'
+import { useToast } from '@/components/Toast/toast-context'
+import deleteIcon from '@/assets/delete.svg'
+import closeIcon from '@/assets/close.svg'
 import { formatDate, firstLine } from '@/lib/format'
 
 function summaryLabel(report: LostReportResponse): string {
@@ -33,6 +42,64 @@ const cellCls = 'px-3 py-2.5 text-sm text-text align-middle'
 const thumbCls =
   'h-12 w-12 shrink-0 overflow-hidden rounded border border-border'
 
+function DeleteControl({ report, label }: { report: LostReportResponse; label: string }) {
+  const queryClient = useQueryClient()
+  const { show } = useToast()
+  const [confirming, setConfirming] = useState(false)
+  const { mutate: deleteReport, isPending } = useDeleteLostReport({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetAllLostReportsQueryKey() })
+        show('Lost report deleted.', { variant: 'success' })
+      },
+      onError: () => show('Failed to delete lost report.', { variant: 'error' }),
+    },
+  })
+
+  if (!report.id) return null
+
+  if (confirming) {
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => deleteReport({ id: report.id! })}
+          disabled={isPending}
+          aria-label={`Confirm delete ${label}`}
+          title="Click to confirm"
+          className="rounded bg-red-500 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+        >
+          {isPending ? 'Deleting…' : 'Delete'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={isPending}
+          aria-label={`Cancel delete ${label}`}
+          title="Cancel"
+          className="rounded p-1 text-text transition-colors hover:text-text-h disabled:opacity-50"
+        >
+          <img src={closeIcon} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label={`Delete ${label}`}
+        title="Delete"
+        className="rounded p-1.5 text-text transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+      >
+        <img src={deleteIcon} alt="" aria-hidden="true" className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 export default function LostReportRow({ report }: { report: LostReportResponse }) {
   const label = summaryLabel(report)
 
@@ -62,6 +129,9 @@ export default function LostReportRow({ report }: { report: LostReportResponse }
       <td className={`${cellCls} whitespace-nowrap`}>
         <StatusPill status={report.status} />
       </td>
+      <td className={`${cellCls} w-px whitespace-nowrap text-right`}>
+        <DeleteControl report={report} label={label} />
+      </td>
     </tr>
   )
 }
@@ -86,6 +156,9 @@ export function LostReportRowSkeleton() {
       </td>
       <td className={cellCls}>
         <span className="block h-4 w-16 animate-pulse rounded-full bg-border/40" />
+      </td>
+      <td className={cellCls}>
+        <span className="ml-auto block h-4 w-6 animate-pulse rounded bg-border/40" />
       </td>
     </tr>
   )

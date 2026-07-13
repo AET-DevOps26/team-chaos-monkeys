@@ -7,10 +7,12 @@ public final class FoundFlowEventRouting {
 
     public static final String LOST_REPORT_CREATED = "lost-report.created.v1";
     public static final String LOST_REPORT_UPDATED = "lost-report.updated.v1";
+    public static final String LOST_REPORT_DELETED = "lost-report.deleted.v1";
     public static final String FOUND_ITEM_CREATED = "found-item.created.v1";
     public static final String FOUND_ITEM_UPDATED = "found-item.updated.v1";
     public static final String FOUND_ITEM_DELETED = "found-item.deleted.v1";
     public static final String MATCH_CANDIDATE_CREATED = "match-candidate.created.v1";
+    public static final String MATCH_DELETED = "match.deleted.v1";
     public static final String MATCH_INVITE_REQUESTED = "match-invite.requested.v1";
     public static final String PICKUP_CONFIRMATION_REQUESTED = "pickup-confirmation.requested.v1";
     public static final String PICKUP_SCHEDULED = "pickup.scheduled.v1";
@@ -24,7 +26,9 @@ public final class FoundFlowEventRouting {
     public static final String MATCHING_FOUND_ITEMS_QUEUE = "matching.found-item-created.v1";
     public static final String MATCHING_FOUND_ITEM_UPDATES_QUEUE = "matching.found-item-updated.v1";
     public static final String MATCHING_FOUND_ITEM_DELETES_QUEUE = "matching.found-item-deleted.v1";
+    public static final String MATCHING_LOST_REPORT_DELETES_QUEUE = "matching.lost-report-deleted.v1";
     public static final String MATCHING_MATCH_CANDIDATES_QUEUE = "matching.match-candidate-created.v1";
+    public static final String PICKUP_MATCH_DELETED_QUEUE = "pickup.match-deleted.v1";
     public static final String MATCHING_PICKUP_SCHEDULED_QUEUE = "matching.pickup-scheduled.v1";
     public static final String FOUND_ITEM_RESERVATION_REQUESTS_QUEUE = "found-items.reservation-requested.v1";
     public static final String LOST_ITEM_STATUS_CHANGE_QUEUE = "lost-items.status-change-requested.v1";

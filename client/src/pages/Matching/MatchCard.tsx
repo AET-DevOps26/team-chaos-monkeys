@@ -248,6 +248,7 @@ function ConfirmHandoverControl({
   const queryClient = useQueryClient()
   const [pending, setPending] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   const { mutateAsync: updateFound } = useUpdateFoundItem()
   const { mutateAsync: updateLost } = useUpdateLostReport()
@@ -265,12 +266,6 @@ function ConfirmHandoverControl({
 
   const confirm = async () => {
     if (!ready || pending) return
-    if (
-      !window.confirm(
-        'Confirm the guest collected this item? This marks the item returned and closes the match.',
-      )
-    )
-      return
     setPending(true)
     setFailed(false)
     try {
@@ -323,14 +318,41 @@ function ConfirmHandoverControl({
 
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={confirm}
-        disabled={!ready || pending}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-      >
-        {pending ? 'Marking…' : 'Mark as returned'}
-      </button>
+      {confirming ? (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-text">
+            Confirm the guest collected this item? This marks it returned and
+            closes the match.
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={pending}
+              className="inline-flex flex-1 items-center justify-center rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {pending ? 'Marking…' : 'Yes, returned'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={pending}
+              className="inline-flex items-center justify-center rounded-md border border-border px-3 py-2 text-xs font-medium text-text-h transition-colors hover:bg-border/40 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          disabled={!ready}
+          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Mark as returned
+        </button>
+      )}
       {failed && (
         <p className="text-xs text-red-600 dark:text-red-400">
           Couldn't complete. Some steps may have applied — try again.

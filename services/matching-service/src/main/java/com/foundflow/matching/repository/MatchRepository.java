@@ -60,6 +60,16 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     @Modifying
     @Transactional
+    int deleteByLostReportId(UUID lostReportId);
+
+    @Query("SELECT m.id FROM Match m WHERE m.foundItemId = :foundItemId")
+    List<UUID> findIdsByFoundItemId(@Param("foundItemId") UUID foundItemId);
+
+    @Query("SELECT m.id FROM Match m WHERE m.lostReportId = :lostReportId")
+    List<UUID> findIdsByLostReportId(@Param("lostReportId") UUID lostReportId);
+
+    @Modifying
+    @Transactional
     @Query("""
         UPDATE Match m
            SET m.status = :newStatus

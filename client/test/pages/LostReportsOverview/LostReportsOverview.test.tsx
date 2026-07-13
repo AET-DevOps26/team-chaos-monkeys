@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '@test/render'
 import { server } from '@test/server'
 import {
@@ -89,6 +90,30 @@ describe('<LostReportsOverview />', () => {
 
     expect(await screen.findByText('Black leather wallet')).toBeInTheDocument()
     expect(await screen.findByText('Blue umbrella')).toBeInTheDocument()
+  })
+
+  it('deletes a report only after the inline confirm step', async () => {
+    const deleted = vi.fn()
+    server.use(
+      lostReportsList(REPORTS),
+      http.delete('*/api/lost-items/:id', ({ params }) => {
+        deleted(params.id)
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderWithProviders(<LostReportsOverview />)
+
+    await screen.findByText('Black leather wallet')
+
+    // First click arms the confirm; nothing is deleted yet.
+    await user.click(screen.getByRole('button', { name: /^delete black leather wallet$/i }))
+    expect(deleted).not.toHaveBeenCalled()
+
+    // Confirm fires the DELETE for that report's id.
+    await user.click(screen.getByRole('button', { name: /confirm delete black leather wallet/i }))
+    await waitFor(() =>
+      expect(deleted).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111'),
+    )
   })
 
   it('shows an error state with a retry button when the request fails', async () => {

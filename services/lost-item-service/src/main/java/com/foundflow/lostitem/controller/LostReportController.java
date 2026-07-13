@@ -100,6 +100,18 @@ public class LostReportController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteLostReport(
+            @PathVariable UUID id,
+            JwtAuthenticationToken authentication
+    ) {
+        if (lostReportService.deleteLostReport(id, authentication.getToken())) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.notFound().build();
+    }
+
     @PutMapping(path = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LostReportResponse> updateLostReportPhoto(
             @PathVariable UUID id,

@@ -186,6 +186,61 @@ const {mutation: mutationOptions} = options ?
 
       return useMutation(mutationOptions, queryClient);
     }
+    export const deleteLostReport = (
+    id: string,
+ ) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/lost-items/${id}`, method: 'DELETE'
+    },
+      );
+    }
+  
+
+
+export const getDeleteLostReportMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLostReport>>, TError,{id: string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLostReport>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteLostReport'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLostReport>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteLostReport(id,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLostReportMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLostReport>>>
+    
+    export type DeleteLostReportMutationError = ErrorType<unknown>
+
+    export const useDeleteLostReport = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLostReport>>, TError,{id: string}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLostReport>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteLostReportMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
     export const getLostReportPhoto = (
     id: string,
  signal?: AbortSignal

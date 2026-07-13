@@ -1,7 +1,7 @@
 package com.foundflow.matching.messaging;
 
 import com.foundflow.events.FoundFlowEventRouting;
-import com.foundflow.events.FoundItemDeletedEvent;
+import com.foundflow.events.LostReportDeletedEvent;
 import com.foundflow.matching.domain.ItemType;
 import com.foundflow.matching.repository.ItemEmbeddingRepository;
 import com.foundflow.matching.repository.MatchRepository;
@@ -15,15 +15,15 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-public class FoundItemDeletedEventListener {
+public class LostReportDeletedEventListener {
 
-    private static final Logger log = LoggerFactory.getLogger(FoundItemDeletedEventListener.class);
+    private static final Logger log = LoggerFactory.getLogger(LostReportDeletedEventListener.class);
 
     private final MatchRepository matchRepository;
     private final ItemEmbeddingRepository itemEmbeddingRepository;
     private final MatchDeletedEventPublisher matchDeletedEventPublisher;
 
-    public FoundItemDeletedEventListener(
+    public LostReportDeletedEventListener(
             MatchRepository matchRepository,
             ItemEmbeddingRepository itemEmbeddingRepository,
             MatchDeletedEventPublisher matchDeletedEventPublisher
@@ -33,23 +33,21 @@ public class FoundItemDeletedEventListener {
         this.matchDeletedEventPublisher = matchDeletedEventPublisher;
     }
 
-    @RabbitListener(queues = FoundFlowEventRouting.MATCHING_FOUND_ITEM_DELETES_QUEUE)
+    @RabbitListener(queues = FoundFlowEventRouting.MATCHING_LOST_REPORT_DELETES_QUEUE)
     @Transactional
-    public void onFoundItemDeleted(FoundItemDeletedEvent event) {
-        // Capture ids before the bulk delete so we can tell pickup-service which matches
-        // vanished (pickups key on matchId, not on the item — issue #384).
-        List<UUID> matchIds = matchRepository.findIdsByFoundItemId(event.foundItemId());
-        int deletedMatches = matchRepository.deleteByFoundItemId(event.foundItemId());
+    public void onLostReportDeleted(LostReportDeletedEvent event) {
+        List<UUID> matchIds = matchRepository.findIdsByLostReportId(event.lostReportId());
+        int deletedMatches = matchRepository.deleteByLostReportId(event.lostReportId());
         int deletedEmbeddings = itemEmbeddingRepository.deleteByItemTypeAndItemId(
-                ItemType.FOUND,
-                event.foundItemId()
+                ItemType.LOST,
+                event.lostReportId()
         );
         matchIds.forEach(matchId -> matchDeletedEventPublisher.publishMatchDeleted(matchId, event.venueId()));
 
         log.info(
-                "Cleaned up matching state for FoundItemDeleted event {} foundItem={} venue={} matches={} embeddings={}",
+                "Cleaned up matching state for LostReportDeleted event {} lostReport={} venue={} matches={} embeddings={}",
                 event.eventId(),
-                event.foundItemId(),
+                event.lostReportId(),
                 event.venueId(),
                 deletedMatches,
                 deletedEmbeddings

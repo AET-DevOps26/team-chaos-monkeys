@@ -36,6 +36,11 @@ export const updateLostReportBody = zod.object({
 })
 
 
+export const deleteLostReportParams = zod.object({
+  "id": zod.uuid()
+})
+
+
 export const getLostReportPhotoParams = zod.object({
   "id": zod.uuid()
 })

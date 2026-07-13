@@ -16,6 +16,7 @@ import {
 import Returns from '@/pages/Returns/Returns'
 import type { PickupResponse, PickupScheduleResponse } from '@/api/pickups/model'
 import type { MatchResponse } from '@/api/matches/model'
+import { MatchResponseStatus } from '@/api/matches/model'
 import type { FoundItemResponse } from '@/api/found-items/model'
 import type { LostReportResponse } from '@/api/lost-items/model'
 
@@ -88,6 +89,22 @@ describe('<Returns />', () => {
 
     // The whole row links to the specific match card.
     expect(label.closest('a')).toHaveAttribute('href', `/matches#match-${M1}`)
+  })
+
+  it('hides a pickup once its handover is completed (item collected)', async () => {
+    server.use(
+      pickupsList([PICKUPS[1]]), // the far-future pickup
+      schedulesList([SCHEDULE]),
+      matchesList([{ id: M1, foundItemId: FI1, lostReportId: LR1, status: MatchResponseStatus.COMPLETED }]),
+      lostReportsList(LOST),
+      foundItemsList(FOUND),
+    )
+    renderWithProviders(<Returns />)
+
+    // Page rendered (schedule shows), but the collected pickup is gone from the prep queue.
+    await screen.findByText(/15-min slots/)
+    expect(screen.queryByText('guest@example.test')).not.toBeInTheDocument()
+    expect(screen.getByText(/No upcoming pickups booked/i)).toBeInTheDocument()
   })
 
   it('renders the configured schedule windows', async () => {

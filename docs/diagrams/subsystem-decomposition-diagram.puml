@@ -18,7 +18,6 @@ package "Client Layer" as L_Client {
 }
 
 package "API Edge" as L_Edge {
-  [Edge / Ingress\npath routing] as Edge
   [Gateway Service\nrouting, JWT validation,\nSwagger aggregation] as Gateway
 }
 

@@ -99,6 +99,10 @@ spec:
             - name: console
               containerPort: 9001
           env:
+            # Go soft memory limit — GC runs hard before the container OOMKills
+            # at limits.memory (#394). Kept < the limit in values.yaml.
+            - name: GOMEMLIMIT
+              value: {{ .Values.minio.goMemLimit | quote }}
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:

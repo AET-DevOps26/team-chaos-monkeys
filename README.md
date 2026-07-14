@@ -18,6 +18,33 @@ A short path through the system, mapped to the graded requirements. Demo data is
 on first boot, so a working match is visible once the intake and matching pipeline
 has finished.
 
+### Review it live on Rancher (recommended)
+
+The app runs continuously on the course's AET (Rancher RKE2) cluster — nothing to build,
+deployed by CD on every merge to `main`. This is the deployment to grade.
+
+**On the TUM network (eduroam or VPN), open** https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
+and log in with the same seeded accounts as local: staff `staff.demo@foundflow.local` /
+`test12345`, admin `admin@foundflow.local` / `admin12345`. The same demo data (the *purple
+wallet* match, the *Grand Plaza Hotel (Demo)* venue) is seeded, so steps **2–4** below read
+identically — just against the live URL instead of `localhost`.
+
+The stack is behind the cluster ingress, so the local port map does **not** apply. Reachable surfaces:
+
+| Surface | AET (Rancher) URL |
+|---|---|
+| Staff app | `/` |
+| Guest report | `/report/grand-plaza-hotel-demo` |
+| Grafana | `/grafana` (admin login shared with the tutor alongside the `.env`) |
+
+Only these three are ingress-exposed. Swagger UI, Prometheus, Mailpit, and the GenAI
+`/metrics` endpoint are **cluster-internal on AET** (the `/api/**` routes are JWT-gated and
+Swagger is not exposed through the ingress); Grafana is the public observability window. To
+browse the API docs or those other surfaces, or to walk the flow offline, run the stack
+locally with Compose below.
+
+### Or run it locally with Docker Compose
+
 **Prerequisites.** Docker Desktop (or any engine with Compose v2.24+) and roughly 6 GB of
 free RAM.
 

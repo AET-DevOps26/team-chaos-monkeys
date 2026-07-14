@@ -1,0 +1,17 @@
+# Code ownership — mirrors the subsystem ownership in CLAUDE.md.
+# Later matches take precedence, so the genai-service rule overrides /services/.
+
+# Frontend — Arthur Gersbacher
+/client/                 @Arthur920
+/public-report-client/   @Arthur920
+/edge/                   @Arthur920
+
+# Backend Spring services — Johannes Kirchner
+/services/               @JohannesKir
+
+# GenAI service — Luca Kollmer (overrides /services/)
+/services/genai-service/ @lgk03
+
+# Shared infra & CI/CD — team review
+/.github/                @lgk03 @JohannesKir @Arthur920
+/infra/                  @lgk03 @JohannesKir @Arthur920

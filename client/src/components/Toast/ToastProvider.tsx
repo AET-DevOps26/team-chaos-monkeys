@@ -1,4 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
+import { uid } from '@/lib/uid'
 import { ToastContext, type Toast, type ToastOptions, type ToastVariant } from './toast-context'
 
 const DURATION_MS = 4000
@@ -33,7 +34,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const show = useCallback((message: string, options: ToastOptions = {}) => {
     const { variant = 'success' } = options
-    const id = crypto.randomUUID()
+    const id = uid()
 
     setToasts((prev) => [...prev, { id, variant, message }])
     // Toasts only auto-dismiss — there's no manual close.

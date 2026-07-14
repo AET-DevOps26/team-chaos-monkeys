@@ -3,6 +3,7 @@ import { useSearch } from '@/api/matches/item-search-controller/item-search-cont
 import type { ItemSearchRequestScope, ItemSearchResponse } from '@/api/matches/model'
 import { ItemSearchRequestScope as Scope } from '@/api/matches/model'
 import { filterPillClass } from '@/components/filterPill'
+import { uid } from '@/lib/uid'
 import SearchResultCard from './SearchResultCard'
 
 const SCOPES: { value: ItemSearchRequestScope; label: string }[] = [
@@ -61,7 +62,7 @@ export default function ItemSearchPanel() {
     e.preventDefault()
     const q = query.trim()
     if (!q || isPending) return
-    const id = crypto.randomUUID()
+    const id = uid()
     setTurns((t) => [...t, { id, query: q, status: 'pending' }])
     setQuery('')
     try {

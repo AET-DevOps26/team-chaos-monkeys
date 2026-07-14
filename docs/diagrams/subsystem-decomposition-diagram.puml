@@ -1,0 +1,106 @@
+@startuml
+title FoundFlow - Subsystem Decomposition
+
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+top to bottom direction
+
+' Structural decomposition into subsystems. Arrows are subsystem-level
+' dependencies (calls / depends-on), drawn top-down so upper layers depend on
+' lower layers. Detailed per-service REST/event/photo wiring lives in
+' service-communication-diagram.puml; this view stays at subsystem granularity.
+
+package "Client Layer" as L_Client {
+  [Staff Client\n(React SPA, /)] as StaffClient
+  [Public Report Client\n(React SPA, /report)] as ReportClient
+}
+
+package "API Edge" as L_Edge {
+  [Gateway Service\nrouting, JWT validation,\nSwagger aggregation] as Gateway
+}
+
+package "Application Subsystems" as L_App {
+  package "Identity" as S_Identity {
+    [Auth Service]
+  }
+  package "Item Intake" as S_Intake {
+    [Lost Item Service]
+    [Found Item Service]
+  }
+  package "Matching" as S_Match {
+    [Matching Service]
+  }
+  package "Fulfilment" as S_Fulfil {
+    [Pickup Service]
+    [Notification Service]
+  }
+  package "Operations" as S_Ops {
+    [Operations Service]
+  }
+  package "GenAI" as S_GenAI {
+    [GenAI Service\n(FastAPI)]
+  }
+}
+
+package "Shared Domain Modules" as L_Shared {
+  [common-domain]
+  [domain-events]
+  [genai-client]
+  [magic-link]
+  [photo-storage]
+}
+
+package "Platform" as L_Platform {
+  database "PostgreSQL\n(one DB per service,\npgvector for matching)" as Postgres
+  queue "RabbitMQ\ndomain-events exchange" as Rabbit
+  database "Photo Storage\nMinIO / Azure Blob" as Photos
+  [LLM Provider\nOpenAI / Ollama] as LLM
+}
+
+package "Observability" as L_Obs {
+  [Alloy\nlog collector] as Alloy
+  [Prometheus\nmetrics] as Prometheus
+  [Loki\nlogs] as Loki
+  [Tempo\ntraces] as Tempo
+  [Alertmanager] as Alertmanager
+  [Grafana] as Grafana
+}
+
+' --- Client -> Edge ---
+L_Client --> L_Edge
+
+' --- Edge -> Application (routing + auth) ---
+L_Edge --> L_App : /api/** routing
+L_Edge ..> S_Identity : validate JWT (JWKs)
+
+' --- Defining inter-application dependencies ---
+S_Intake --> S_GenAI : extract attributes
+S_Match --> S_GenAI : embed / verify
+S_Match --> S_Intake : read referenced items
+S_Ops --> S_Intake : KPI counts
+S_Ops --> S_Match : KPI counts
+S_Intake ..> S_Match : intake events
+S_Match ..> S_Fulfil : match-invite events
+
+' --- Application -> Shared modules ---
+L_App ..> L_Shared : uses
+
+' --- Application -> Platform ---
+L_App --> Postgres : persistence
+L_App --> Rabbit : publish / consume
+S_Intake --> Photos : store / fetch
+S_GenAI --> LLM : provider call
+
+' --- Observability: three pillars (metrics / logs / traces) ---
+Prometheus ..> L_App : scrape metrics
+Prometheus ..> L_Edge : scrape metrics
+Alloy ..> L_App : tail logs
+Alloy --> Loki : push logs
+L_App ..> Tempo : OTLP traces
+Prometheus --> Alertmanager : fire alerts
+Grafana --> Prometheus
+Grafana --> Loki
+Grafana --> Tempo
+@enduml

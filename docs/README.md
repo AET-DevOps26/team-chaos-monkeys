@@ -23,11 +23,16 @@ the current source of truth.
 
 ## Diagrams
 
-PlantUML source files live in [diagrams](diagrams):
+PlantUML source files live in [diagrams](diagrams). The three course-mandated
+UML artefacts:
 
-- [Class diagram](diagrams/class-diagram.puml)
+- [Subsystem decomposition diagram](diagrams/subsystem-decomposition-diagram.puml)
 - [Use case diagram](diagrams/use-case-diagram.puml)
-- [Component diagram](diagrams/component-diagram.puml)
+- [Analysis object model](diagrams/analysis-object-model.puml)
+
+Supporting design-level diagrams:
+
+- [Class diagram](diagrams/class-diagram.puml) — design-level, with concrete types
 - [Service communication diagram](diagrams/service-communication-diagram.puml)
 
 ## Operations and Course Material

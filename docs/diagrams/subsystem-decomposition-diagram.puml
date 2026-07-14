@@ -60,7 +60,11 @@ package "Platform" as L_Platform {
 }
 
 package "Observability" as L_Obs {
-  [Prometheus] as Prometheus
+  [Alloy\nlog collector] as Alloy
+  [Prometheus\nmetrics] as Prometheus
+  [Loki\nlogs] as Loki
+  [Tempo\ntraces] as Tempo
+  [Alertmanager] as Alertmanager
   [Grafana] as Grafana
 }
 
@@ -89,8 +93,14 @@ L_App --> Rabbit : publish / consume
 S_Intake --> Photos : store / fetch
 S_GenAI --> LLM : provider call
 
-' --- Observability ---
-Prometheus ..> L_App : scrape /metrics
-Prometheus ..> L_Edge : scrape /metrics
+' --- Observability: three pillars (metrics / logs / traces) ---
+Prometheus ..> L_App : scrape metrics
+Prometheus ..> L_Edge : scrape metrics
+Alloy ..> L_App : tail logs
+Alloy --> Loki : push logs
+L_App ..> Tempo : OTLP traces
+Prometheus --> Alertmanager : fire alerts
 Grafana --> Prometheus
+Grafana --> Loki
+Grafana --> Tempo
 @enduml

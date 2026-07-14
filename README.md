@@ -35,7 +35,7 @@ The stack is behind the cluster ingress, so the local port map does **not** appl
 |---|---|
 | Staff app | `/` |
 | Guest report | `/report/grand-plaza-hotel-demo` |
-| Grafana | `/grafana` (admin login shared with the tutor alongside the `.env`) |
+| Grafana | `/grafana` (admin login shared with the tutor on Artemis) |
 
 Only these three are ingress-exposed. Swagger UI, Prometheus, Mailpit, and the GenAI
 `/metrics` endpoint are **cluster-internal on AET** (the `/api/**` routes are JWT-gated and

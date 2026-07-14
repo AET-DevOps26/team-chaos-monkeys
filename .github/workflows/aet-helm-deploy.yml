@@ -20,13 +20,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_REGISTRY: ghcr.io/aet-devops26/team-chaos-monkeys
+  # Build/push env lives in the reusable build-and-push.yml; these are the
+  # deploy-only vars.
   IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
-  DOCKER_DEFAULT_PLATFORM: linux/amd64
-  OPENAI_API_KEY: ci-build-placeholder
-  SPRING_MAIL_USERNAME: ci-build-placeholder
-  SPRING_MAIL_PASSWORD: ci-build-placeholder
-  FOUNDFLOW_MAIL_FROM: ci-build-placeholder@example.com
   RELEASE_NAME: foundflow
   NAMESPACE: team-chaos-monkeys
   AET_HOST: team-chaos-monkeys.stud.k8s.aet.cit.tum.de
@@ -36,83 +32,16 @@ env:
   AET_KUBE_CONTEXT: stud
 
 jobs:
+  # Single build+push definition, shared with the standalone dispatch workflow.
+  # It always re-tags :latest too, so Azure and tag-less compose pulls track
+  # whatever we last deployed here.
   build-and-push:
-    name: Build + push images
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    uses: ./.github/workflows/build-and-push.yml
     permissions:
       contents: read
       packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare env file
-        run: cp .env.example .env
-
-      - name: Build images
-        run: |
-          app_services=(
-            gateway-service
-            auth-service
-            lost-item-service
-            found-item-service
-            matching-service
-            notification-service
-            operations-service
-            pickup-service
-            genai-service
-            client
-            public-report-client
-          )
-
-          docker compose \
-            -f docker-compose.yml \
-            -f deploy/docker-compose.prod.yml \
-            build "${app_services[@]}"
-
-      - name: Push images
-        run: |
-          app_services=(
-            gateway-service
-            auth-service
-            lost-item-service
-            found-item-service
-            matching-service
-            notification-service
-            operations-service
-            pickup-service
-            genai-service
-            client
-            public-report-client
-          )
-
-          docker compose \
-            -f docker-compose.yml \
-            -f deploy/docker-compose.prod.yml \
-            push "${app_services[@]}"
-
-      - name: Summarise
-        run: |
-          {
-            echo "### Images pushed"
-            echo
-            echo "- Registry: \`$IMAGE_REGISTRY\`"
-            echo "- Tag: \`$IMAGE_TAG\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+    with:
+      image_tag: ${{ github.event.inputs.image_tag || github.sha }}
 
   deploy:
     name: Helm upgrade on AET

@@ -38,3 +38,6 @@ infra/helm/foundflow/values-local.yaml.local
 
 # helm output rendered by the iac-scan CI job (contains generated secrets)
 rendered-manifests/
+
+# Playwright MCP scratch output (screenshots, snapshots) from local UI checks
+.playwright-mcp/

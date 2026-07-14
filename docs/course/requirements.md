@@ -51,14 +51,16 @@ do not depend on local-only knowledge.
 
 ## Required Diagrams
 
-The required UML-style diagrams are maintained as PlantUML source:
+The three mandated UML artefacts are maintained as PlantUML source:
 
-- [Class diagram](../diagrams/class-diagram.puml)
+- [Subsystem decomposition diagram](../diagrams/subsystem-decomposition-diagram.puml)
 - [Use case diagram](../diagrams/use-case-diagram.puml)
+- [Analysis object model](../diagrams/analysis-object-model.puml)
+
+Supporting design-level diagrams:
+
+- [Class diagram](../diagrams/class-diagram.puml) — design-level, with concrete types
 - [Component diagram](../diagrams/component-diagram.puml)
-
-Additional architecture detail:
-
 - [Service communication diagram](../diagrams/service-communication-diagram.puml)
 
 ## Current Implementation Coverage

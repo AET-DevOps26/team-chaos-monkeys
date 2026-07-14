@@ -144,10 +144,16 @@ for payload ownership and routing.
 
 Open the PlantUML source files to view or render the diagrams:
 
+- [Subsystem decomposition diagram](../diagrams/subsystem-decomposition-diagram.puml)
+  shows the structural decomposition into subsystems and their interfaces.
+- [Use case diagram](../diagrams/use-case-diagram.puml)
+- [Analysis object model](../diagrams/analysis-object-model.puml) is the
+  analysis-level entity/boundary/control view of the core report → match →
+  pickup narrative.
 - [Component diagram](../diagrams/component-diagram.puml) shows the top-level
   runtime building blocks.
 - [Service communication diagram](../diagrams/service-communication-diagram.puml)
   shows the detailed REST, RabbitMQ, GenAI, photo-storage, and notification
   flows.
-- [Use case diagram](../diagrams/use-case-diagram.puml)
-- [Class diagram](../diagrams/class-diagram.puml)
+- [Class diagram](../diagrams/class-diagram.puml) is the design-level model with
+  concrete types.

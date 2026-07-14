@@ -347,6 +347,12 @@ minio:
   resources:
     requests: { cpu: 50m,  memory: 128Mi }
     limits:   { cpu: 100m, memory: 256Mi }
+  # Go soft memory limit (#394): MinIO's idle Go footprint sits at ~95% of the
+  # 256Mi limit, and the namespace quota (4 CPU / 6Gi) is fully claimed, so the
+  # limit can't be raised. Mirrors the Tempo GOMEMLIMIT fix (#361): the runtime
+  # GCs hard as the heap nears this ceiling instead of OOMKilling at
+  # limits.memory. Kept below the limit (~90% of 256Mi) to leave non-heap room.
+  goMemLimit: "230MiB"
   persistence:
     storageSize: 5Gi
 

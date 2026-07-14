@@ -1,0 +1,113 @@
+@startuml
+title FoundFlow - Analysis Object Model
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide circle
+
+' Analysis-level object model (entity / boundary / control) for the core
+' lost -> found -> match -> pickup narrative. Deliberately implementation-free:
+' no UUIDs, timestamps, hashes, or persistence types. See class-diagram.puml
+' for the design-level model with concrete types.
+
+' ---------- Boundary objects (actor-facing) ----------
+class "ReportLostForm" as B_Report <<boundary>>
+class "FoundItemForm" as B_Found <<boundary>>
+class "MatchReviewBoard" as B_Review <<boundary>>
+class "PublicMatchLink" as B_Link <<boundary>>
+class "PickupScheduler" as B_Pickup <<boundary>>
+class "VenueKpiDashboard" as B_Kpi <<boundary>>
+
+' ---------- Control objects (orchestration) ----------
+class "IntakeControl" as C_Intake <<control>>
+class "MatchingControl" as C_Match <<control>>
+class "VerificationControl" as C_Verify <<control>>
+class "NotificationControl" as C_Notify <<control>>
+class "PickupControl" as C_Pickup <<control>>
+
+' ---------- Entity objects (domain concepts) ----------
+class "Venue" as E_Venue <<entity>> {
+  name
+  tone
+  defaultLanguage
+}
+class "StaffMember" as E_User <<entity>> {
+  email
+  role
+}
+class "LostReport" as E_Lost <<entity>> {
+  description
+  lostAt
+  location
+  contactEmail
+  status
+}
+class "FoundItem" as E_Found <<entity>> {
+  intakeText
+  foundAt
+  location
+  status
+}
+class "ItemAttributes" as E_Attr <<entity>> {
+  category
+  brand
+  color
+  marks
+}
+class "ItemEmbedding" as E_Embed <<entity>> {
+  semanticVector
+  textSource
+}
+class "Match" as E_Match <<entity>> {
+  attributeScore
+  semanticScore
+  combinedScore
+  status
+  verificationVerdict
+}
+class "Pickup" as E_Pickup <<entity>> {
+  pickupAt
+  contactEmail
+}
+class "Notification" as E_Notify <<entity>> {
+  subject
+  body
+  language
+}
+
+' ---------- Boundary -> Control ----------
+B_Report ..> C_Intake
+B_Found ..> C_Intake
+B_Review ..> C_Match
+B_Link ..> C_Match
+B_Pickup ..> C_Pickup
+B_Kpi ..> E_Venue
+
+' ---------- Control -> Entity ----------
+C_Intake --> E_Lost : creates
+C_Intake --> E_Found : creates
+C_Intake --> E_Attr : extracts
+C_Match --> E_Embed : builds
+C_Match --> E_Match : proposes
+C_Match ..> C_Verify : triggers
+C_Verify --> E_Match : records verdict
+C_Match ..> C_Notify : requests invite
+C_Notify --> E_Notify : sends
+C_Pickup --> E_Pickup : schedules
+C_Pickup ..> C_Notify : confirms
+
+' ---------- Entity relationships ----------
+E_Venue "1" -- "*" E_User
+E_Venue "1" -- "*" E_Lost
+E_Venue "1" -- "*" E_Found
+E_Venue "1" -- "*" E_Match
+E_User "1" -- "*" E_Found : logs
+E_Lost "1" *-- "0..1" E_Attr
+E_Found "1" *-- "0..1" E_Attr
+E_Lost "1" -- "0..1" E_Embed
+E_Found "1" -- "0..1" E_Embed
+E_Match "*" -- "1" E_Lost
+E_Match "*" -- "1" E_Found
+E_Match "1" -- "0..1" E_Pickup
+E_Notify "*" -- "0..1" E_Match
+@enduml

@@ -150,8 +150,6 @@ Open the PlantUML source files to view or render the diagrams:
 - [Analysis object model](../diagrams/analysis-object-model.puml) is the
   analysis-level entity/boundary/control view of the core report → match →
   pickup narrative.
-- [Component diagram](../diagrams/component-diagram.puml) shows the top-level
-  runtime building blocks.
 - [Service communication diagram](../diagrams/service-communication-diagram.puml)
   shows the detailed REST, RabbitMQ, GenAI, photo-storage, and notification
   flows.

@@ -60,7 +60,6 @@ The three mandated UML artefacts are maintained as PlantUML source:
 Supporting design-level diagrams:
 
 - [Class diagram](../diagrams/class-diagram.puml) — design-level, with concrete types
-- [Component diagram](../diagrams/component-diagram.puml)
 - [Service communication diagram](../diagrams/service-communication-diagram.puml)
 
 ## Current Implementation Coverage

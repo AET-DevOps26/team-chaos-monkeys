@@ -37,11 +37,14 @@ The stack is behind the cluster ingress, so the local port map does **not** appl
 | Guest report | `/report/grand-plaza-hotel-demo` |
 | Grafana | `/grafana` (admin login shared with the tutor on Artemis) |
 
-Only these three are ingress-exposed. Swagger UI, Prometheus, Mailpit, and the GenAI
-`/metrics` endpoint are **cluster-internal on AET** (the `/api/**` routes are JWT-gated and
-Swagger is not exposed through the ingress); Grafana is the public observability window. To
-browse the API docs or those other surfaces, or to walk the flow offline, run the stack
-locally with Compose below.
+The gateway is also ingress-exposed at `/api` — it's the single API entry the staff app and
+guest report use for every backend call — but its routes are JWT-gated, so there's nothing to
+*browse* there unauthenticated. **Swagger UI** isn't reachable through the AET ingress: the
+gateway serves it at the root `/swagger-ui.html`, which the ingress hands to the SPA, while
+`/api/swagger-ui.html` falls through to the JWT-gated `/api/**` filter. **Prometheus, Mailpit,
+and the GenAI `/metrics` endpoint** have no ingress route at all — they're cluster-internal;
+Grafana is the public observability window. To browse the API docs or those other surfaces, or
+to walk the flow offline, run the stack locally with Compose below.
 
 ### Or run it locally with Docker Compose
 

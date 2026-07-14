@@ -23,7 +23,7 @@ has finished.
 The app runs continuously on the course's AET (Rancher RKE2) cluster — nothing to build,
 deployed by CD on every merge to `main`. This is the deployment to grade.
 
-**On the TUM network (eduroam or VPN), open** https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
+Open https://team-chaos-monkeys.stud.k8s.aet.cit.tum.de/
 and log in with the same seeded accounts as local: staff `staff.demo@foundflow.local` /
 `test12345`, admin `admin@foundflow.local` / `admin12345`. The same demo data (the *purple
 wallet* match, the *Grand Plaza Hotel (Demo)* venue) is seeded, so steps **2–4** below read

@@ -7,10 +7,12 @@ on:
         description: Image tag to push (defaults to latest)
         required: false
         default: latest
-
-permissions:
-  contents: read
-  packages: write
+  workflow_call:
+    inputs:
+      image_tag:
+        description: Image tag to push
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,10 +23,13 @@ jobs:
     name: Build + push to GHCR
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
 
     env:
       IMAGE_REGISTRY: ghcr.io/aet-devops26/team-chaos-monkeys
-      IMAGE_TAG: ${{ inputs.image_tag || 'latest' }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
       DOCKER_DEFAULT_PLATFORM: linux/amd64
       OPENAI_API_KEY: ci-build-placeholder
       SPRING_MAIL_USERNAME: ci-build-placeholder
@@ -64,7 +69,31 @@ jobs:
             -f deploy/docker-compose.prod.yml \
             push
 
+      - name: Tag and push :latest
+        # Not a real prod setup — we always want :latest to track whatever we
+        # just built, so Azure and tag-less `docker compose pull` stay current.
+        run: |
+          set -euo pipefail
+          # Derive the pushed refs from compose itself — no hardcoded service
+          # list to drift. Filter to our GHCR namespace so official base images
+          # (postgres, rabbitmq, …) are never re-tagged or pushed.
+          docker compose \
+            -f docker-compose.yml \
+            -f deploy/docker-compose.prod.yml \
+            config --images \
+            | grep "^$IMAGE_REGISTRY/" \
+            | while read -r ref; do
+                latest="${ref%:*}:latest"
+                docker tag "$ref" "$latest"
+                docker push "$latest"
+              done
+
       - name: Summarise
         run: |
-          echo "Pushed to: $IMAGE_REGISTRY/* :$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
-          echo "View: https://github.com/AET-DevOps26/team-chaos-monkeys/pkgs/container" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Images pushed"
+            echo
+            echo "- Registry: \`$IMAGE_REGISTRY\`"
+            echo "- Tags: \`$IMAGE_TAG\` + \`latest\`"
+            echo "- View: https://github.com/AET-DevOps26/team-chaos-monkeys/pkgs/container"
+          } >> "$GITHUB_STEP_SUMMARY"

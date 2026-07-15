@@ -665,6 +665,15 @@ function Extract-MagicLinkUrl {
     return $match.Value
 }
 
+function Decode-MagicLinkClaims {
+    param([string]$Token)
+
+    $payload = $Token.Split('.')[0].Replace('-', '+').Replace('_', '/')
+    switch ($payload.Length % 4) { 2 { $payload += '==' } 3 { $payload += '=' } }
+    $json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload))
+    return $json | ConvertFrom-Json
+}
+
 Write-Host "Running FoundFlow E2E tests against $GatewayBaseUrl"
 
 $publicClient = New-GatewayClient
@@ -1292,8 +1301,13 @@ $matchInviteNotification = Wait-ForNotification `
     -Email $lostItem.contactEmail `
     -UrlMarker "/report/match/"
 $matchInviteUrl = Extract-MagicLinkUrl -Body $matchInviteNotification.body -UrlMarker "/report/match/"
-if (-not $matchInviteUrl.EndsWith("/report/match/$($publicMatchLink.token)")) {
-    throw "Match-invite notification URL '$matchInviteUrl' should end with '/report/match/$($publicMatchLink.token)'."
+# The email and /public-link each mint their own match_view token, and the signed payload
+# bakes in expiresAt at second granularity — so the two token strings only match when both
+# mints land in the same wall-clock second. Assert the decoded claims, not byte-equality.
+$matchInviteToken = $matchInviteUrl.Substring($matchInviteUrl.IndexOf("/report/match/") + "/report/match/".Length)
+$matchInviteClaims = Decode-MagicLinkClaims $matchInviteToken
+if ($matchInviteClaims.type -ne "match_view" -or $matchInviteClaims.matchId -ne $match.id) {
+    throw "Match-invite notification URL '$matchInviteUrl' should carry a match_view token for match $($match.id), got type=$($matchInviteClaims.type) matchId=$($matchInviteClaims.matchId)."
 }
 
 # Confirm the match-invite email actually reached the SMTP sink (Mailpit), proving

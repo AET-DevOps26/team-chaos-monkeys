@@ -27,7 +27,7 @@ const outDir = resolve(here, '..', 'openapi')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function fetchSpec(prefix) {
-  const url = `${GATEWAY}/${prefix}/v3/api-docs`
+  const url = `${GATEWAY}/api/${prefix}/v3/api-docs`
   let lastErr
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {

@@ -14,7 +14,6 @@ import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
-import com.foundflow.genai.client.AttributeExtractionService;
 import com.foundflow.photo.storage.PhotoConstraints;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoNotFoundException;
@@ -22,6 +21,7 @@ import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
 import com.foundflow.photo.storage.PhotoUrlResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -54,7 +54,8 @@ public class LostReportService {
     private final PhotoStorage photoStorage;
     private final Duration photoUrlTtl;
     private final LostReportEventPublisher eventPublisher;
-    private final AttributeExtractionService attributeExtractionService;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final IntakeEnrichmentService intakeEnrichmentService;
     private final OperationsVenueClient operationsVenueClient;
 
     public LostReportService(
@@ -63,7 +64,8 @@ public class LostReportService {
             PhotoStorage photoStorage,
             @Value("${photo-storage.signed-url-ttl:PT10M}") Duration photoUrlTtl,
             LostReportEventPublisher eventPublisher,
-            AttributeExtractionService attributeExtractionService,
+            ApplicationEventPublisher applicationEventPublisher,
+            IntakeEnrichmentService intakeEnrichmentService,
             OperationsVenueClient operationsVenueClient
     ) {
         this.lostReportRepository = lostReportRepository;
@@ -71,7 +73,8 @@ public class LostReportService {
         this.photoStorage = photoStorage;
         this.photoUrlTtl = photoUrlTtl;
         this.eventPublisher = eventPublisher;
-        this.attributeExtractionService = attributeExtractionService;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.intakeEnrichmentService = intakeEnrichmentService;
         this.operationsVenueClient = operationsVenueClient;
     }
 
@@ -106,10 +109,11 @@ public class LostReportService {
         );
 
         LostReport savedLostReport = saveOrCompensate(lostReport, photoKey, null);
-        enrichIfMissingAttributes(savedLostReport, photoKey);
 
         LOGGER.info("Lost report created lostReport={} venue={}", savedLostReport.getId(), venueId);
-        eventPublisher.publishLostReportCreated(savedLostReport);
+        // GenAI enrichment + the created event happen off the request thread once this
+        // transaction commits — see IntakeEnrichmentService. Intake never blocks on the LLM.
+        applicationEventPublisher.publishEvent(new LostReportPersistedEvent(savedLostReport.getId()));
         return toResponse(savedLostReport);
     }
 
@@ -248,7 +252,7 @@ public class LostReportService {
                     lostReport.setPhotoKey(photoKey);
 
                     LostReport updatedReport = saveOrCompensate(lostReport, photoKey, id);
-                    enrichIfMissingAttributes(updatedReport, photoKey);
+                    intakeEnrichmentService.enrich(updatedReport);
                     LOGGER.info(
                             "Lost report photo updated lostReport={} venue={}",
                             updatedReport.getId(),
@@ -401,46 +405,6 @@ public class LostReportService {
         if (lostReport.getPhotoKey() != null && !lostReport.getPhotoKey().isBlank()) {
             throw new AccessDeniedException("Photo already exists for this lost report.");
         }
-    }
-
-    /**
-     * Best-effort GenAI enrichment when the guest supplied no structured
-     * attributes. Runs for text-only reports too: the extraction service
-     * builds a description-only request when {@code photoKey} is null, so a
-     * photo-less report like "purple shirt" still gets a category and a
-     * generated description for the matching embedding. Extraction failures
-     * are swallowed so intake never blocks.
-     */
-    private void enrichIfMissingAttributes(LostReport lostReport, String photoKey) {
-        if (hasMeaningfulAttributes(lostReport.getAttributes())) {
-            return;
-        }
-
-        attributeExtractionService.extractWithLocation(lostReport.getDescription(), photoKey)
-                .ifPresent(extracted -> {
-                    lostReport.setAttributes(extracted.attributes());
-                    // Only fill in a location the guest didn't type — never clobber theirs.
-                    if (extracted.location() != null && !hasText(lostReport.getLocation())) {
-                        lostReport.setLocation(extracted.location());
-                    }
-                    lostReportRepository.save(lostReport);
-                });
-    }
-
-    private boolean hasMeaningfulAttributes(ItemAttributes attributes) {
-        if (attributes == null) {
-            return false;
-        }
-
-        return hasText(attributes.getCategory())
-                || hasText(attributes.getDescription())
-                || hasText(attributes.getBrand())
-                || hasText(attributes.getColor())
-                || (attributes.getMarks() != null && attributes.getMarks().stream().anyMatch(this::hasText));
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 
     private String storePhoto(MultipartFile photo) {

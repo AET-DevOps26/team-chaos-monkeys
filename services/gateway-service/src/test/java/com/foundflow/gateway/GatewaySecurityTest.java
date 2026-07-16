@@ -36,4 +36,24 @@ class GatewaySecurityTest {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
+
+    @Test
+    void aggregatedSwaggerConfig_shouldBePubliclyAccessibleUnderApi() {
+        // Served by the gateway itself (no downstream needed); guards the /api
+        // relocation + permitAll so Swagger stays reachable through the ingress.
+        webTestClient.get()
+                .uri("/api/v3/api-docs/swagger-config")
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void swaggerUi_shouldBePubliclyAccessibleUnderApi() {
+        // springdoc redirects /api/swagger-ui.html → /api/swagger-ui/index.html;
+        // a redirect (not 401) proves the path is permitted and served under /api.
+        webTestClient.get()
+                .uri("/api/swagger-ui.html")
+                .exchange()
+                .expectStatus().is3xxRedirection();
+    }
 }

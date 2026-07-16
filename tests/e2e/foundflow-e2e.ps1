@@ -687,10 +687,10 @@ $health = Wait-ForStatus `
     -Label "Gateway health is public" `
     -TimeoutSeconds 300
 
-$swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/swagger-ui/index.html").Result
+$swaggerUi = $publicClient.GetAsync("$GatewayBaseUrl/api/swagger-ui/index.html").Result
 Assert-Status $swaggerUi 200 "Gateway Swagger UI is public"
 
-$gatewayApiDocs = $publicClient.GetAsync("$GatewayBaseUrl/v3/api-docs").Result
+$gatewayApiDocs = $publicClient.GetAsync("$GatewayBaseUrl/api/v3/api-docs").Result
 Assert-Status $gatewayApiDocs 200 "Gateway OpenAPI docs are public"
 
 $authHealth = Wait-ForStatus `

@@ -16,8 +16,6 @@ import com.foundflow.lostitem.messaging.LostReportEventPublisher;
 import com.foundflow.lostitem.repository.BucketCountView;
 import com.foundflow.lostitem.repository.LostReportRepository;
 import com.foundflow.lostitem.security.VenueAccessService;
-import com.foundflow.genai.client.AttributeExtractionService;
-import com.foundflow.genai.client.ExtractionResult;
 import com.foundflow.photo.storage.PhotoData;
 import com.foundflow.photo.storage.PhotoStorage;
 import com.foundflow.photo.storage.PhotoStorageException;
@@ -28,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -59,7 +58,10 @@ class LostReportServiceTest {
     private LostReportEventPublisher eventPublisher;
 
     @Mock
-    private AttributeExtractionService attributeExtractionService;
+    private ApplicationEventPublisher applicationEventPublisher;
+
+    @Mock
+    private IntakeEnrichmentService intakeEnrichmentService;
 
     @Mock
     private OperationsVenueClient operationsVenueClient;
@@ -84,7 +86,9 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
-        verify(eventPublisher).publishLostReportCreated(captor.getValue());
+        // Enrichment + the created event are deferred to the async listener.
+        verify(applicationEventPublisher).publishEvent(any(LostReportPersistedEvent.class));
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -105,7 +109,8 @@ class LostReportServiceTest {
         assertEquals(venueId, captor.getValue().getVenueId());
         assertEquals(ReportStatus.OPEN, captor.getValue().getStatus());
         assertEquals(venueId, response.venueId());
-        verify(eventPublisher).publishLostReportCreated(captor.getValue());
+        verify(applicationEventPublisher).publishEvent(any(LostReportPersistedEvent.class));
+        verifyNoInteractions(eventPublisher);
         verify(operationsVenueClient).requireExisting(venueId);
     }
 
@@ -126,6 +131,7 @@ class LostReportServiceTest {
         assertEquals(400, exception.getStatusCode().value());
         verify(lostReportRepository, never()).save(any());
         verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(applicationEventPublisher);
     }
 
     @Test
@@ -157,72 +163,6 @@ class LostReportServiceTest {
 
         assertNull(captor.getValue().getPhotoKey());
         assertNull(response.photoKey());
-    }
-
-    @Test
-    void createLostReport_shouldExtractAttributesForTextOnlyReportWithoutPhoto() {
-        LostReportService service = service();
-
-        UUID venueId = UUID.randomUUID();
-        CreateLostReportRequest request = new CreateLostReportRequest(
-                "purple shirt",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                "near the cloakroom",
-                venueId,
-                "person@example.com",
-                new ItemAttributesDto(null, null, null, null, List.of())
-        );
-        ItemAttributes extracted = new ItemAttributes(
-                "CLOTHING", "purple cotton shirt", null, "purple", List.of());
-
-        when(lostReportRepository.save(any(LostReport.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extractWithLocation(eq("purple shirt"), isNull()))
-                .thenReturn(Optional.of(new ExtractionResult(extracted, "the bar")));
-
-        service.createLostReport(request, null);
-
-        // Text-only report (no photo) still triggers extraction with a null photoKey.
-        verify(attributeExtractionService).extractWithLocation("purple shirt", null);
-
-        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
-        verify(lostReportRepository, times(2)).save(captor.capture());
-        // The generated description is persisted so it rides the created event.
-        assertEquals("CLOTHING", captor.getValue().getAttributes().getCategory());
-        assertEquals("purple cotton shirt", captor.getValue().getAttributes().getDescription());
-        // The guest typed a location, so the extracted one must not overwrite it.
-        assertEquals("near the cloakroom", captor.getValue().getLocation());
-        verify(eventPublisher).publishLostReportCreated(captor.getValue());
-    }
-
-    @Test
-    void createLostReport_shouldPersistExtractedLocationWhenGuestSuppliedNone() {
-        LostReportService service = service();
-
-        UUID venueId = UUID.randomUUID();
-        CreateLostReportRequest request = new CreateLostReportRequest(
-                "left my purple sunglasses at the bar",
-                LocalDateTime.of(2026, 5, 12, 14, 30),
-                null,
-                venueId,
-                "person@example.com",
-                new ItemAttributesDto(null, null, null, null, List.of())
-        );
-        ItemAttributes extracted = new ItemAttributes(
-                "ACCESSORIES", "purple sunglasses", null, "purple", List.of());
-
-        when(lostReportRepository.save(any(LostReport.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extractWithLocation(any(), isNull()))
-                .thenReturn(Optional.of(new ExtractionResult(extracted, "bar")));
-
-        service.createLostReport(request, null);
-
-        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
-        verify(lostReportRepository, times(2)).save(captor.capture());
-        // No user-supplied location -> the GenAI-recovered location is persisted.
-        assertEquals("bar", captor.getValue().getLocation());
-        verify(eventPublisher).publishLostReportCreated(captor.getValue());
     }
 
     @Test
@@ -365,7 +305,7 @@ class LostReportServiceTest {
     }
 
     @Test
-    void updateLostReportPhoto_shouldAllowPublicInitialPhotoUploadAndExtractAttributes() {
+    void updateLostReportPhoto_shouldAllowPublicInitialPhotoUploadAndDelegateEnrichment() {
         LostReportService service = service();
 
         UUID id = UUID.randomUUID();
@@ -386,22 +326,19 @@ class LostReportServiceTest {
                 MediaType.IMAGE_JPEG_VALUE,
                 "photo-bytes".getBytes()
         );
-        ItemAttributes extractedAttributes = new ItemAttributes("Bag", null, null, "Black", List.of());
 
         when(lostReportRepository.findById(id)).thenReturn(Optional.of(existingReport));
         when(photoStorage.store(any())).thenReturn("lost-reports/2026/05/generated.jpg");
         when(lostReportRepository.save(any(LostReport.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
-        when(attributeExtractionService.extractWithLocation(any(), any()))
-                .thenReturn(Optional.of(new ExtractionResult(extractedAttributes, null)));
 
         Optional<LostReportResponse> response = service.updateLostReportPhoto(id, photo, null);
 
-        ArgumentCaptor<LostReport> captor = ArgumentCaptor.forClass(LostReport.class);
-        verify(lostReportRepository, times(2)).save(captor.capture());
         assertTrue(response.isPresent());
         assertEquals("lost-reports/2026/05/generated.jpg", response.get().photoKey());
-        assertEquals("Bag", captor.getValue().getAttributes().getCategory());
+        // Enrichment is delegated synchronously; the extraction detail is covered in
+        // IntakeEnrichmentServiceTest.
+        verify(intakeEnrichmentService).enrich(existingReport);
         verify(eventPublisher).publishLostReportUpdated(existingReport);
         verify(photoStorage, never()).delete(any());
     }
@@ -610,7 +547,8 @@ class LostReportServiceTest {
                 photoStorage,
                 Duration.ofMinutes(10),
                 eventPublisher,
-                attributeExtractionService,
+                applicationEventPublisher,
+                intakeEnrichmentService,
                 operationsVenueClient
         );
     }

@@ -57,18 +57,11 @@ public class SecurityConfig {
                                 "/api/pickups/public/**"
                         ).permitAll()
                         .pathMatchers(
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll()
-                        .pathMatchers(
-                                "/auth/v3/api-docs",
-                                "/lost-items/v3/api-docs",
-                                "/found-items/v3/api-docs",
-                                "/matches/v3/api-docs",
-                                "/notifications/v3/api-docs",
-                                "/pickups/v3/api-docs",
-                                "/venues/v3/api-docs"
+                                "/api/swagger-ui.html",
+                                "/api/swagger-ui/**",
+                                "/api/v3/api-docs/**",
+                                "/api/webjars/**",
+                                "/api/*/v3/api-docs"
                         ).permitAll()
                         .anyExchange().authenticated()
                 )

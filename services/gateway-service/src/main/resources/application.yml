@@ -199,54 +199,64 @@ spring:
               filters:
                 - SetPath=/actuator/info
 
+            # Doc routes live under /api/{slug}/v3/api-docs so the aggregated
+            # Swagger UI can fetch them through the ingress. order: -1 makes them
+            # win over the broad /api/{slug}/** service routes they now overlap.
             - id: auth-service-docs
               uri: http://auth-service:8081
+              order: -1
               predicates:
-                - Path=/auth/v3/api-docs
+                - Path=/api/auth/v3/api-docs
               filters:
-                - RewritePath=/auth/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/auth/v3/api-docs, /v3/api-docs
 
             - id: lost-item-service-docs
               uri: http://lost-item-service:8082
+              order: -1
               predicates:
-                - Path=/lost-items/v3/api-docs
+                - Path=/api/lost-items/v3/api-docs
               filters:
-                - RewritePath=/lost-items/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/lost-items/v3/api-docs, /v3/api-docs
 
             - id: found-item-service-docs
               uri: http://found-item-service:8083
+              order: -1
               predicates:
-                - Path=/found-items/v3/api-docs
+                - Path=/api/found-items/v3/api-docs
               filters:
-                - RewritePath=/found-items/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/found-items/v3/api-docs, /v3/api-docs
 
             - id: matching-service-docs
               uri: http://matching-service:8084
+              order: -1
               predicates:
-                - Path=/matches/v3/api-docs
+                - Path=/api/matches/v3/api-docs
               filters:
-                - RewritePath=/matches/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/matches/v3/api-docs, /v3/api-docs
 
             - id: notification-service-docs
               uri: http://notification-service:8085
+              order: -1
               predicates:
-                - Path=/notifications/v3/api-docs
+                - Path=/api/notifications/v3/api-docs
               filters:
-                - RewritePath=/notifications/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/notifications/v3/api-docs, /v3/api-docs
 
             - id: pickup-service-docs
               uri: http://pickup-service:8087
+              order: -1
               predicates:
-                - Path=/pickups/v3/api-docs
+                - Path=/api/pickups/v3/api-docs
               filters:
-                - RewritePath=/pickups/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/pickups/v3/api-docs, /v3/api-docs
 
             - id: operations-service-docs
               uri: http://operations-service:8086
+              order: -1
               predicates:
-                - Path=/venues/v3/api-docs
+                - Path=/api/venues/v3/api-docs
               filters:
-                - RewritePath=/venues/v3/api-docs, /v3/api-docs
+                - RewritePath=/api/venues/v3/api-docs, /v3/api-docs
 
 management:
   endpoints:
@@ -267,19 +277,24 @@ management:
         http.server.requests: true
 
 springdoc:
+  # Everything is served under /api because that is the only prefix the k8s
+  # ingress / compose edge forward to the gateway (/, /report go to the SPAs).
+  api-docs:
+    path: /api/v3/api-docs
   swagger-ui:
+    path: /api/swagger-ui.html
     urls:
       - name: auth-service
-        url: /auth/v3/api-docs
+        url: /api/auth/v3/api-docs
       - name: lost-item-service
-        url: /lost-items/v3/api-docs
+        url: /api/lost-items/v3/api-docs
       - name: found-item-service
-        url: /found-items/v3/api-docs
+        url: /api/found-items/v3/api-docs
       - name: matching-service
-        url: /matches/v3/api-docs
+        url: /api/matches/v3/api-docs
       - name: notification-service
-        url: /notifications/v3/api-docs
+        url: /api/notifications/v3/api-docs
       - name: pickup-service
-        url: /pickups/v3/api-docs
+        url: /api/pickups/v3/api-docs
       - name: operations-service
-        url: /venues/v3/api-docs
+        url: /api/venues/v3/api-docs

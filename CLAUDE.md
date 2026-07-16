@@ -115,7 +115,7 @@ The `edge` container on `3000` is the single browser entrypoint: `/` → `client
 | `/api/venues/**`                       | operations-service:8086 |
 | `/api/pickups/**`                      | pickup-service:8087     |
 
-Per-service actuator endpoints are exposed under `/{slug}/actuator/{health,prometheus,info}` and `/{slug}/v3/api-docs` (rewritten downstream by the gateway). Slugs: `auth`, `lost-items`, `found-items`, `matches`, `notifications`, `venues`, `pickups`. The gateway aggregates Swagger UI via `springdoc.swagger-ui.urls`.
+Per-service actuator endpoints are exposed under `/{slug}/actuator/{health,prometheus,info}`, and per-service OpenAPI under `/api/{slug}/v3/api-docs` (rewritten downstream by the gateway). Slugs: `auth`, `lost-items`, `found-items`, `matches`, `notifications`, `venues`, `pickups`. The gateway aggregates Swagger UI at `/api/swagger-ui.html` via `springdoc.swagger-ui.urls` — everything lives under `/api` because that is the only prefix the ingress/edge forward to the gateway (`/` and `/report` go to the SPAs).
 
 **Service names matter.** Kubernetes Service objects and docker-compose service keys are identical (`auth-service`, `lost-item-service`, …) so the gateway's hardcoded upstream URIs work in compose, local k8s, and AET without per-env config.
 

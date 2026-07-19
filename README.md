@@ -266,7 +266,19 @@ If a host port clashes with something else on your machine (e.g. another project
 - **Branches:** `feature/*`, `chore/*`, `fix/*` cut from `development`. PRs target `development`; merge via pull request only.
 - **Releases:** `main` is the release branch; merging `development → main` triggers the AET deploy.
 - **CI** (`.github/workflows/ci.yml`): runs on every PR — gitleaks secret scan, Gradle `check` for each backend service (matrix), pytest + ruff for `genai-service`, Vite build for the client, Orval drift check, and a full `docker compose up` + E2E test pass.
-- **CD** (`.github/workflows/aet-helm-deploy.yml`): on every push to `main` (and via `workflow_dispatch`) it builds and pushes images to GHCR, then runs `helm upgrade --install` against the AET (Rancher RKE2) cluster — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. `.github/workflows/azure-cycle.yml` provisions an ephemeral Azure VM, deploys, and destroys it on demand (`workflow_dispatch`). Charts live under `infra/helm/foundflow/`.
+- **CD** (`.github/workflows/aet-helm-deploy.yml`): on every push to `main` (and via `workflow_dispatch`) it builds and pushes images to GHCR, then runs `helm upgrade --install` against the AET (Rancher RKE2) cluster — live at `team-chaos-monkeys.stud.k8s.aet.cit.tum.de`. Charts live under `infra/helm/foundflow/`.
+
+### Third deploy path: ephemeral Azure VM
+
+Alongside the two Kubernetes targets, `.github/workflows/azure-cycle.yml` proves the "deployable to Azure" requirement by standing up a throwaway VM on demand: Terraform provisions it, Ansible pulls the GHCR images and runs `docker compose` with the [`deploy/docker-compose.prod.yml`](deploy/docker-compose.prod.yml) overlay, then it's torn down when you're done.
+
+Run it from **Actions → "Azure cycle (ephemeral VM)" → Run workflow**:
+
+- `action: apply` (default) provisions + deploys. The run summary prints the VM IP — frontend at `http://<IP>/`, gateway health at `http://<IP>/api/actuator/health`.
+- `image_tag` defaults to `latest`; pin a specific tag to deploy an older build.
+- `action: destroy` tears the VM down.
+
+> **⚠️ It's a billable VM on shared student credit.** Always re-run with `action: destroy` once you're finished — an idle VM keeps burning credit.
 
 ### Secret scanning
 
